@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: grideye
+Version: 0.1
+Summary: a project for counting people by using sensor AMG8833
+Home-page: https://github.com/grid-eye/grideye.git
+Author: chen jiefang , wang guanwu
+Author-email: 2531507093@qq.com
+License: UNKNOWN
+Description: # grideye
+        
+Platform: UNKNOWN
+Requires-Python: >=3
+Description-Content-Type: text/md

@@ -1,0 +1,7 @@
+README.md
+setup.py
+grideye.egg-info/PKG-INFO
+grideye.egg-info/SOURCES.txt
+grideye.egg-info/dependency_links.txt
+grideye.egg-info/requires.txt
+grideye.egg-info/top_level.txt

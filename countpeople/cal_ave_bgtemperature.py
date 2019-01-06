@@ -37,6 +37,8 @@ while True:
         # Pad to 1 decimal place
         temp.append(row)
     bgframe_cnt = bgframe_cnt + 1
+    if bgframe_cnt == 1:
+        print(np.array(temp))
     all_bgframes.append(temp)
     if bgframe_cnt >= th_bgframes:
         print('next step')
@@ -45,21 +47,22 @@ while True:
         for aitem in range(len(all_bgframes)):
             total_frames = total_frames + np.array(all_bgframes[aitem])
         average_temperature = total_frames / th_bgframes
+        print("the average temperature is considered as bgtemperature")
         print(average_temperature)
         print((np.array(points).shape, np.array(average_temperature).shape))
         print(grid_x.shape, grid_y.shape)
         # the result of the interpolating for the grid
         average_temp = np.array(average_temperature).flatten()
         inter_result = cubicInterpolate(
-            points, average_temp, grid_x, grid_y, 'cubic')
+            points, average_temp, grid_x, grid_y, 'linear')
 
         temp = cubicInterpolate(points, np.array(
-            temp).flatten(), grid_x, grid_y, 'cubic')
+            temp).flatten(), grid_x, grid_y, 'linear')
         print("after interpolating , save the data in file:avg_temp.npy")
         np.save('avgtemp.npy', inter_result)
 
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
-        ax1.imshow(inter_result, cmap='hot', interpolation='bicubic')
+        ax1.imshow(inter_result, cmap='hot', interpolation='bilinear')
         ax1.set_xlabel('X')
         ax1.set_ylabel('Y')
         ax1.axis([0, 31, 32, 0])

@@ -5,6 +5,7 @@ import board
 import adafruit_amg88xx
 import math
 import scipy
+import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -17,32 +18,14 @@ th_bgframes = 30
 bgframe_cnt = 0
 all_bgframes = []
 pre_read_count = 2
-# 8X8 grid
-
-points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
-# me_x = 8
-frame_y = 8
-# we need th_bgframes frames  to calculate the average temperature of th$
-th_bgframes = 30
-# the counter of the bgframes frames
-bgframe_cnt = 0
-all_bgframes = []
-pre_read_count = 2
-# 8X8 grid
+#sleep 10 s
+if len(sys.argv) > 1:
+    if  sys.argv[1] == 'people':
+        print('test human,sleep 10 s')
+        time.sleep(10)
 
 points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
 grid_x, grid_y = np.mgrid[0:7:32j, 0:7:32j]
-for i in range(pre_read_count):
-    for row in amg.pixels:
-        pass
-
-grid_x, grid_y = np.mgrid[0:7:32j, 0:7:32j]
-# discard the first and the second frame
-for i in range(pre_read_count):
-    for row in amg.pixels:
-        pass
-
-
 class CountPeople:
     def __init__(self, pre_read_count=30, th_bgframes=20):
         # the counter of the bgframes
@@ -112,7 +95,7 @@ class CountPeople:
             currFrame = np.array(currFrame)
             print(currFrame)
             currFrameIntepol = self.interpolate(
-                points, currFrame.flatten(), grid_x, grid_y, 'cubic')
+                points, currFrame.flatten(), grid_x, grid_y, 'linear')
             print('after interpolate')
             plt.subplot(1, 2, 1)
             print('average_temperature')
@@ -124,19 +107,23 @@ class CountPeople:
             plt.imshow(currFrameIntepol)
             plt.title('current temperature')
             fig, (bgaxes, cur_frames_axes,
-                  bg_cur_diff_axes) = plt.subplots(3, 1, num=2)
+                  bg_cur_diff_axes) = plt.subplots(3,1, num=2)
             print(bgaxes)
             bgaxes.set_xlim(16, 32)
             print('after xlim')
             bgaxes.hist(average_temperature.ravel(), bins=256,
-                        range=(15, 32), label='temperature hist')
+                        range=(17, 21),histtype='step', label='temperature hist')
+            bgaxes.set_title('bg temperature list')
             print('hist')
-            cur_frames_axes.hist(currFrame, bins=255, range=(
-                15, 32), label='current temperature')
+            cur_frames_axes.hist(currFrame, bins=256, range=(
+                17, 28),histtype='step', label='current temperature')
+            cur_frames_axes.set_title('curr temperature hist')
             diff = currFrameIntepol - average_temperature
             print('cal diff')
-            bg_cur_diff_axes.hist(diff.ravel(), range=(
-                -6, 6), label='difference between background temperature and current temperature')
+            bg_cur_diff_axes.hist(diff.ravel(),bins=512, range=(
+                -4, 4), histtype='step', label='difference between background temperature and current temperature')
+            bg_cur_diff_axes.set_title('difference between bg temperature and current temperature')
+            fig.tight_layout()
             plt.show()
             print('nothing show')
 

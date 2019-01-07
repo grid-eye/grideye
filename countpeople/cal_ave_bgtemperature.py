@@ -53,6 +53,7 @@ while True:
         print(grid_x.shape, grid_y.shape)
         # the result of the interpolating for the grid
         average_temp = np.array(average_temperature).flatten()
+        average_temp = np.round(average_temp,1)
         inter_result = cubicInterpolate(
             points, average_temp, grid_x, grid_y, 'linear')
 
@@ -65,7 +66,7 @@ while True:
         ax1.imshow(inter_result, cmap='hot', interpolation='bilinear')
         ax1.set_xlabel('X')
         ax1.set_ylabel('Y')
-        ax1.axis([0, 31, 32, 0])
+        ax1.axis([0, 32, 32, 0])
         ax2.hist(np.array(inter_result).ravel(),
                  bins=256, range=(16, 20), fc='k', ec='k')
 

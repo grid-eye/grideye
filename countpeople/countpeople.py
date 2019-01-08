@@ -1,4 +1,5 @@
 import numpy as np
+import cv2 as cv
 import time
 import busio
 import board
@@ -9,24 +10,13 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
-i2c = busio.I2C(board.SCL, board.SDA)
-amg = adafruit_amg88xx.AMG88XX(i2c)
-me_x = 8
-frame_y = 8
-# we need th_bgframes frames  to calculate the average temperature of th$
-th_bgframes = 30
-# the counter of the bgframes frames
-bgframe_cnt = 0
-all_bgframes = []
-pre_read_count = 2
 # sleep 10 s
 if len(sys.argv) > 1:
     if sys.argv[1] == 'people':
         print('test human,sleep 10 s')
         time.sleep(10)
-
-points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
-grid_x, grid_y = np.mgrid[0:7:32j, 0:7:32j]
+else:
+    time.sleep(2)
 # sys.argv[2] represents the custom  dir of  the image saved
 default_dir = 'bg_images'
 actual_dir = default_dir
@@ -39,7 +29,7 @@ class CountPeople:
     def __init__(self, pre_read_count=30, th_bgframes=20):
         # the counter of the bgframes
         self.i2c = busio.I2C(board.SCL, board.SDA)
-        self.amg = adafruit_amg88xx.AMG88XX(i2c)
+        self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
         self.grid_x, self.grid_y = np.mgrid[0:7:32j, 0:7:32j]
         self.bgframe_cnt = 0
         self.all_bgframes = []  # save all frames which sensor read
@@ -67,7 +57,11 @@ class CountPeople:
         '''
         pass
 
-    def displayImage(self, average_temperature, currFrameIntepol):
+    def displayImage_bg_curr(self, average_temperature, currFrameIntepol):
+        '''
+            show the background temperature and the frame of current
+            temperature
+        '''
         plt.subplot(1, 2, 1)
         plt.imshow(average_temperature)
         plt.title('background temperature')
@@ -134,7 +128,30 @@ class CountPeople:
             return :2-d array
         '''
         pass
-
+    def medianFilter(self,img):
+        img =self.makeImgCompatibleForCv(img)
+        median = cv.medianBlur(img,5)
+        return median
+    def gaussianFilter(self,img):
+        img =self.makeImgCompatibleForCv(img)
+        blur = cv.GaussianBlur(img,(5,5),0)
+        return blur
+    def bilateralFilter(self,img):
+        img =self.makeImgCompatibleForCv(img)
+        cv.bilateralFilter(img,9,75,75)
+    def makeImgCompatibleForCv(self,img):
+        cv.imwrite('temp.png',img)
+        return cv.imread('temp.png',0)
+    def otsuThreshold(self, img ):
+        img =self.makeImgCompatibleForCv(img)
+        ret,th = cv.threshold(img,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+        return th
+    def displayImage(self,img,title='temp'):
+        #plt.ion()
+        plt.imshow(img)
+        plt.title(title)
+        plt.xticks([])
+        plt.yticks([])
     def saveImage(self, average_temperature, currFrameIntepol):
         plt.subplot(1, 2, 1)
         plt.imshow(average_temperature)
@@ -163,13 +180,24 @@ class CountPeople:
                     currFrame.append(row)
                 currFrame = np.array(currFrame)
                 all_frames.append(currFrame)
+                print("current temperature is ")
                 print(currFrame)
-               # currFrameIntepol = self.interpolate(
-                #    points, currFrame.flatten(), grid_x, grid_y, 'linear')
-                print('after interpolate')
-                print(average_temperature)
+                currFrameIntepol = self.interpolate(
+                    self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
                 # self.displayImage(average_temperature , currFrameIntepol)
-
+                plt.figure(num=1)
+                self.displayImage(currFrameIntepol,'original image')
+                gblur =self.gaussianFilter(currFrameIntepol)
+                plt.figure(num=2)
+                self.displayImage(gblur,'gaussian filter image')
+                median_filter = self.medianFilter(currFrameIntepol)
+                plt.figure(num=3)
+                self.displayImage(median_filter,'median filter image')
+                th = self.otsuThreshold(gblur)
+                plt.figure(num=4)
+                self.displayImage(th,'otsu threshold')
+                plt.show()
+                break
                # self.averageFilter(average_temperature, currFrameIntepol)
         except KeyboardInterrupt:
             print("catch keyboard interrupt")

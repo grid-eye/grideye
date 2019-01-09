@@ -5,6 +5,8 @@ import adafruit_amg88xx
 import math
 import scipy
 import numpy as np
+import os
+import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -17,8 +19,12 @@ th_bgframes = 250
 bgframe_cnt = 0
 all_bgframes = []
 pre_read_count = 30
+actual_path = "imagedata/"
+if len(sys.argv) > 1:
+    actual_path = actual_path + sys.argv[1]
+if not os.path.exists(actual_path):
+    os.mkdir(actual_path)
 # 8X8 grid
-
 points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
 grid_x, grid_y = np.mgrid[0:7:32j, 0:7:32j]
 for i in range(pre_read_count):
@@ -59,8 +65,8 @@ while True:
 
         temp = cubicInterpolate(points, np.array(
             temp).flatten(), grid_x, grid_y, 'linear')
-        print("after interpolating , save the data in file:avg_temp.npy")
-        np.save('avgtemp.npy', inter_result)
+        print("after interpolating , save the data in path %s"%(actual_path))
+        np.save('%s/avgtemp.npy'%(actual_path), inter_result)
 
         fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
         ax1.imshow(inter_result, cmap='hot', interpolation='bilinear')

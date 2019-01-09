@@ -18,10 +18,12 @@ if len(sys.argv) > 1:
 else:
     time.sleep(2)
 # sys.argv[2] represents the custom  dir of  the image saved
-default_dir = 'bg_images'
+default_dir ="images/bg_images"
 actual_dir = default_dir
+path_arg = ""
 if len(sys.argv) > 2:
-    actual_dir = sys.argv[2]
+    actual_dir ="images/"+ sys.argv[2]
+    path_arg=sys.argv[2]+"/"
 if not os.path.exists(actual_dir):
     os.mkdir(actual_dir)
 
@@ -36,6 +38,8 @@ class CountPeople:
         self.pre_read_count = pre_read_count
         self.th_bgframes = th_bgframes
         self.image_id = 0  # the id of the hot image of each frame saved
+        self.hist_id = 0 # the id of the hist image of diff between average
+        #temp and current temp
         # 8*8 grid
         self.points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
         # discard the first and the second frame
@@ -90,7 +94,7 @@ class CountPeople:
             'difference between bg temperature and current temperature')
         fig.tight_layout()
         plt.show()
-    def calAverageDiff(self,average_temp,curr_temp):
+    def calAverageAndCurrDiff(self,average_temp,curr_temp):
         '''
             calculate the difference between avereage temperature and current temperature
             args:None
@@ -102,7 +106,7 @@ class CountPeople:
         currAverage = np.round(np.average(curr_temp), 1)
         diff = currAverage - bgAverage
         print('their diff is %.1f'%(diff))
-        return diff
+        return np.round(diff,1)
     def isBgByAverageDiff(self, average_temp, curr_temp):
         '''
             if this frame is bg temperature
@@ -173,17 +177,76 @@ class CountPeople:
         plt.title(title)
         plt.xticks([])
         plt.yticks([])
-    def saveImage(self, average_temperature, currFrameIntepol):
-        plt.subplot(1, 2, 1)
+    def saveDiffHist(self,diff ,histtype="step"):
+        plt.subplot(1,1,1)
+        plt.title("hist_%d.png"%(self.hist_id))
+        plt.hist(diff.ravel(),bins=120 ,range=(-6,6) ,histtype=histtype)
+        plt.ylabel("temperature(%)")
+        plt.xlabel("temperature(oC)")
+        plt.savefig("%s/diff_hist_%d.png"%(actual_dir,self.hist_id))
+        self.hist_id += 1
+        plt.clf()
+    def saveImage(self, average_temperature, currFrameIntepol,filter=False):
+        num=(1,2)
+        if filter == True:
+            num=(2,3)
+        row ,col = num
+        ax_id = 1
+        plt.subplot(row, col, ax_id)
+        ax_id += 1
         plt.imshow(average_temperature)
         plt.title('background temperature')
-        plt.subplot(122)
-        print('subplot 122')
+        plt.subplot(row,col,ax_id)
+        ax_id+=1
         plt.imshow(currFrameIntepol)
+        plt.title("current temperature original ")
+        if filter == True:
+            plt.subplot(row,col,ax_id)
+            ax_id+=1
+            gblur =self.gaussianFilter(currFrameIntepol)
+            plt.imshow(gblur)
+            plt.xticks([])
+            plt.yticks([])
+            plt.title('gaussian filter')
+            plt.subplot(row,col,ax_id)
+            ax_id+=1
+            median = self.medianFilter(currFrameIntepol)
+            plt.imshow(median)
+            plt.xticks([])
+            plt.yticks([])
+            plt.title('median filter')
+            plt.subplot(row,col,ax_id)
+            ax_id+=1
+            th = self.otsuThreshold(gblur)
+            plt.imshow(th)
+            plt.xticks([])
+            plt.yticks([])
+            plt.title('otsu thersholding')
+        plt.tight_layout()
         plt.savefig("%s/hot_image_ %d.png" % (actual_dir ,self.image_id))
         self.image_id = self.image_id+1
         plt.clf()
-    
+    def filterProcess(self,average_temperature ,img):
+        '''
+            remove noise by using median filter,gaussian filter
+        '''
+        pass
+    def filterProcess(self,average_temperature ,img):
+        '''
+            remove noise by using median filter,gaussian filter
+        '''
+        pass
+    def saveDiffBetweenAveAndCurr(self):
+            counter = 0
+            diff_queues.append(self.calAverageDiff(average_temperature,currFrameIntepol))
+            if counter > 2000 :
+                diff_array = np.array(np.round(diff_queues,1))
+                average_diff =np.round(np.average(diff_array))
+                np.savetxt('diff_between_avgtemp_currtemp.txt',diff_array,delimiter=',')
+                np.savetxt('average_diff.txt',np.array([average_diff]))
+                print('the average diff is %f'%(average_diff))
+            counter += 1
+            print('counter: %d'%(counter))
     def process(self):
         '''
             main function
@@ -191,9 +254,10 @@ class CountPeople:
 
         # load the avetemp.py stores the average temperature
         # the result of the interpolating for the grid
-        average_temperature = np.load("avgtemp.npy")
+        average_temperature = np.load("imagedata/"+path_arg+"avgtemp.npy")
         all_frames = []
-        counter=0
+        counter=0# a counter of frames' num
+        # diff_queues saves the difference between average_temp and curr_temp
         diff_queues=[]
         try:
             while True:
@@ -202,47 +266,47 @@ class CountPeople:
                     # Pad to 1 decimal place
                     currFrame.append(row)
                 currFrame = np.array(currFrame)
-                all_frames.append(currFrame)
+                print("the %dth frame"%(counter))
                 print("current temperature is ")
                 print(currFrame)
-                currFrameIntepol = self.interpolate(
-                    self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
+                currFrameIntepol = self.interpolate(self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
+                all_frames.append(currFrameIntepol)
+                diff = self.calAverageAndCurrDiff(average_temperature ,
+                        currFrameIntepol)
+                diff_queues.append(diff)
+
                 # self.displayImage(average_temperature , currFrameIntepol)
                 # plt.figure(num=1)
                 # self.displayImage(currFrameIntepol,'original image')
-                gblur =self.gaussianFilter(currFrameIntepol)
+                #gblur =self.gaussianFilter(currFrameIntepol)
                 # plt.figure(num=2)
                 #self.displayImage(gblur,'gaussian filter image')
-                median_filter = self.medianFilter(currFrameIntepol)
+                # median_filter = self.medianFilter(currFrameIntepol)
                 # plt.figure(num=3)
                 # self.displayImage(median_filter,'median filter image')
                 # th = self.otsuThreshold(gblur)
                 # plt.figure(num=4)
                 # self.displayImage(th,'otsu threshold',True)
-                equalHistRet= self.equalizeHist(currFrameIntepol)
+                #equalHistRet= self.equalizeHist(currFrameIntepol)
                 # plt.figure(num=5)
                 # self.displayImage(equalHistRet,'equalization hist')
                 # plt.show()
                 # self.displayImage_bg_curr(average_temperature,currFrameIntepol)
                 # isBg = self.isBgByAverageDiff(average_temperature,currFrameIntepol)
-                diff_queues.append(self.calAverageDiff(average_temperature,currFrameIntepol))
-                if counter > 2000 :
-                    diff_array = np.array(np.round(diff_queues,1))
-                    average_diff =np.round(np.average(diff_array))
-                    np.savetxt('diff_between_avgtemp_currtemp.txt',diff_array,delimiter=',')
-                    np.savetxt('average_diff.txt',np.array([average_diff]))
-                    print('the average diff is %f'%(average_diff))
-                    break
-                counter += 1
                 # self.averageFilter(average_temperature, currFrameIntepol)
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
             print("length of the all_frames: %d"%(len(all_frames)))
-            all_frames=[]
+            print("save all images data in "+actual_dir+"/"+"imagedata.npy")
+            #save all image data in directory:./actual_dir 
+            np.save(actual_dir+"/imagedata.npy",np.array(all_frames))
+            #save all diff between bgtemperature and current temperature in actual dir
+            np.save(actual_dir+"/diffdata.npy",np.array(diff_queues))
+            # all_frames=[]
+            # save all images 
             for i in range(len(all_frames)):
-                currFrameIntepol = self.interpolate(
-                   self.points, all_frames[i].flatten(), self.grid_x, self.grid_y, 'linear')
-                self.saveImage(average_temperature, currFrameIntepol)
+                self.saveDiffHist(diff_queues[i])
+                self.saveImage(average_temperature ,all_frames[i],True)
             print("save all frames")
             print("exit")
 

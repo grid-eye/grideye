@@ -67,7 +67,7 @@ while True:
         ax1.set_xlabel('X')
         ax1.set_ylabel('Y')
         ax1.axis([0, 32, 32, 0])
-        ax2.hist(np.array(inter_result).ravel(),
+        ax2.hist(inter_result.ravel(),
                  bins=256, range=(16, 20), fc='k', ec='k')
 
         ax2.set_xlabel('temperature')

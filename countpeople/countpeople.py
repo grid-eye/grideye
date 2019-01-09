@@ -90,22 +90,34 @@ class CountPeople:
             'difference between bg temperature and current temperature')
         fig.tight_layout()
         plt.show()
+    def calAverageDiff(self,average_temp,curr_temp):
+        '''
+            calculate the difference between avereage temperature and current temperature
+            args:None
+            return : difference between average tempe and currtemp
 
-    def averageFilter(self, average_temp, curr_temp):
+        '''
+
+        bgAverage = np.round(np.average(average_temp), 1)
+        currAverage = np.round(np.average(curr_temp), 1)
+        diff = currAverage - bgAverage
+        print('their diff is %.1f'%(diff))
+        return diff
+    def isBgByAverageDiff(self, average_temp, curr_temp):
         '''
             if this frame is bg temperature
-                return false
+                return True
             else if this frame has human
                 return False 
         '''
         bgAverage = np.round(np.average(average_temp), 1)
         currAverage = np.round(np.average(curr_temp), 1)
-        diff = bgAverage - currAverage
-        print('their difference is %.1f' % (diff))
+        diff = currAverage - bgAverage
+        print('their difference is %.2f' % (diff))
         if diff <= .5:
-            return False
-        else:
             return True
+        else:
+            return False
 
     def calAverageTemp(self):
         '''
@@ -134,7 +146,7 @@ class CountPeople:
         return median
     def gaussianFilter(self,img):
         img =self.makeImgCompatibleForCv(img)
-        blur = cv.GaussianBlur(img,(5,5),0)
+        blur = cv.GaussianBlur(img,(3,3),0)
         return blur
     def bilateralFilter(self,img):
         img =self.makeImgCompatibleForCv(img)
@@ -146,9 +158,18 @@ class CountPeople:
         img =self.makeImgCompatibleForCv(img)
         ret,th = cv.threshold(img,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
         return th
-    def displayImage(self,img,title='temp'):
+    def equalizeHist(self,img):
+        '''
+            Histogram equalization
+        '''
+        img=self.makeImgCompatibleForCv(img)
+        return cv.equalizeHist(img)
+    def displayImage(self,img,title='temp',gray=True):
         #plt.ion()
-        plt.imshow(img)
+        if gray == True:
+            plt.imshow(img,cmap='gray')
+        else:
+            plt.imshow(img)
         plt.title(title)
         plt.xticks([])
         plt.yticks([])
@@ -162,7 +183,7 @@ class CountPeople:
         plt.savefig("%s/hot_image_ %d.png" % (actual_dir ,self.image_id))
         self.image_id = self.image_id+1
         plt.clf()
-
+    
     def process(self):
         '''
             main function
@@ -172,6 +193,8 @@ class CountPeople:
         # the result of the interpolating for the grid
         average_temperature = np.load("avgtemp.npy")
         all_frames = []
+        counter=0
+        diff_queues=[]
         try:
             while True:
                 currFrame = []
@@ -185,26 +208,40 @@ class CountPeople:
                 currFrameIntepol = self.interpolate(
                     self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
                 # self.displayImage(average_temperature , currFrameIntepol)
-                plt.figure(num=1)
-                self.displayImage(currFrameIntepol,'original image')
+                # plt.figure(num=1)
+                # self.displayImage(currFrameIntepol,'original image')
                 gblur =self.gaussianFilter(currFrameIntepol)
-                plt.figure(num=2)
-                self.displayImage(gblur,'gaussian filter image')
+                # plt.figure(num=2)
+                #self.displayImage(gblur,'gaussian filter image')
                 median_filter = self.medianFilter(currFrameIntepol)
-                plt.figure(num=3)
-                self.displayImage(median_filter,'median filter image')
-                th = self.otsuThreshold(gblur)
-                plt.figure(num=4)
-                self.displayImage(th,'otsu threshold')
-                plt.show()
-                break
-               # self.averageFilter(average_temperature, currFrameIntepol)
+                # plt.figure(num=3)
+                # self.displayImage(median_filter,'median filter image')
+                # th = self.otsuThreshold(gblur)
+                # plt.figure(num=4)
+                # self.displayImage(th,'otsu threshold',True)
+                equalHistRet= self.equalizeHist(currFrameIntepol)
+                # plt.figure(num=5)
+                # self.displayImage(equalHistRet,'equalization hist')
+                # plt.show()
+                # self.displayImage_bg_curr(average_temperature,currFrameIntepol)
+                # isBg = self.isBgByAverageDiff(average_temperature,currFrameIntepol)
+                diff_queues.append(self.calAverageDiff(average_temperature,currFrameIntepol))
+                if counter > 2000 :
+                    diff_array = np.array(np.round(diff_queues,1))
+                    average_diff =np.round(np.average(diff_array))
+                    np.savetxt('diff_between_avgtemp_currtemp.txt',diff_array,delimiter=',')
+                    np.savetxt('average_diff.txt',np.array([average_diff]))
+                    print('the average diff is %f'%(average_diff))
+                    break
+                counter += 1
+                # self.averageFilter(average_temperature, currFrameIntepol)
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
             print("length of the all_frames: %d"%(len(all_frames)))
+            all_frames=[]
             for i in range(len(all_frames)):
                 currFrameIntepol = self.interpolate(
-                    points, all_frames[i].flatten(), self.grid_x, self.grid_y, 'linear')
+                   self.points, all_frames[i].flatten(), self.grid_x, self.grid_y, 'linear')
                 self.saveImage(average_temperature, currFrameIntepol)
             print("save all frames")
             print("exit")

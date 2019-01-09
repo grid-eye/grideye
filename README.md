@@ -11,3 +11,7 @@
     ```
      测试驱动是否连接成功的文件
     ```
+3. bgtemperature_curr_diff dirs
+    ```
+    	
+    ```

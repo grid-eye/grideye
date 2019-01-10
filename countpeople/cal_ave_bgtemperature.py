@@ -14,7 +14,7 @@ amg = adafruit_amg88xx.AMG88XX(i2c)
 frame_x = 8
 frame_y = 8
 # we need th_bgframes frames  to calculate the average temperature of the bground
-th_bgframes = 250
+th_bgframes = 400
 # the counter of the bgframes frames
 bgframe_cnt = 0
 all_bgframes = []

@@ -11,8 +11,8 @@ import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 # sleep 10 s
-if len(sys.argv) > 1:
-    if sys.argv[1] == 'people':
+if len(sys.argv) > 2:
+    if sys.argv[2] == 'people':
         print('test human,sleep 10 s')
         time.sleep(10)
 else:
@@ -21,9 +21,9 @@ else:
 default_dir ="images/bg_images"
 actual_dir = default_dir
 path_arg = ""
-if len(sys.argv) > 2:
-    actual_dir ="images/"+ sys.argv[2]
-    path_arg=sys.argv[2]+"/"
+if len(sys.argv) > 1:
+    actual_dir ="images/"+ sys.argv[1]
+    path_arg=sys.argv[1]+"/"
 if not os.path.exists(actual_dir):
     os.mkdir(actual_dir)
 
@@ -101,11 +101,7 @@ class CountPeople:
             return : difference between average tempe and currtemp
 
         '''
-
-        bgAverage = np.round(np.average(average_temp), 1)
-        currAverage = np.round(np.average(curr_temp), 1)
-        diff = currAverage - bgAverage
-        print('their diff is %.1f'%(diff))
+        diff = curr_temp - average_temp
         return np.round(diff,1)
     def isBgByAverageDiff(self, average_temp, curr_temp):
         '''
@@ -178,13 +174,16 @@ class CountPeople:
         plt.xticks([])
         plt.yticks([])
     def saveDiffHist(self,diff ,histtype="step"):
-        plt.subplot(1,1,1)
+        plt.subplot(2,1,1)
         plt.title("hist_%d.png"%(self.hist_id))
-        plt.hist(diff.ravel(),bins=120 ,range=(-6,6) ,histtype=histtype)
+        print(diff.shape)
+        plt.hist(diff.ravel(),bins=1200 ,range=(-6,6) ,histtype=histtype)
         plt.ylabel("temperature(%)")
         plt.xlabel("temperature(oC)")
+        
         plt.savefig("%s/diff_hist_%d.png"%(actual_dir,self.hist_id))
         self.hist_id += 1
+        plt.tight_layout()
         plt.clf()
     def saveImage(self, average_temperature, currFrameIntepol,filter=False):
         num=(1,2)
@@ -195,11 +194,11 @@ class CountPeople:
         plt.subplot(row, col, ax_id)
         ax_id += 1
         plt.imshow(average_temperature)
-        plt.title('background temperature')
+        plt.title('bgTemperature')
         plt.subplot(row,col,ax_id)
         ax_id+=1
         plt.imshow(currFrameIntepol)
-        plt.title("current temperature original ")
+        plt.title("curTemp original ")
         if filter == True:
             plt.subplot(row,col,ax_id)
             ax_id+=1
@@ -271,10 +270,10 @@ class CountPeople:
                 print(currFrame)
                 currFrameIntepol = self.interpolate(self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
                 all_frames.append(currFrameIntepol)
-                diff = self.calAverageAndCurrDiff(average_temperature ,
-                        currFrameIntepol)
+                diff = self.calAverageAndCurrDiff(average_temperature,currFrameIntepol)
+                print(diff.shape)
                 diff_queues.append(diff)
-
+                counter += 1
                 # self.displayImage(average_temperature , currFrameIntepol)
                 # plt.figure(num=1)
                 # self.displayImage(currFrameIntepol,'original image')
@@ -305,10 +304,11 @@ class CountPeople:
             # all_frames=[]
             # save all images 
             for i in range(len(all_frames)):
-                self.saveDiffHist(diff_queues[i])
-                self.saveImage(average_temperature ,all_frames[i],True)
-            print("save all frames")
-            print("exit")
+                 print("shape is "+str(diff_queues[i].shape))
+                 self.saveDiffHist(diff_queues[i])
+             #   self.saveImage(average_temperature ,all_frames[i],True)
+            #print("save all frames")
+            #print("exit")
 
     def extractBody(self):
         pass

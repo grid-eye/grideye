@@ -17,7 +17,6 @@ frame_y = 8
 th_bgframes = 400
 # the counter of the bgframes frames
 bgframe_cnt = 0
-all_bgframes = []
 # 8X8 grid
 points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
 grid_x, grid_y = np.mgrid[0:7:32j, 0:7:32j]
@@ -33,6 +32,7 @@ def cubicInterpolate(points, pixels, grid_x, grid_y, ip_type='cubic'):
 def readBgTemperature(th_bg=None,save_dir="bgtemp"):
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
+    all_bgframes = []
     print("read bg temperature ,the save dir is %s"%(save_dir))
     if th_bg!=None:
        th_bgrames = th_bg

@@ -10,22 +10,6 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
-# sleep 10 s
-if len(sys.argv) > 2:
-    if sys.argv[2] == 'people':
-        print('test human,sleep 10 s')
-        time.sleep(10)
-else:
-    time.sleep(2)
-# sys.argv[2] represents the custom  dir of  the image saved
-default_dir ="images/bg_images"
-actual_dir = default_dir
-path_arg = ""
-if len(sys.argv) > 1:
-    actual_dir ="images/"+ sys.argv[1]
-    path_arg=sys.argv[1]+"/"
-if not os.path.exists(actual_dir):
-    os.mkdir(actual_dir)
 
 class CountPeople:
     def __init__(self, pre_read_count=30, th_bgframes=20):
@@ -246,16 +230,32 @@ class CountPeople:
                 print('the average diff is %f'%(average_diff))
             counter += 1
             print('counter: %d'%(counter))
-    def process(self):
+    def setBgDir(self,bgDir):
+        #设置相对于countpeople的路径t
+        self.bgDir = bgDir
+    def setCustomDir(self,customDir):
+        #设置包下的自定义目录名称（相对于bgDir目录的路径)
+        self.customDir = customDir
+    def process(self,frame_count=2000,customDir=None):
         '''
             main function
         '''
-
+        if  customDir:
+            if not os.path.exists(customDir):
+                os.mkdir(customDir)
+                print("create dir sucessfully: %s"%(customDir))
+        else:
+            customDir = "imagetemp"
+            if not os.path.exists(customDir):
+                os.mkdir(customDir)
         # load the avetemp.py stores the average temperature
         # the result of the interpolating for the grid
-        average_temperature = np.load("imagedata/"+path_arg+"avgtemp.npy")
+        average_path =self.pdir+"/"+self.bgDir+"/"+self.customDir+"/"+"avgtemp.npy"
+        print("the average path is %s"%(average_path))
+        average_temperature = np.load(average_path)
         all_frames = []
-        counter=0# a counter of frames' num
+        
+        frame_counter=0# a counter of frames' num
         # diff_queues saves the difference between average_temp and curr_temp
         diff_queues=[]
         try:
@@ -265,7 +265,6 @@ class CountPeople:
                     # Pad to 1 decimal place
                     currFrame.append(row)
                 currFrame = np.array(currFrame)
-                print("the %dth frame"%(counter))
                 print("current temperature is ")
                 print(currFrame)
                 currFrameIntepol = self.interpolate(self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
@@ -273,7 +272,8 @@ class CountPeople:
                 diff = self.calAverageAndCurrDiff(average_temperature,currFrameIntepol)
                 print(diff.shape)
                 diff_queues.append(diff)
-                counter += 1
+                frame_counter += 1
+                print("the %dth frame"%(frame_counter))
                 # self.displayImage(average_temperature , currFrameIntepol)
                 # plt.figure(num=1)
                 # self.displayImage(currFrameIntepol,'original image')
@@ -293,16 +293,15 @@ class CountPeople:
                 # self.displayImage_bg_curr(average_temperature,currFrameIntepol)
                 # isBg = self.isBgByAverageDiff(average_temperature,currFrameIntepol)
                 # self.averageFilter(average_temperature, currFrameIntepol)
+                if  frame_counter >frame_count :
+                    self.saveImageData(all_frames,diff_queues,customDir)
+                    break
+
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
-            print("length of the all_frames: %d"%(len(all_frames)))
-            print("save all images data in "+actual_dir+"/"+"imagedata.npy")
-            #save all image data in directory:./actual_dir 
-            np.save(actual_dir+"/imagedata.npy",np.array(all_frames))
-            #save all diff between bgtemperature and current temperature in actual dir
-            np.save(actual_dir+"/diffdata.npy",np.array(diff_queues))
             # all_frames=[]
             # save all images 
+            self.saveImageData(all_frames,diff.queues,customDir)
             for i in range(len(all_frames)):
                  print("shape is "+str(diff_queues[i].shape))
                  self.saveDiffHist(diff_queues[i])
@@ -312,13 +311,48 @@ class CountPeople:
 
     def extractBody(self):
         pass
+    def saveImageData(self , all_frames,diff_queues,outputdir):
+        print("length of the all_frames: %d"%(len(all_frames)))
+        print("save all images data in "+outputdir+"/"+"imagedata.npy")
+        #save all image data in directory:./actual_dir 
+        np.save(outputdir+"/imagedata.npy",np.array(all_frames))
+        #save all diff between bgtemperature and current temperature in actual dir
+        np.save(outputdir+"/diffdata.npy",np.array(diff_queues))
+        print("save all diff data in "+outputdir+"/diffdata.npy")
 
     def findBodyLocation(self):
         pass
-
+    def setPackageDir(self,pdir):
+        self.pdir = pdir
     def trackPeople(self):
         pass
 
+if __name__ == "__main__":
+    if len(sys.argv) > 2:
+        if sys.argv[2] == 'people':
+            print('test human,sleep 10 s')
+            time.sleep(10)
+    else:
+        time.sleep(2)
+    # sys.argv[2] represents the custom  dir of  the image saved
+    current_dir = os.path.abspath(os.path.dirname(__file__))
+    adjust_dir = current_dir
+    if current_dir.endswith("grideye"):
+        adjust_dir = current_dir +"/countpeople"
+    packageDir = adjust_dir
+    actual_dir = adjust_dir+"/images"
+    path_arg = ""
+    if len(sys.argv) > 1:
+        actual_dir =actual_dir+ "/"+sys.argv[1]
+        path_arg=sys.argv[1]+"/"
+    # sleep 10 s
+    print("the actual_dir is %s"%(actual_dir))
 
-countp = CountPeople()
-countp.process()
+    if not os.path.exists(actual_dir):
+        os.mkdir(actual_dir)
+    countp = CountPeople()
+    #这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
+    countp.setPackageDir(packageDir)
+    countp.setCustomDir(path_arg)
+    countp.setBgDir("imagedata")
+    countp.process()

@@ -11,15 +11,20 @@ def analyseImageData(path):
         maxArr.append(item.max())
         average.append(np.average(item))
     minArr,maxArr,average = np.array((minArr,maxArr,average))
+    minm = minArr.min()
+    maxm = maxArr.max()
+    aveave = np.average(average)
     print("the min array are as listed")
     print(minArr)
-    print("the minimum value is %.1f"%(minArr.min()))
+    print("the minimum value is %.1f"%(minm))
     print("the max array are as listed")
     print(maxArr)
-    print("the maximum value is %.1f"%(maxArr.max()))
+    print("the maximum value is %.1f"%(maxm))
     print("the average values are as listed")
     print(average)
-    print("the average value is %.2f"%(np.average(average)))
+    print("the average value is %.2f"%(aveave))
+    return (minm,maxm,aveave)
+
 if __name__ == "__main__":
     if len(sys.argv) <2 :
         raise ValueError("please speciffied the input file")

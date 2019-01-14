@@ -14,6 +14,13 @@ def analyseImageData(path):
     minm = minArr.min()
     maxm = maxArr.max()
     aveave = np.average(average)
+    overThresh = []
+    if maxm > 2.7:
+        for i in range(len(maxArr)):
+            if maxArr[i].max() >2.7:
+                overThresh.append(i)
+        print("oh ,over thresh！")
+        
     print("the min array are as listed")
     print(minArr)
     print("the minimum value is %.1f"%(minm))
@@ -23,7 +30,7 @@ def analyseImageData(path):
     print("the average values are as listed")
     print(average)
     print("the average value is %.2f"%(aveave))
-    return (minm,maxm,aveave)
+    return (minm,maxm,aveave,overThresh)
 
 if __name__ == "__main__":
     if len(sys.argv) <2 :
@@ -31,7 +38,10 @@ if __name__ == "__main__":
     path = sys.argv[1]
     if not os.path.exists(path):
         raise ValueError("the path is invalid")
-    analyseImageData(path)
+    ret = analyseImageData(path)
+    print("the index of the frame is over thresh is as listed")
+    print(np.array(ret[3]))
+
 
 
 

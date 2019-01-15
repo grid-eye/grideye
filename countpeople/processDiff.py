@@ -3,9 +3,15 @@ import os
 import sys
 def analyseImageData(path):
     minArr,maxArr,average=[],[],[]
-    allImage = np.load(path)
-    print("the length of all images is %d"%(len(allImage)))
-    for item in allImage:
+    imagedata =  np.load(path+"/imagedata.npy")
+    average =  np.load(path+"/avgtemp.npy")
+    diff_queues = []
+    for i in range(len(imagedata)):
+        diff_queues.append(imagedata[i] - average)
+    diff_queues = np.array(diff_queues)
+    diff_queues = np.round(diff_queues,1)
+    print("the length of all images is %d"%(len(diff_queues)))
+    for item in diff_queues:
         item = np.array(item)
         minArr.append(item.min())
         maxArr.append(item.max())
@@ -20,7 +26,6 @@ def analyseImageData(path):
             if maxArr[i].max() >2.7:
                 overThresh.append(i)
         print("oh ,over thresh！")
-        
     print("the min array are as listed")
     print(minArr)
     print("the minimum value is %.1f"%(minm))

@@ -12,7 +12,10 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 
 class CountPeople:
-    def __init__(self, pre_read_count=30, th_bgframes=20):
+    __peoplenum=  0#统计的人的数量
+    __diffThresh = 2.8# 温度差阈值
+    __averageDiffThresh = 0.3 #平均温度查阈值
+    def __init__(self, pre_read_count=30, th_bgframes=20 , row = 32, col = 32):
         # the counter of the bgframes
         self.i2c = busio.I2C(board.SCL, board.SDA)
         self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
@@ -21,6 +24,9 @@ class CountPeople:
         self.all_bgframes = []  # save all frames which sensor read
         self.pre_read_count = pre_read_count
         self.th_bgframes = th_bgframes
+        self.row = row# image's row
+        self.col = col #  image's col
+        self.image_size = row * col
         self.image_id = 0  # the id of the hot image of each frame saved
         self.hist_id = 0 # the id of the hist image of diff between average
         #temp and current temp
@@ -47,8 +53,6 @@ class CountPeople:
 
     def displayImage_bg_curr(self, average_temperature, currFrameIntepol):
         '''
-            show the background temperature and the frame of current
-            temperature
         '''
         plt.subplot(1, 2, 1)
         plt.imshow(average_temperature)
@@ -70,8 +74,6 @@ class CountPeople:
             17, 28), histtype='step', label='current temperature')
         cur_frames_axes.set_title('curr temperature hist')
         diff = currFrameIntepol - average_temperature
-        diff = np.round(diff, 1)
-        print('cal diff')
         bg_cur_diff_axes.hist(diff.ravel(), bins=512, range=(
             -4, 4), histtype='step', label='difference between background temperature and current temperature')
         bg_cur_diff_axes.set_title(
@@ -86,7 +88,7 @@ class CountPeople:
 
         '''
         diff = curr_temp - average_temp
-        return np.round(diff,1)
+        return np.round(diff,2)
     def isBgByAverageDiff(self, average_temp, curr_temp):
         '''
             if this frame is bg temperature
@@ -214,22 +216,50 @@ class CountPeople:
             remove noise by using median filter,gaussian filter
         '''
         pass
-    def filterProcess(self,average_temperature ,img):
-        '''
-            remove noise by using median filter,gaussian filter
-        '''
-        pass
     def saveDiffBetweenAveAndCurr(self):
             counter = 0
             diff_queues.append(self.calAverageDiff(average_temperature,currFrameIntepol))
             if counter > 2000 :
                 diff_array = np.array(np.round(diff_queues,1))
-                average_diff =np.round(np.average(diff_array))
+                average_diff =np.round(np.average(diff_array),1)
                 np.savetxt('diff_between_avgtemp_currtemp.txt',diff_array,delimiter=',')
                 np.savetxt('average_diff.txt',np.array([average_diff]))
                 print('the average diff is %f'%(average_diff))
             counter += 1
             print('counter: %d'%(counter))
+    def judgeFrameByHist(self,img):#根据直方图判断当前帧是否含有人类
+        hist ,bins = np.histogram(img.ravel() ,[0] , bins =120 , range=(-6,6))
+        bins = bins[:-1]
+        freqMap  = dict.fromkeys(bins ,0)
+        for i in range(hist.shape[0]):
+            freqMap[bins[i]] = hist[i]
+        sum = 0
+        for i in range(self.__diffThresh,5.9,0.1):
+            sum += freqMap[i]
+        if sum >  self.image_size / 9:
+            return True
+        else :
+            return False
+    def judgeFrameByDiffAndBTSU(self,img_diff):#根据当前温度和平均温度（表示背景温度)的差值判断是否含有人类
+        if img.max() > self.__diffThresh:
+            return True
+        else:
+            return False
+    def judgeFrameByAverage(self,average_temp , current_temp):#根据当前温度的平均值和背景温度的平均值判断当前帧是否含有人类
+        ave_ave = np.average(average_temp)
+        curr_temp_ave = np.average(current_temp)
+        diff_abs = abs(curr_temp_ave - ave_ave)
+        if diff_abs > self.__averageDiffThresh :
+            return True
+        else:
+            return False
+    def isCurrentFrameContainHuman(self, img_diff ,
+        current_temp,average_temperature):
+        '''
+            判断当前帧是否含有人类
+            ret : True:含有人类，False:没有人类，表示属于背景
+        '''
+        return self.judgeFrameByHist(img_diff) and self.judgeFrameByDiffAndBTSU(img_diff)and self.judgeFrameByAverage(average_temperature,current_temp)
     def setBgDir(self,bgDir):
         #设置相对于countpeople的路径t
         self.bgDir = bgDir
@@ -268,8 +298,9 @@ class CountPeople:
                 print("current temperature is ")
                 print(currFrame)
                 currFrameIntepol = self.interpolate(self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
-                all_frames.append(currFrameIntepol)
-                diff = self.calAverageAndCurrDiff(average_temperature,currFrameIntepol)
+                medianBlur = self.medianFilter(currFrameIntepol)
+                all_frames.append(medianBlur)
+                diff =   self.calAverageAndCurrDiff(average_temperature,medianBlur)
                 print(diff.shape)
                 diff_queues.append(diff)
                 frame_counter += 1
@@ -293,6 +324,9 @@ class CountPeople:
                 # self.displayImage_bg_curr(average_temperature,currFrameIntepol)
                 # isBg = self.isBgByAverageDiff(average_temperature,currFrameIntepol)
                 # self.averageFilter(average_temperature, currFrameIntepol)
+                curr_ave = np.mean(medianBlur)
+                if diff.max() > self.__diffThresh:
+                    print("has a human")
                 if  frame_counter >frame_count :
                     self.saveImageData(all_frames,diff_queues,customDir)
                     break
@@ -301,13 +335,14 @@ class CountPeople:
             print("catch keyboard interrupt")
             # all_frames=[]
             # save all images 
-            self.saveImageData(all_frames,diff.queues,customDir)
-            for i in range(len(all_frames)):
-                 print("shape is "+str(diff_queues[i].shape))
-                 self.saveDiffHist(diff_queues[i])
+            self.saveImageData(all_frames,diff_queues,customDir)
+            #for i in range(len(all_frames)):
+                 #print("shape is "+str(diff_queues[i].shape))
+             #    self.saveDiffHist(diff_queues[i])
              #   self.saveImage(average_temperature ,all_frames[i],True)
-            #print("save all frames")
-            #print("exit")
+            print("save all frames")
+            print("exit")
+            
 
     def extractBody(self):
         pass
@@ -317,8 +352,6 @@ class CountPeople:
         #save all image data in directory:./actual_dir 
         np.save(outputdir+"/imagedata.npy",np.array(all_frames))
         #save all diff between bgtemperature and current temperature in actual dir
-        np.save(outputdir+"/diffdata.npy",np.array(diff_queues))
-        print("save all diff data in "+outputdir+"/diffdata.npy")
 
     def findBodyLocation(self):
         pass
@@ -354,5 +387,5 @@ if __name__ == "__main__":
     #这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
     countp.setPackageDir(packageDir)
     countp.setCustomDir(path_arg)
-    countp.setBgDir("imagedata")
+    countp.setBgDir("images")
     countp.process()

@@ -14,7 +14,7 @@ path = path[0:len(path)-1]
 maxArr,minArr,aveArr,overThresh =[],[],[],[]
 for i in range(num):
 
-    realpath = path+str(i+1)+"/diffdata.npy"
+    realpath = path+str(i+1)
     if os.path.exists(realpath) == False:
         print("this frame sequence doesn't exist")
         continue

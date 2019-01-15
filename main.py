@@ -31,10 +31,10 @@ counter = 0
 curr = os.path.abspath(os.path.dirname(__file__))
 if curr.endswith("grideye"):
     curr += "/countpeople"
-bgactual = curr+"/imagedata"+"/"+currDir
+bgactual = curr+"/images"+"/"+currDir
 imageactual = curr+"/images"+"/"+currDir
 cp.setPackageDir(curr)
-cp.setBgDir("imagedata")
+cp.setBgDir("images")
 while counter < n:
     counter+=1
     print("the %dth whiles"%(counter))

@@ -91,7 +91,7 @@ if __name__ == '__main__':
     curr_dir = os.path.abspath(os.path.dirname(__file__))
     if curr_dir.endswith("grideye"):
         curr_dir = curr_dir+"/countpeople"
-    actual_path =curr_dir+ "/imagedata"
+    actual_path = curr_dir
     if len(sys.argv) > 1:
         actual_path = actual_path +"/"+ sys.argv[1]
     if not os.path.exists(actual_path):

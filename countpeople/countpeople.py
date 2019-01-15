@@ -260,12 +260,6 @@ class CountPeople:
             ret : True:含有人类，False:没有人类，表示属于背景
         '''
         return self.judgeFrameByHist(img_diff) and self.judgeFrameByDiffAndBTSU(img_diff)and self.judgeFrameByAverage(average_temperature,current_temp)
-    def setBgDir(self,bgDir):
-        #设置相对于countpeople的路径t
-        self.bgDir = bgDir
-    def setCustomDir(self,customDir):
-        #设置包下的自定义目录名称（相对于bgDir目录的路径)
-        self.customDir = customDir
     def process(self,frame_count=2000,customDir=None):
         '''
             main function
@@ -280,11 +274,10 @@ class CountPeople:
                 os.mkdir(customDir)
         # load the avetemp.py stores the average temperature
         # the result of the interpolating for the grid
-        average_path =self.pdir+"/"+self.bgDir+"/"+self.customDir+"/"+"avgtemp.npy"
+        average_path =customDir+"/"+"avgtemp.npy"
         print("the average path is %s"%(average_path))
         average_temperature = np.load(average_path)
         all_frames = []
-        
         frame_counter=0# a counter of frames' num
         # diff_queues saves the difference between average_temp and curr_temp
         diff_queues=[]
@@ -342,7 +335,7 @@ class CountPeople:
              #   self.saveImage(average_temperature ,all_frames[i],True)
             print("save all frames")
             print("exit")
-            
+            raise KeyboardInterrupt("catch keyboard interrupt")        
 
     def extractBody(self):
         pass
@@ -373,7 +366,7 @@ if __name__ == "__main__":
     if current_dir.endswith("grideye"):
         adjust_dir = current_dir +"/countpeople"
     packageDir = adjust_dir
-    actual_dir = adjust_dir+"/images"
+    actual_dir = adjust_dir
     path_arg = ""
     if len(sys.argv) > 1:
         actual_dir =actual_dir+ "/"+sys.argv[1]
@@ -386,6 +379,8 @@ if __name__ == "__main__":
     countp = CountPeople()
     #这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
     countp.setPackageDir(packageDir)
-    countp.setCustomDir(path_arg)
-    countp.setBgDir("images")
-    countp.process()
+    try:
+        countp.process()
+    except KeyboardInterrupt("keyboard interrupt"):
+        print("exit")
+

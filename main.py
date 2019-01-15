@@ -1,7 +1,7 @@
 import os
 import sys
 from countpeople.countpeople import CountPeople as CP
-from countpeople.cal_ave_bgtemperature import readBgTemperature 
+from countpeople.calAveBgTemperature import readBgTemperature 
 """
 这个文件是自动收集n次m帧数据
 """
@@ -31,17 +31,19 @@ counter = 0
 curr = os.path.abspath(os.path.dirname(__file__))
 if curr.endswith("grideye"):
     curr += "/countpeople"
-bgactual = curr+"/images"+"/"+currDir
-imageactual = curr+"/images"+"/"+currDir
+bgactual = curr+"/"+currDir
+imageactual = curr+"/"+currDir
 cp.setPackageDir(curr)
-cp.setBgDir("images")
 while counter < n:
     counter+=1
     print("the %dth whiles"%(counter))
     bgtempdir =bgactual+str(counter)
     cudr = currDir+str(counter)
-    cp.setCustomDir(cudr)
     imagedir = imageactual+str(counter)
     readBgTemperature(400,bgtempdir)
-    cp.process(m,imagedir)
+    try:
+        cp.process(m,imagedir)
+    except KeyboardInterrupt:
+        print("catch a keyboardinterrupt ,break the while")
+        break
 print("sucessfully test all picture")

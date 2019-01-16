@@ -11,29 +11,36 @@ else:
 if not os.path.exists(path):
     raise ValueError("please input a valid path")
 def compatibleForCv(image):
-    cv.imwrite("temp.png",image)
-    return cv.imread("temp.png",0)
+    cv.imwrite("temp.png",cv.CV_32FC1)
+    return cv.imread("temp.png",)
 def calcOtsuThresh(diffdata,image_id,filter_process=False):
     plt.xticks([])
     plt.yticks([])
-    img = compatibleForCv(diffdata)
+    #img = compatibleForCv(diffdata)
+    img = np.array(diffdata,np.float32)
+    print("img's dtype is :")
+    print(img.dtype)
     median = cv.medianBlur(img,5)
     if median.max() > 2.5:
         print(median)
         print("median filter is %.2f"%(median.max()))
+        print(median.dtype)
         gaussian = cv.GaussianBlur(img,(5,5),0)
         ret, otsu = cv.threshold(gaussian,-6.0,6.0,cv.THRESH_BINARY+cv.THRESH_OTSU)
         return ret
     else:
         return None
-allframe = np.load(path+"/diffdata.npy")
+allframe = np.load(path+"/imagedata.npy")
 average = np.load(path+"/avgtemp.npy")
+print("allframe's dtype is "+str(allframe.dtype))
+print("average's dtype is "+str(average.dtype))
 diffdata = []
 #计算每一帧和当前温度的差值
 for i in allframe:
-    diffdata.append(allframe[i] - average)
+    diffdata.append(i - average)
 diffdata = np.array(diffdata)
-diffdata = np.round(diffdata,1)
+print(diffdata.dtype)
+diffdata = np.round(diffdata,2)
 print("load data sucessfully!")
 print(diffdata.shape)
 result =[]

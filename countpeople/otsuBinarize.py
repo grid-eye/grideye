@@ -1,5 +1,5 @@
 import numpy as np
-def otsuThreshold(histogram , total,ranges = (-6,6),interval =
+def findThresh(histogram , total,ranges = (-6,6),interval =
         0.1,dtype=np.float32):
     '''
     arg:
@@ -29,4 +29,27 @@ def otsuThreshold(histogram , total,ranges = (-6,6),interval =
         mB = sumB/wB
         mF = (sum - sumB) /WF
         between = wB*wF*(mB-mF)*(mB-mF)
-        if bwib
+        if between >= max:
+            threshold1 = i
+            if between > max:
+                threshold2 = i 
+            max = between
+    return (threshold1+threshold2)/2.0
+def calcHistogram(images):
+    hist ,bins = np.histogram(img.ravel() ,[0] , bins =120 , range=(-6,6))
+    bins = bins[:-1]
+    freqMap  = dict.fromkeys(bins ,0)
+    for i in range(hist.shape[0]):
+        freqMap[bins[i]] = hist[i]
+    return freqMap
+def OtsuThreshold(images , total,ranges = (-6,6),interval =0.1):
+    histogram = calcHistogram(images)
+    ret = findThresh(histogram,total,ranges,interval)
+    print("ret is %.1f"%(ret))
+    shape = images.shape
+    hist  = np.ones(shape)
+    for i in range(shape[0]):
+        for j in range(shape[1]):
+            if images[i][j] < ret:
+                images[i][j] = 0
+    return (ret,hist)

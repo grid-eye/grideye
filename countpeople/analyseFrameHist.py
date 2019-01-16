@@ -3,6 +3,7 @@ import os
 import sys
 import matplotlib.pyplot as plt
 import cv2 as cv
+from otsuBinarize import otsuThreshold
 if len(sys.argv) < 2 :
     raise ValueError("please specify a or more than one frame")
 path = sys.argv[1]
@@ -12,10 +13,15 @@ argarray = sys.argv[2:]
 
 for i in range(len(argarray)):
     argarray[i] = int(argarray[i])
-allframe = np.load(path)
+allframe = np.load(path+"/imagedata.npy")
+avgtemp = np.load(path+"/avgtemp.npy")
+diff_frame = []
+for i in allframe:
+    diff_frame.append(i - avgtemp)
+diff_frame = np.round(np.array(diff_frame),1)
 for i in argarray:
     print("the %dth diff frame "%(i))
-    currframe = allframe[i]
+    currframe = diff_frame[i]
     plt.figure(num=i)
     plt.subplot(2,2,1)
     plt.imshow(currframe)
@@ -24,6 +30,18 @@ for i in argarray:
     bins = bins[:-1]
     plt.subplot(2,2,2)
     plt.plot(bins , hists)
+    gaussian = cv.GaussianBlur(diff_frame[i],(5,5),0)
+    ret,thre = otsuThreshold(gaussian , 1024)
+    print("thresh's sum is")
+    print(thre.sum())
+    print("sum is %.2f"%(thre.sum()))
+    plt.subplot(2,2,3)
+    plt.imshow(thre)
+    plt.xticks([])
+    plt.yticks([])
+    plt.title("otsu binarize")
+    plt.tight_layout()
+
 plt.show()
     
 

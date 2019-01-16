@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import cv2 as cv
 import os
 import sys
+from otsuBinarize import otsuThreshold as otsuThreshold
 
 if len(sys.argv) > 1:
     path = sys.argv[1]
@@ -26,7 +27,9 @@ def calcOtsuThresh(diffdata,image_id,filter_process=False):
         print("median filter is %.2f"%(median.max()))
         print(median.dtype)
         gaussian = cv.GaussianBlur(img,(5,5),0)
-        ret, otsu = cv.threshold(gaussian,-6.0,6.0,cv.THRESH_BINARY+cv.THRESH_OTSU)
+        gaussian = np.round(gaussian,1)
+        ret,thresh = otsuThreshold(gaussian,1024)
+#        ret, otsu = cv.threshold(gaussian,-6.0,6.0,cv.THRESH_BINARY+cv.THRESH_OTSU)
         return ret
     else:
         return None

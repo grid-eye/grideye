@@ -10,10 +10,12 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
+import otsuBinarize.otsuThreshold as otsuThreshold
 
 class CountPeople:
     __peoplenum=  0#统计的人的数量
     __diffThresh = 2.8# 温度差阈值
+    __otsuThresh = 1.8 #otsu 阈值
     __averageDiffThresh = 0.3 #平均温度查阈值
     def __init__(self, pre_read_count=30, th_bgframes=20 , row = 32, col = 32):
         # the counter of the bgframes
@@ -242,6 +244,8 @@ class CountPeople:
             return False
     def judgeFrameByDiffAndBTSU(self,img_diff):#根据当前温度和平均温度（表示背景温度)的差值判断是否含有人类
         if img.max() > self.__diffThresh:
+            ret = otsuThreshold(img_diff,1024)
+            
             return True
         else:
             return False

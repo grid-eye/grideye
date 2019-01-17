@@ -18,6 +18,7 @@ for i in range(num):
     if os.path.exists(realpath) == False:
         print("this frame sequence doesn't exist")
         continue
+    print(" the %dth sequence "%(i))
     ret = analyseImageData(realpath)
     minArr.append(ret[0])
     maxArr.append(ret[1])
@@ -29,5 +30,9 @@ print("the minimum of the diff data is %.2f"%(np.array(minArr).min()))
 print("the average of the all diff data is %.1f"%(np.average(np.array(aveArr))))
 print("the array of the frame which is over thresh is as list:")
 print(np.array(overThresh))
-
+overIndex = []
+for i in range(len(overThresh)):
+    if len(overThresh[i]) > 1:
+        overIndex.append(i)
+print(np.array(overIndex))
 

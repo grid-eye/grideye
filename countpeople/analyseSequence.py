@@ -2,11 +2,14 @@ import numpy as np
 import os
 import sys
 import matplotlib.pyplot as plt
+from interpolate import imageInterpolate
 patharg = sys.argv[1]
 framePath = patharg+"/imagedata.npy"
 avePath = patharg+"/avgtemp.npy"
 allframe = np.load(framePath)
 avetemp = np.load(avePath)
+allframe = imageInterpolate(allframe)
+avetemp = imageInterpolate(avetemp)
 diff_queues = []
 for i in range(len(allframe)):
     diff_queues.append(allframe[i] - avetemp)

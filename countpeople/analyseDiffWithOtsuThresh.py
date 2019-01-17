@@ -4,16 +4,16 @@ import cv2 as cv
 import os
 import sys
 from otsuBinarize import otsuThreshold as otsuThreshold
-
+from interpolate import imageInterpolate
 if len(sys.argv) > 1:
     path = sys.argv[1]
 else:
     raise ValueError("please input the image's data's path and output dir")
 if not os.path.exists(path):
     raise ValueError("please input a valid path")
-def compatibleForCv(image):
-    cv.imwrite("temp.png",cv.CV_32FC1)
-    return cv.imread("temp.png",)
+def compatibleForCv(image,dtype = np.float32):
+    image = np.array(image, dtype)
+    return image
 def calcOtsuThresh(diffdata,image_id,filter_process=False):
     plt.xticks([])
     plt.yticks([])
@@ -37,6 +37,8 @@ allframe = np.load(path+"/imagedata.npy")
 average = np.load(path+"/avgtemp.npy")
 print("allframe's dtype is "+str(allframe.dtype))
 print("average's dtype is "+str(average.dtype))
+allframe = imageInterpolate(allframe )
+average = imageInterpolate(average)
 diffdata = []
 #计算每一帧和当前温度的差值
 for i in allframe:

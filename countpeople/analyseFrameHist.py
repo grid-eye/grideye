@@ -2,11 +2,14 @@ import numpy as np
 import os
 import sys
 import matplotlib.pyplot as plt
+from interpolate import imageInterpolate
 import cv2 as cv
 from otsuBinarize import otsuThreshold
-def analyseSequence(path ,argarray):
+def analyseSequence(path ,argarray,interpoate_method = "linear"):
     allframe = np.load(path+"/imagedata.npy")
     avgtemp = np.load(path+"/avgtemp.npy")
+    allframe = imageInterpolate(allframe,interpolate_method)
+    avgtemp = imageInterpolate(avgtemp,interpolate_method)
     diff_frame = []
     for i in allframe:
         diff_frame.append(i - avgtemp)

@@ -1,18 +1,20 @@
 import numpy as np
 import os
 import sys
-def analyseImageData(path):
+from interpolate import imageInterpolate
+def analyseImageData(path,interpolate_method="linear"):
     minArr,maxArr,average=[],[],[]
     imagedata =  np.load(path+"/imagedata.npy")
-    average =  np.load(path+"/avgtemp.npy")
+    avgtemp = np.load(path+"/avgtemp.npy")
+    imagedata = imageInterpolate(imagedata,interpolate_method)
+    avgtemp = imageInterpolate(avgtemp,interpolate_method)
     diff_queues = []
     for i in range(len(imagedata)):
-        diff_queues.append(imagedata[i] - average)
+        diff_queues.append(imagedata[i] - avgtemp)
     diff_queues = np.array(diff_queues)
-    diff_queues = np.round(diff_queues,1)
+    diff_queues = np.round(diff_queues,2)
     print("the length of all images is %d"%(len(diff_queues)))
     for item in diff_queues:
-        item = np.array(item)
         minArr.append(item.min())
         maxArr.append(item.max())
         average.append(np.average(item))

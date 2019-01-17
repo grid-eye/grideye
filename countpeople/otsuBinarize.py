@@ -55,9 +55,12 @@ def calcHistogram(images):
         freqMap[round(bins[i],1)] = hist[i]
     print(freqMap)
     return freqMap
-def otsuThreshold(images , total,ranges = (-6,6),interval =0.1):
+def otsuThreshold(images , total,ranges = (-6,6),interval =0.1,thre = None):
     histogram = calcHistogram(images)
-    ret = findThresh(histogram,total,ranges,interval)
+    if thre:
+        ret = thre
+    else:
+        ret = findThresh(histogram,total,ranges,interval)
     print("ret is %.1f"%(ret))
     shape = images.shape
     hist  = np.ones(shape)

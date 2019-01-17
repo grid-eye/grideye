@@ -27,16 +27,16 @@ for i in range(pre_read_count):
 
 
 # 插值(cublic)
-def cubicInterpolate(points, pixels, grid_x, grid_y, ip_type='cubic'):
+def interpolate(points, pixels, grid_x, grid_y, ip_type='cubic'):
     return griddata(points, pixels, (grid_x, grid_y), method=ip_type)
 def readBgTemperature(th_bg=None,save_dir="bgtemp"):
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
     all_bgframes = []
     print("read bg temperature ,the save dir is %s"%(save_dir))
-    if th_bg!=None:
-       th_bgrames = th_bg
-    bgframe_cnt=0
+    if th_bg != None:
+       th_bgframes = th_bg
+    bgframe_cnt = 0
     while True:
         temp = []
         for row in amg.pixels:
@@ -49,24 +49,23 @@ def readBgTemperature(th_bg=None,save_dir="bgtemp"):
         if bgframe_cnt >= th_bgframes:
             print('next step')
             print(len(all_bgframes))
-            total_frames = np.zeros((8, 8))
+            total_frames = np.zeros((8,8))
             for aitem in range(len(all_bgframes)):
                 total_frames = total_frames + np.array(all_bgframes[aitem])
-            average_temperature = total_frames / th_bgframes
+            average_temperature = total_frames /len(all_bgframes)
             print("the average temperature is considered as bgtemperature")
             print(average_temperature)
-            print((np.array(points).shape, np.array(average_temperature).shape))
-            print(grid_x.shape, grid_y.shape)
+            # print(grid_x.shape, grid_y.shape)
             # the result of the interpolating for the grid
-            average_temp = np.array(average_temperature).flatten()
-            average_temp = np.round(average_temp,1)
-            inter_result = cubicInterpolate(
-                points, average_temp, grid_x, grid_y, 'linear')
+            # average_temp = np.array(average_temperature).flatten()
+            average_temp = np.round(average_temperature,2)
+            #inter_result = interpolate(
+            #   points, average_temp, grid_x, grid_y, 'linear')
 
-            temp = cubicInterpolate(points, np.array(
-                temp).flatten(), grid_x, grid_y, 'linear')
-            print("after interpolating , save the data in path %s"%(save_dir))
-            np.save('%s/avgtemp.npy'%(save_dir), inter_result)
+            # temp = interpolate(points, np.array(
+            #    temp).flatten(), grid_x, grid_y, 'linear')
+            # print("after interpolating , save the data in path %s"%(save_dir))
+            np.save('%s/avgtemp.npy'%(save_dir), average_temp)
             '''
             fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
             ax1.imshow(inter_result, cmap='hot', interpolation='bilinear')

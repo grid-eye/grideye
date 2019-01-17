@@ -2,11 +2,9 @@ import numpy as np
 import os
 import sys
 import matplotlib.pyplot as plt
-imagePrefix="images"
-bgPrefix="images"
 patharg = sys.argv[1]
-framePath = imagePrefix+"/"+patharg+"/imagedata.npy"
-avePath = bgPrefix+"/"+patharg+"/avgtemp.npy"
+framePath = patharg+"/imagedata.npy"
+avePath = patharg+"/avgtemp.npy"
 allframe = np.load(framePath)
 avetemp = np.load(avePath)
 diff_queues = []

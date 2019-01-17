@@ -42,7 +42,7 @@ while counter < n:
     imagedir = imageactual+str(counter)
     readBgTemperature(400,bgtempdir)
     try:
-        cp.process(m,imagedir)
+        cp.acquireImagedata(m,imagedir)
     except KeyboardInterrupt:
         print("catch a keyboardinterrupt ,break the while")
         break

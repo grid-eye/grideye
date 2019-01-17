@@ -10,14 +10,18 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
-import otsuBinarize.otsuThreshold as otsuThreshold
+from  .otsuBinarize import otsuThreshold
+
 
 class CountPeople:
-    __peoplenum=  0#统计的人的数量
-    __diffThresh = 2.8# 温度差阈值
-    __otsuThresh = 1.8 #otsu 阈值
-    __averageDiffThresh = 0.3 #平均温度查阈值
-    def __init__(self, pre_read_count=30, th_bgframes=20 , row = 32, col = 32):
+    __peoplenum = 0  # 统计的人的数量
+    __diffThresh = 2.8  # 温度差阈值
+    __otsuThresh = 2.4  # otsu 阈值
+    __averageDiffThresh = 0.3  # 平均温度查阈值
+    __otsuResultForePropor = 0.0004
+    # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
+
+    def __init__(self, pre_read_count=30, th_bgframes=20, row=32, col=32):
         # the counter of the bgframes
         self.i2c = busio.I2C(board.SCL, board.SDA)
         self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
@@ -26,12 +30,12 @@ class CountPeople:
         self.all_bgframes = []  # save all frames which sensor read
         self.pre_read_count = pre_read_count
         self.th_bgframes = th_bgframes
-        self.row = row# image's row
-        self.col = col #  image's col
+        self.row = row  # image's row
+        self.col = col  # image's col
         self.image_size = row * col
         self.image_id = 0  # the id of the hot image of each frame saved
-        self.hist_id = 0 # the id of the hist image of diff between average
-        #temp and current temp
+        self.hist_id = 0  # the id of the hist image of diff between average
+        # temp and current temp
         # 8*8 grid
         self.points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
         # discard the first and the second frame
@@ -82,7 +86,8 @@ class CountPeople:
             'difference between bg temperature and current temperature')
         fig.tight_layout()
         plt.show()
-    def calAverageAndCurrDiff(self,average_temp,curr_temp):
+
+    def calAverageAndCurrDiff(self, average_temp, curr_temp):
         '''
             calculate the difference between avereage temperature and current temperature
             args:None
@@ -90,7 +95,8 @@ class CountPeople:
 
         '''
         diff = curr_temp - average_temp
-        return np.round(diff,2)
+        return np.round(diff, 2)
+
     def isBgByAverageDiff(self, average_temp, curr_temp):
         '''
             if this frame is bg temperature
@@ -128,163 +134,184 @@ class CountPeople:
             return :2-d array
         '''
         pass
-    def medianFilter(self,img):
-        img =self.makeImgCompatibleForCv(img)
-        median = cv.medianBlur(img,5)
+
+    def medianFilter(self, img):
+        img = self.makeImgCompatibleForCv(img)
+        median = cv.medianBlur(img, 5)
         return median
-    def gaussianFilter(self,img):
-        img =self.makeImgCompatibleForCv(img)
-        blur = cv.GaussianBlur(img,(3,3),0)
+
+    def gaussianFilter(self, img):
+        img = self.makeImgCompatibleForCv(img)
+        blur = cv.GaussianBlur(img, (3, 3), 0)
         return blur
-    def bilateralFilter(self,img):
-        img =self.makeImgCompatibleForCv(img)
-        cv.bilateralFilter(img,9,75,75)
-    def makeImgCompatibleForCv(self,img):
-        cv.imwrite('temp.png',img)
-        return cv.imread('temp.png',0)
-    def otsuThreshold(self, img ):
-        img =self.makeImgCompatibleForCv(img)
-        ret,th = cv.threshold(img,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+
+    def bilateralFilter(self, img):
+        img = self.makeImgCompatibleForCv(img)
+        cv.bilateralFilter(img, 9, 75, 75)
+
+    def makeImgCompatibleForCv(self, img,datatype=np.float32):
+        img = np.array(img, datatype)
+        return img
+        
+    def otsuThreshold(self, img):
+        img = self.makeImgCompatibleForCv(img)
+        ret, th = cv.threshold(img, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
         return th
-    def equalizeHist(self,img):
+
+    def equalizeHist(self, img):
         '''
             Histogram equalization
         '''
-        img=self.makeImgCompatibleForCv(img)
+        img = self.makeImgCompatibleForCv(img)
         return cv.equalizeHist(img)
-    def displayImage(self,img,title='temp',gray=True):
-        #plt.ion()
+
+    def displayImage(self, img, title='temp', gray=True):
+        # plt.ion()
         if gray == True:
-            plt.imshow(img,cmap='gray')
+            plt.imshow(img, cmap='gray')
         else:
             plt.imshow(img)
         plt.title(title)
         plt.xticks([])
         plt.yticks([])
-    def saveDiffHist(self,diff ,histtype="step"):
-        plt.subplot(2,1,1)
-        plt.title("hist_%d.png"%(self.hist_id))
+
+    def saveDiffHist(self, diff, histtype="step"):
+        plt.subplot(2, 1, 1)
+        plt.title("hist_%d.png" % (self.hist_id))
         print(diff.shape)
-        plt.hist(diff.ravel(),bins=1200 ,range=(-6,6) ,histtype=histtype)
+        plt.hist(diff.ravel(), bins=1200, range=(-6, 6), histtype=histtype)
         plt.ylabel("temperature(%)")
         plt.xlabel("temperature(oC)")
-        
-        plt.savefig("%s/diff_hist_%d.png"%(actual_dir,self.hist_id))
+
+        plt.savefig("%s/diff_hist_%d.png" % (actual_dir, self.hist_id))
         self.hist_id += 1
         plt.tight_layout()
         plt.clf()
-    def saveImage(self, average_temperature, currFrameIntepol,filter=False):
-        num=(1,2)
+
+    def saveImage(self, average_temperature, currFrameIntepol, filter=False):
+        num = (1, 2)
         if filter == True:
-            num=(2,3)
-        row ,col = num
+            num = (2, 3)
+        row, col = num
         ax_id = 1
         plt.subplot(row, col, ax_id)
         ax_id += 1
         plt.imshow(average_temperature)
         plt.title('bgTemperature')
-        plt.subplot(row,col,ax_id)
-        ax_id+=1
+        plt.subplot(row, col, ax_id)
+        ax_id += 1
         plt.imshow(currFrameIntepol)
         plt.title("curTemp original ")
         if filter == True:
-            plt.subplot(row,col,ax_id)
-            ax_id+=1
-            gblur =self.gaussianFilter(currFrameIntepol)
+            plt.subplot(row, col, ax_id)
+            ax_id += 1
+            gblur = self.gaussianFilter(currFrameIntepol)
             plt.imshow(gblur)
             plt.xticks([])
             plt.yticks([])
             plt.title('gaussian filter')
-            plt.subplot(row,col,ax_id)
-            ax_id+=1
+            plt.subplot(row, col, ax_id)
+            ax_id += 1
             median = self.medianFilter(currFrameIntepol)
             plt.imshow(median)
             plt.xticks([])
             plt.yticks([])
             plt.title('median filter')
-            plt.subplot(row,col,ax_id)
-            ax_id+=1
+            plt.subplot(row, col, ax_id)
+            ax_id += 1
             th = self.otsuThreshold(gblur)
             plt.imshow(th)
             plt.xticks([])
             plt.yticks([])
             plt.title('otsu thersholding')
         plt.tight_layout()
-        plt.savefig("%s/hot_image_ %d.png" % (actual_dir ,self.image_id))
+        plt.savefig("%s/hot_image_ %d.png" % (actual_dir, self.image_id))
         self.image_id = self.image_id+1
         plt.clf()
-    def filterProcess(self,average_temperature ,img):
+
+    def filterProcess(self, average_temperature, img):
         '''
             remove noise by using median filter,gaussian filter
         '''
         pass
+
     def saveDiffBetweenAveAndCurr(self):
-            counter = 0
-            diff_queues.append(self.calAverageDiff(average_temperature,currFrameIntepol))
-            if counter > 2000 :
-                diff_array = np.array(np.round(diff_queues,1))
-                average_diff =np.round(np.average(diff_array),1)
-                np.savetxt('diff_between_avgtemp_currtemp.txt',diff_array,delimiter=',')
-                np.savetxt('average_diff.txt',np.array([average_diff]))
-                print('the average diff is %f'%(average_diff))
-            counter += 1
-            print('counter: %d'%(counter))
-    def judgeFrameByHist(self,img):#根据直方图判断当前帧是否含有人类
-        hist ,bins = np.histogram(img.ravel() ,[0] , bins =120 , range=(-6,6))
+        counter = 0
+        diff_queues.append(self.calAverageDiff(
+            average_temperature, currFrameIntepol))
+        if counter > 2000:
+            diff_array = np.array(np.round(diff_queues, 1))
+            average_diff = np.round(np.average(diff_array), 1)
+            np.savetxt('diff_between_avgtemp_currtemp.txt',
+                       diff_array, delimiter=',')
+            np.savetxt('average_diff.txt', np.array([average_diff]))
+            print('the average diff is %f' % (average_diff))
+        counter += 1
+        print('counter: %d' % (counter))
+
+    def judgeFrameByHist(self, img):  # 根据直方图判断当前帧是否含有人类
+        hist, bins = np.histogram(img.ravel(), [0], bins=120, range=(-6, 6))
         bins = bins[:-1]
-        freqMap  = dict.fromkeys(bins ,0)
+        freqMap = dict.fromkeys(bins, 0)
         for i in range(hist.shape[0]):
             freqMap[bins[i]] = hist[i]
         sum = 0
-        for i in range(self.__diffThresh,5.9,0.1):
+        for i in range(self.__diffThresh, 5.9, 0.1):
             sum += freqMap[i]
-        if sum >  self.image_size / 9:
-            return True
-        else :
-            return False
-    def judgeFrameByDiffAndBTSU(self,img_diff):#根据当前温度和平均温度（表示背景温度)的差值判断是否含有人类
-        if img.max() > self.__diffThresh:
-            ret = otsuThreshold(img_diff,1024)
-            
+        if sum > self.image_size / 9:
             return True
         else:
             return False
-    def judgeFrameByAverage(self,average_temp , current_temp):#根据当前温度的平均值和背景温度的平均值判断当前帧是否含有人类
+
+    # 根据当前温度和平均温度（表示背景温度)的差值判断是否含有人类
+    def judgeFrameByDiffAndBTSU(self, img_diff):
+        if img.max() > self.__diffThresh:
+            ret, hist = otsuThreshold(img_diff, 1024)
+            fore_proportion = hist.sum() / self.image_size
+            if fore_proportion > self.__otsuResultForePropor:
+                return True
+            return False
+        else:
+            return False
+
+    # 根据当前温度的平均值和背景温度的平均值判断当前帧是否含有人类
+    def judgeFrameByAverage(self, average_temp, current_temp):
         ave_ave = np.average(average_temp)
         curr_temp_ave = np.average(current_temp)
         diff_abs = abs(curr_temp_ave - ave_ave)
-        if diff_abs > self.__averageDiffThresh :
+        if diff_abs > self.__averageDiffThresh:
             return True
         else:
             return False
-    def isCurrentFrameContainHuman(self, img_diff ,
-        current_temp,average_temperature):
+
+    def isCurrentFrameContainHuman(self, img_diff,
+                                   current_temp, average_temperature):
         '''
             判断当前帧是否含有人类
             ret : True:含有人类，False:没有人类，表示属于背景
         '''
-        return self.judgeFrameByHist(img_diff) and self.judgeFrameByDiffAndBTSU(img_diff)and self.judgeFrameByAverage(average_temperature,current_temp)
-    def process(self,frame_count=2000,customDir=None):
+        return self.judgeFrameByHist(img_diff) and self.judgeFrameByDiffAndBTSU(img_diff)and self.judgeFrameByAverage(average_temperature, current_temp)
+
+    def acquireImageData(self,frame_count = 2000,customDir = None):
         '''
-            main function
+            这个方法是为了获得图像数据，数据保存在customDir中
         '''
-        if  customDir:
+        if customDir:
             if not os.path.exists(customDir):
                 os.mkdir(customDir)
-                print("create dir sucessfully: %s"%(customDir))
+                print("create dir sucessfully: %s" % (customDir))
         else:
             customDir = "imagetemp"
             if not os.path.exists(customDir):
                 os.mkdir(customDir)
         # load the avetemp.py stores the average temperature
         # the result of the interpolating for the grid
-        average_path =customDir+"/"+"avgtemp.npy"
-        print("the average path is %s"%(average_path))
+        average_path = customDir+"/"+"avgtemp.npy"
+        print("the average path is %s" % (average_path))
         average_temperature = np.load(average_path)
         all_frames = []
-        frame_counter=0# a counter of frames' num
+        frame_counter = 0  # a counter of frames' num
         # diff_queues saves the difference between average_temp and curr_temp
-        diff_queues=[]
         try:
             while True:
                 currFrame = []
@@ -294,68 +321,116 @@ class CountPeople:
                 currFrame = np.array(currFrame)
                 print("current temperature is ")
                 print(currFrame)
-                currFrameIntepol = self.interpolate(self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
-                medianBlur = self.medianFilter(currFrameIntepol)
-                all_frames.append(medianBlur)
-                diff =   self.calAverageAndCurrDiff(average_temperature,medianBlur)
-                print(diff.shape)
-                diff_queues.append(diff)
+                all_frames.append(currFrame)
                 frame_counter += 1
-                print("the %dth frame"%(frame_counter))
+                print("the %dth frame" % (frame_counter))
+                if frame_counter > frame_count:
+                    self.saveImageData(all_frames, customDir)
+                    break
+
+        except KeyboardInterrupt:
+            print("catch keyboard interrupt")
+            # save all images
+            self.saveImageData(all_frames, customDir)
+            print("save all frames")
+
+    def process(self, frame_count=2000, customDir=None):
+        '''
+            main function
+        '''
+        if customDir:
+            if not os.path.exists(customDir):
+                os.mkdir(customDir)
+                print("create dir sucessfully: %s" % (customDir))
+        else:
+            customDir = "imagetemp"
+            if not os.path.exists(customDir):
+                os.mkdir(customDir)
+        # load the avetemp.py stores the average temperature
+        # the result of the interpolating for the grid
+        average_path = customDir+"/"+"avgtemp.npy"
+        print("the average path is %s" % (average_path))
+        average_temperature = np.load(average_path)
+        all_frames = []
+        frame_counter = 0  # a counter of frames' num
+        # diff_queues saves the difference between average_temp and curr_temp
+        try:
+            while True:
+                currFrame = []
+                for row in self.amg.pixels:
+                    # Pad to 1 decimal place
+                    currFrame.append(row)
+                currFrame = np.array(currFrame)
+                print("current temperature is ")
+                print(currFrame)
+                # currFrameIntepol = self.interpolate(
+                #    self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
+                # medianBlur = self.medianFilter(currFrameIntepol)
+                all_frames.append(currFrame)
+                # diff = self.calAverageAndCurrDiff(
+                # average_temperature, currFrame)
+                # print(diff.shape)
+                # diff_queues.append(diff)
+                frame_counter += 1
+                print("the %dth frame" % (frame_counter))
                 # self.displayImage(average_temperature , currFrameIntepol)
                 # plt.figure(num=1)
                 # self.displayImage(currFrameIntepol,'original image')
-                #gblur =self.gaussianFilter(currFrameIntepol)
+                # gblur =self.gaussianFilter(currFrameIntepol)
                 # plt.figure(num=2)
-                #self.displayImage(gblur,'gaussian filter image')
+                # self.displayImage(gblur,'gaussian filter image')
                 # median_filter = self.medianFilter(currFrameIntepol)
                 # plt.figure(num=3)
                 # self.displayImage(median_filter,'median filter image')
                 # th = self.otsuThreshold(gblur)
                 # plt.figure(num=4)
                 # self.displayImage(th,'otsu threshold',True)
-                #equalHistRet= self.equalizeHist(currFrameIntepol)
+                # equalHistRet= self.equalizeHist(currFrameIntepol)
                 # plt.figure(num=5)
                 # self.displayImage(equalHistRet,'equalization hist')
                 # plt.show()
                 # self.displayImage_bg_curr(average_temperature,currFrameIntepol)
                 # isBg = self.isBgByAverageDiff(average_temperature,currFrameIntepol)
                 # self.averageFilter(average_temperature, currFrameIntepol)
-                curr_ave = np.mean(medianBlur)
-                if diff.max() > self.__diffThresh:
-                    print("has a human")
-                if  frame_counter >frame_count :
-                    self.saveImageData(all_frames,diff_queues,customDir)
+                #curr_ave = np.mean(medianBlur)
+                #if diff.max() > self.__diffThresh:
+                #    print("has a human")
+                if frame_counter > frame_count:
+                    self.saveImageData(all_frames, customDir)
                     break
 
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
             # all_frames=[]
-            # save all images 
-            self.saveImageData(all_frames,diff_queues,customDir)
-            #for i in range(len(all_frames)):
-                 #print("shape is "+str(diff_queues[i].shape))
-             #    self.saveDiffHist(diff_queues[i])
-             #   self.saveImage(average_temperature ,all_frames[i],True)
+            # save all images
+            self.saveImageData(all_frames, customDir)
+            # for i in range(len(all_frames)):
+            #print("shape is "+str(diff_queues[i].shape))
+            #    self.saveDiffHist(diff_queues[i])
+            #   self.saveImage(average_temperature ,all_frames[i],True)
             print("save all frames")
             print("exit")
-            raise KeyboardInterrupt("catch keyboard interrupt")        
+            raise KeyboardInterrupt("catch keyboard interrupt")
 
     def extractBody(self):
         pass
-    def saveImageData(self , all_frames,diff_queues,outputdir):
-        print("length of the all_frames: %d"%(len(all_frames)))
+
+    def saveImageData(self, all_frames, outputdir):
+        print("length of the all_frames: %d" % (len(all_frames)))
         print("save all images data in "+outputdir+"/"+"imagedata.npy")
-        #save all image data in directory:./actual_dir 
-        np.save(outputdir+"/imagedata.npy",np.array(all_frames))
-        #save all diff between bgtemperature and current temperature in actual dir
+        # save all image data in directory:./actual_dir
+        np.save(outputdir+"/imagedata.npy", np.array(all_frames))
+        # save all diff between bgtemperature and current temperature in actual dir
 
     def findBodyLocation(self):
         pass
-    def setPackageDir(self,pdir):
+
+    def setPackageDir(self, pdir):
         self.pdir = pdir
+
     def trackPeople(self):
         pass
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 2:
@@ -368,23 +443,22 @@ if __name__ == "__main__":
     current_dir = os.path.abspath(os.path.dirname(__file__))
     adjust_dir = current_dir
     if current_dir.endswith("grideye"):
-        adjust_dir = current_dir +"/countpeople"
+        adjust_dir = current_dir + "/countpeople"
     packageDir = adjust_dir
     actual_dir = adjust_dir
     path_arg = ""
     if len(sys.argv) > 1:
-        actual_dir =actual_dir+ "/"+sys.argv[1]
-        path_arg=sys.argv[1]+"/"
+        actual_dir = actual_dir + "/"+sys.argv[1]
+        path_arg = sys.argv[1]+"/"
     # sleep 10 s
-    print("the actual_dir is %s"%(actual_dir))
+    print("the actual_dir is %s" % (actual_dir))
 
     if not os.path.exists(actual_dir):
         os.mkdir(actual_dir)
     countp = CountPeople()
-    #这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
+    # 这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
     countp.setPackageDir(packageDir)
     try:
-        countp.process()
+        countp.acquireImageData()
     except KeyboardInterrupt("keyboard interrupt"):
         print("exit")
-

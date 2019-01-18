@@ -10,7 +10,7 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
-from  .otsuBinarize import otsuThreshold
+from  otsuBinarize import otsuThreshold
 
 
 class CountPeople:
@@ -21,7 +21,7 @@ class CountPeople:
     __otsuResultForePropor = 0.0004
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
-    def __init__(self, pre_read_count=30, th_bgframes=20, row=32, col=32):
+    def __init__(self, pre_read_count=30, th_bgframes=200, row=32, col=32):
         # the counter of the bgframes
         self.i2c = busio.I2C(board.SCL, board.SDA)
         self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
@@ -94,7 +94,7 @@ class CountPeople:
             return : difference between average tempe and currtemp
 
         '''
-        diff = curr_temp - average_temp
+        diff = np.array(curr_temp - average_temp,np.float32)
         return np.round(diff, 2)
 
     def isBgByAverageDiff(self, average_temp, curr_temp):
@@ -113,19 +113,17 @@ class CountPeople:
         else:
             return False
 
-    def calAverageTemp(self):
+    def calAverageTemp(self,all_bgframes):
         '''
            func: calulate the temperature of n frames ,n >= 200
             args:none
             return : 2-d array which is the average temperature of
                     n frames
         '''
-        if len(self.all_bgframes) < (self.th_bgframes):
-            raise RuntimeError('the len of the all_bgframes is too small')
         total_frames = np.zeros((8, 8))
         for aitem in range(len(self.all_bgframes)):
-            total_frames = total_frames+np.array(self.all_bgframes[aitem])
-        return total_frames/self.th_bgframes
+            total_frames = total_frames+np.array(all_bgframes[aitem])
+        return total_frames/len(all_bgframes)
 
     def detectionNoise(self):
         '''
@@ -155,7 +153,7 @@ class CountPeople:
         
     def otsuThreshold(self, img):
         img = self.makeImgCompatibleForCv(img)
-        ret, th = cv.threshold(img, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
+        ret, th = otsuThreshold(img , self.__otsuThresh)
         return th
 
     def equalizeHist(self, img):
@@ -234,6 +232,12 @@ class CountPeople:
             remove noise by using median filter,gaussian filter
         '''
         pass
+    def calcDiffBetweenCuffAndAverage(self,currFrame,method ="median"):
+        avg =  self.average_temp_median
+        if method == "gaussian":
+            avg = self.average_temp_gaussian
+        #计算当前温度和平均温度差
+        return np.round(currFrame - avg,2)
 
     def saveDiffBetweenAveAndCurr(self):
         counter = 0
@@ -284,8 +288,8 @@ class CountPeople:
         else:
             return False
 
-    def isCurrentFrameContainHuman(self, img_diff,
-                                   current_temp, average_temperature):
+    def isCurrentFrameContainHuman(self,current_temp,
+            average_temperature,img_diff):
         '''
             判断当前帧是否含有人类
             ret : True:含有人类，False:没有人类，表示属于背景
@@ -334,27 +338,22 @@ class CountPeople:
             self.saveImageData(all_frames, customDir)
             print("save all frames")
 
-    def process(self, frame_count=2000, customDir=None):
+    def process(self,  frame_interval=400):
         '''
             main function
+
+            循环读取传感器数据，计算出背景温度后，读取的下一帧时，对帧进行插值处理，并进行相应的滤波处理（为了降噪），然后进一步
+            噪声检测，通过计算图像直方图分布，计算背景温度差值并用大津二值法对差值图像进行二值化，下一步是计算帧的平均温度和背景温度的
+            平均温度的差值，通过三者结合可以得出当前帧是否含有人类，如果存在人类那么可以进行下一步提取目标，找到目标位置，跟踪目标
+            ，如果不存在就可以认为这个帧是背景温度，也可以丢弃这个帧(如果这个帧噪声很多，可能是其他人员路过监控区域边缘被检测到），
+            这是为了减少噪声的影响，
+            参数：frame_interval
+            表示开始读取的数据帧数作为计算背景温度的数据，无人经过一段时间(1000帧之后)需要重新计算背景温度帧
         '''
-        if customDir:
-            if not os.path.exists(customDir):
-                os.mkdir(customDir)
-                print("create dir sucessfully: %s" % (customDir))
-        else:
-            customDir = "imagetemp"
-            if not os.path.exists(customDir):
-                os.mkdir(customDir)
-        # load the avetemp.py stores the average temperature
-        # the result of the interpolating for the grid
-        average_path = customDir+"/"+"avgtemp.npy"
-        print("the average path is %s" % (average_path))
-        average_temperature = np.load(average_path)
-        all_frames = []
-        frame_counter = 0  # a counter of frames' num
-        # diff_queues saves the difference between average_temp and curr_temp
         try:
+                self.calcBg = False #传感器是否计算完背景温度
+                frame_counter = 0 #帧数计数器
+                bg_frames = [] #保存用于计算背景温度的帧
             while True:
                 currFrame = []
                 for row in self.amg.pixels:
@@ -363,13 +362,41 @@ class CountPeople:
                 currFrame = np.array(currFrame)
                 print("current temperature is ")
                 print(currFrame)
-                # currFrameIntepol = self.interpolate(
-                #    self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
-                # medianBlur = self.medianFilter(currFrameIntepol)
+                if frame_counter  ==  self.th_bgframes :
+                    frame_counter = 0 
+                    self.th_bgframes = 1000
+                    #更新计算背景的阈值
+                    self.average_temp = self.calAverageTemp(bg_frames)
+                    self.average_temp_median =
+                    self.medianFilter(self.average_temp
+                    self.average_temp_gaussian =
+                    self.gaussianFilter(self.average_temp)
+                    #对平均温度进行插值
+                    self.average_temp_Interpol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'linear')
+                    print("the new average temp's shape is
+                            "+str(self.average_temp_Interpol.shape))
+                    print("as list")
+                    print(self.average_temp_Interpol)
+                    frame_counter = 0 # reset the counter
+                    self.calcBg = True # has calculated the bg temperature
+
+                else if not self.calcBg: #是否计算完背景温度
+                    bg_frames.append(currFrame)
+                    frame_counter += 1#帧数计数器自增
+                    continue
+                #计算完背景温度的步骤
+                #对当前帧进行内插
+                currFrameIntepol = self.interpolate(
+                    self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
+                #对当前帧进行中值滤波，也可以进行高斯滤波进行降噪，考虑到分辨率太低，二者效果区别不大
+                medianBlur = self.medianFilter(currFrameIntepol)
+                #对滤波后的温度进行差值计算
+                temp_diff =self.calcDiffBetweenCurrAndAverage(medianBlur)
+                if self.currentFrameContainHuman(medianBlur
                 all_frames.append(currFrame)
-                # diff = self.calAverageAndCurrDiff(
-                # average_temperature, currFrame)
-                # print(diff.shape)
+                diff = self.calAverageAndCurrDiff(
+                 average_temperature, currFrame)
+                print(diff.shape)
                 # diff_queues.append(diff)
                 frame_counter += 1
                 print("the %dth frame" % (frame_counter))
@@ -409,29 +436,56 @@ class CountPeople:
             #    self.saveDiffHist(diff_queues[i])
             #   self.saveImage(average_temperature ,all_frames[i],True)
             print("save all frames")
-            print("exit")
+            prin("exit")
             raise KeyboardInterrupt("catch keyboard interrupt")
+   
+    def extractBody(self,average_temp , curr_temp):
+        '''
+           找到两人之间的间隙(如果有两人通过)
+           在背景温度的基础上增加0.25摄氏度作为阈值,低于阈值作为背景，高于阈值作为前景，观察是否能区分两个轮廓，如果不能就继续循环增加0.25
+           参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
+        '''
+        thre_temp = average_temp+0.25 #阈值温度
+        ones = np.ones(average_temp.shape , np.float32)
+        ret = (0 , None,None,None)
+        while True:
+            binary = ones * (curr_temp >= thre_temp)
+            #如果区域面积大于图片1/3，则可能有两个人出现在图片上
+            if binary.sum() >=  self.imagesize * 0.3 :
+                #ret ,thresh = self.otsuThreshold(thre_temp)
+                thresh = np.array(binary , np.uint8)
+                img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+                if len(contours[1]) == 2 :
+                    #存在两个轮廓
+                    cnt1,cnt2 = contours[0],contours[1]
+                    #求轮廓的面积
+                    cnt1_area = cv.contourArea(cnt1)
+                    cnt2_area = cv.contourArea(cnt2)
+                    if  cnt1_area > 0.1*self.imgsize && cnt2_area >  0.1*self.imgsize:
+                        #返回两个轮廓的点的坐标
+                        return (2,img2,contours,heirarchy)
+                else:
+                    if len(contours[1]) ==1:
+                        cnt = contours[1]
+                        cnt_area = cv.contourArea(cnt)
+                        if cnt_area < self.imgsize*0.1:
+                            return (1,img2,contours,heirarchy)
 
-    def extractBody(self):
-        pass
-
+            #不断提高阈值                    
+            thre_temp += 0.25
+        return ret
     def saveImageData(self, all_frames, outputdir):
         print("length of the all_frames: %d" % (len(all_frames)))
         print("save all images data in "+outputdir+"/"+"imagedata.npy")
         # save all image data in directory:./actual_dir
         np.save(outputdir+"/imagedata.npy", np.array(all_frames))
         # save all diff between bgtemperature and current temperature in actual dir
-
     def findBodyLocation(self):
         pass
-
     def setPackageDir(self, pdir):
         self.pdir = pdir
-
     def trackPeople(self):
         pass
-
-
 if __name__ == "__main__":
     if len(sys.argv) > 2:
         if sys.argv[2] == 'people':

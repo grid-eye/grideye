@@ -44,9 +44,10 @@ def findThresh(histogram , total,ranges = (-6,6),interval =
                 threshold2 = i 
             max = between
     return (threshold1+threshold2)/2.0
-def calcHistogram(images):
+def calcHistogram(images,ranges = (-6,6) ):
+    bins = (ranges[1] - ranges[0]) * 10
     images = np.round(images,1)
-    hist ,bins = np.histogram(images.ravel() , bins =120 , range=(-6,6))
+    hist ,bins = np.histogram(images.ravel() , bins=bins , range=(-6,6))
     print(hist.sum())
     print(bins)
     bins = bins[:-1]

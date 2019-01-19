@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from interpolate import imageInterpolate
 import cv2 as cv
 from otsuBinarize import otsuThreshold
-def analyseSequence(path ,argarray,interpoate_method = "linear"):
+def analyseSequence(path ,argarray,interpolate_method = "linear"):
     allframe = np.load(path+"/imagedata.npy")
     avgtemp = np.load(path+"/avgtemp.npy")
     allframe = imageInterpolate(allframe,interpolate_method)

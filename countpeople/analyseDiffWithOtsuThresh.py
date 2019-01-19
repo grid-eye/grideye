@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import cv2 as cv
 import os
 import sys
@@ -15,17 +14,10 @@ def compatibleForCv(image,dtype = np.float32):
     image = np.array(image, dtype)
     return image
 def calcOtsuThresh(diffdata,image_id,filter_process=False):
-    plt.xticks([])
-    plt.yticks([])
     #img = compatibleForCv(diffdata)
     img = np.array(diffdata,np.float32)
-    print("img's dtype is :")
-    print(img.dtype)
     median = cv.medianBlur(img,5)
     if median.max() > 2.5:
-        print(median)
-        print("median filter is %.2f"%(median.max()))
-        print(median.dtype)
         gaussian = cv.GaussianBlur(img,(5,5),0)
         gaussian = np.round(gaussian,1)
         ret,thresh = otsuThreshold(gaussian,1024)
@@ -50,8 +42,8 @@ print("load data sucessfully!")
 print(diffdata.shape)
 result =[]
 for i in range(len(diffdata)):
-    #print('%dth frames pic'%(i))
-    if diffdata[i].max() < 2.6:
+    print('%dth frames pic'%(i))
+    if diffdata[i].max() < 2.:
         continue
     ret = calcOtsuThresh(diffdata[i],i,True)
     if ret :

@@ -232,6 +232,19 @@ class CountPeople:
         plt.savefig("%s/hot_image_ %d.png" % (actual_dir, self.image_id))
         self.image_id = self.image_id+1
         plt.clf()
+
+    def filterProcess(self, average_temperature, img):
+        '''
+            remove noise by using median filter,gaussian filter
+        '''
+        pass
+    def calcDiffBetweenCuffAndAverage(self,currFrame,method ="median"):
+        avg =  self.average_temp_median
+        if method == "gaussian":
+            avg = self.average_temp_gaussian
+        #计算当前温度和平均温度差
+        return np.round(currFrame - avg,2)
+
     def saveDiffBetweenAveAndCurr(self):
         counter = 0
         diff_queues.append(self.calAverageDiff(
@@ -354,7 +367,6 @@ class CountPeople:
             表示开始读取的数据帧数作为计算背景温度的数据，无人经过一段时间(1000帧之后)需要重新计算背景温度帧
         '''
         try:
-            print("start running the application")
             self.calcBg = False #传感器是否计算完背景温度
             frame_counter = 0 #帧数计数器
             bg_frames = [] #保存用于计算背景温度的帧
@@ -364,7 +376,6 @@ class CountPeople:
                     # Pad to 1 decimal place
                     currFrame.append(row)
                 currFrame = np.array(currFrame)
-                print("the %dth frame of the bgtemperature "%(len(bg_frames)+1))
                 print("current temperature is ")
                 print(currFrame)
                 if frame_counter  ==  self.th_bgframes :
@@ -373,17 +384,18 @@ class CountPeople:
                     #更新计算背景的阈值
                     self.average_temp = self.calAverageTemp(bg_frames)
                     #对平均温度进行插值
-                    self.average_temp_intepol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'linear')
-                    self.average_temp_median =   self.medianFilter(self.average_temp_intepol)
-                    self.average_temp_gaussian =self.gaussianFilter(self.average_temp_intepol)
-                    print("the new average temp's shape is "+str(self.average_temp_intepol.shape))
+                    self.average_temp_Intepol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'linear')
+                    self.average_temp_median =   self.medianFilter(self.average_temp_Intepol)
+                    self.average_temp_gaussian =self.gaussianFilter(self.average_temp_Intepol)
+                    print("the new average temp's shape is
+                            "+str(self.average_temp_Interpol.shape))
                     print("as list")
-                    print(self.average_temp_intepol)
+                    print(self.average_temp_Interpol)
                     frame_counter = 0 # reset the counter
                     bg_frames = [] #清空保存的图片以节省内存
                     self.calcBg = True # has calculated the bg temperature
 
-                elif not self.calcBg: #是否计算完背景温度
+                else if not self.calcBg: #是否计算完背景温度
                     bg_frames.append(currFrame)
                     frame_counter += 1#帧数计数器自增
                     continue
@@ -393,9 +405,10 @@ class CountPeople:
                     self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
                 #对当前帧进行中值滤波，也可以进行高斯滤波进行降噪，考虑到分辨率太低，二者效果区别不大
                 medianBlur = self.medianFilter(currFrameIntepol)
-                #对滤波后的当前温度和平均温度进行差值计算
-                temp_diff =self.calAverageAndCurrDiff(self.average_temp_median , medianBlur)
-                ret =self.currentFrameContainHuman(medianBlur,self.average_temp_median
+                #对滤波后的温度进行差值计算
+                temp_diff =self.calcDiffBetweenCurrAndAverage(medianBlur)
+                ret =
+                self.currentFrameContainHuman(medianBlur,self.average_temp_median
                     ,temp_diff )
                 if not ret[0]:
                     if ret[1]:
@@ -403,7 +416,8 @@ class CountPeople:
                         frame_counter += 1
                     continue
                 #如果当前图片中含有两个人
-                cnt_count,image ,contours,hierarchy =self.extractBody(medianBlur)
+                cnt_count,image ,contours,hierarchy =
+                self.extractBody(medianBlur)
                 print("当前帧数中存在的人数是%d"%(cnt_count))
                 sleep(0.5)
 
@@ -442,7 +456,7 @@ class CountPeople:
                     #求轮廓的面积
                     cnt1_area = cv.contourArea(cnt1)
                     cnt2_area = cv.contourArea(cnt2)
-                    if  cnt1_area > 0.1*self.imgsize and cnt2_area >  0.1*self.imgsize:
+                    if  cnt1_area > 0.1*self.imgsize && cnt2_area >  0.1*self.imgsize:
                         #返回两个轮廓的点的坐标
                         return (2,img2,contours,heirarchy)
                 else:
@@ -468,37 +482,32 @@ class CountPeople:
     def trackPeople(self):
         pass
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "start":
-            cp = CountPeople()
-            cp.process()
+    if len(sys.argv) > 2:
+        if sys.argv[2] == 'people':
+            print('test human,sleep 10 s')
+            time.sleep(10)
     else:
-        if len(sys.argv) > 2:
-            if sys.argv[2] == 'people':
-                print('test human,sleep 10 s')
-                time.sleep(10)
-        else:
-            time.sleep(2)
-        # sys.argv[2] represents the custom  dir of  the image saved
-        current_dir = os.path.abspath(os.path.dirname(__file__))
-        adjust_dir = current_dir
-        if current_dir.endswith("grideye"):
-            adjust_dir = current_dir + "/countpeople"
-        packageDir = adjust_dir
-        actual_dir = adjust_dir
-        path_arg = ""
-        if len(sys.argv) > 1:
-            actual_dir = actual_dir + "/"+sys.argv[1]
-            path_arg = sys.argv[1]+"/"
-        # sleep 10 s
-        print("the actual_dir is %s" % (actual_dir))
+        time.sleep(2)
+    # sys.argv[2] represents the custom  dir of  the image saved
+    current_dir = os.path.abspath(os.path.dirname(__file__))
+    adjust_dir = current_dir
+    if current_dir.endswith("grideye"):
+        adjust_dir = current_dir + "/countpeople"
+    packageDir = adjust_dir
+    actual_dir = adjust_dir
+    path_arg = ""
+    if len(sys.argv) > 1:
+        actual_dir = actual_dir + "/"+sys.argv[1]
+        path_arg = sys.argv[1]+"/"
+    # sleep 10 s
+    print("the actual_dir is %s" % (actual_dir))
 
-        if not os.path.exists(actual_dir):
-            os.mkdir(actual_dir)
-        countp = CountPeople()
-        # 这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
-        countp.setPackageDir(packageDir)
-        try:
-            countp.acquireImageData()
-        except KeyboardInterrupt("keyboard interrupt"):
-            print("exit")
+    if not os.path.exists(actual_dir):
+        os.mkdir(actual_dir)
+    countp = CountPeople()
+    # 这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
+    countp.setPackageDir(packageDir)
+    try:
+        countp.acquireImageData()
+    except KeyboardInterrupt("keyboard interrupt"):
+        print("exit")

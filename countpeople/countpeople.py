@@ -292,9 +292,19 @@ class CountPeople:
             average_temperature,img_diff):
         '''
             判断当前帧是否含有人类
-            ret : True:含有人类，False:没有人类，表示属于背景
+            ret : (bool,bool) ret[0] True:含有人类，ret[0] False:没有人类，表示属于背景
+            ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
-        return self.judgeFrameByHist(img_diff) and self.judgeFrameByDiffAndBTSU(img_diff)and self.judgeFrameByAverage(average_temperature, current_temp)
+        hist_result  =  self.judgeFrameByHist(img_diff) 
+        diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
+        ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
+        sums = [hist_result ,diff_result , ave_result]
+        if sum(sums) == 3:
+            return (True,)
+        elif sum(sums) == 0:
+            return (False,True)
+        else:
+            return (False,False)
 
     def acquireImageData(self,frame_count = 2000,customDir = None):
         '''
@@ -367,17 +377,18 @@ class CountPeople:
                     self.th_bgframes = 1000
                     #更新计算背景的阈值
                     self.average_temp = self.calAverageTemp(bg_frames)
-                    self.average_temp_median =
-                    self.medianFilter(self.average_temp
-                    self.average_temp_gaussian =
-                    self.gaussianFilter(self.average_temp)
                     #对平均温度进行插值
-                    self.average_temp_Interpol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'linear')
+                    self.average_temp_Intepol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'linear')
+                    self.average_temp_median =
+                    self.medianFilter(self.average_temp_Intepol
+                    self.average_temp_gaussian =
+                    self.gaussianFilter(self.average_temp_Intepol)
                     print("the new average temp's shape is
                             "+str(self.average_temp_Interpol.shape))
                     print("as list")
                     print(self.average_temp_Interpol)
                     frame_counter = 0 # reset the counter
+                    bg_frames = [] #清空保存的图片以节省内存
                     self.calcBg = True # has calculated the bg temperature
 
                 else if not self.calcBg: #是否计算完背景温度
@@ -392,39 +403,19 @@ class CountPeople:
                 medianBlur = self.medianFilter(currFrameIntepol)
                 #对滤波后的温度进行差值计算
                 temp_diff =self.calcDiffBetweenCurrAndAverage(medianBlur)
-                if self.currentFrameContainHuman(medianBlur
-                all_frames.append(currFrame)
-                diff = self.calAverageAndCurrDiff(
-                 average_temperature, currFrame)
-                print(diff.shape)
-                # diff_queues.append(diff)
-                frame_counter += 1
-                print("the %dth frame" % (frame_counter))
-                # self.displayImage(average_temperature , currFrameIntepol)
-                # plt.figure(num=1)
-                # self.displayImage(currFrameIntepol,'original image')
-                # gblur =self.gaussianFilter(currFrameIntepol)
-                # plt.figure(num=2)
-                # self.displayImage(gblur,'gaussian filter image')
-                # median_filter = self.medianFilter(currFrameIntepol)
-                # plt.figure(num=3)
-                # self.displayImage(median_filter,'median filter image')
-                # th = self.otsuThreshold(gblur)
-                # plt.figure(num=4)
-                # self.displayImage(th,'otsu threshold',True)
-                # equalHistRet= self.equalizeHist(currFrameIntepol)
-                # plt.figure(num=5)
-                # self.displayImage(equalHistRet,'equalization hist')
-                # plt.show()
-                # self.displayImage_bg_curr(average_temperature,currFrameIntepol)
-                # isBg = self.isBgByAverageDiff(average_temperature,currFrameIntepol)
-                # self.averageFilter(average_temperature, currFrameIntepol)
-                #curr_ave = np.mean(medianBlur)
-                #if diff.max() > self.__diffThresh:
-                #    print("has a human")
-                if frame_counter > frame_count:
-                    self.saveImageData(all_frames, customDir)
-                    break
+                ret =
+                self.currentFrameContainHuman(medianBlur,self.average_temp_median
+                    ,temp_diff )
+                if not ret[0]:
+                    if ret[1]:
+                        bg_frames.append(currFrame)
+                        frame_counter += 1
+                    continue
+                #如果当前图片中含有两个人
+                cnt_count,image ,contours,hierarchy =
+                self.extractBody(medianBlur)
+                print("当前帧数中存在的人数是%d"%(cnt_count))
+                sleep(0.5)
 
         except KeyboardInterrupt:
             print("catch keyboard interrupt")

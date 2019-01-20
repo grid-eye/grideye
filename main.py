@@ -27,6 +27,7 @@ else:
             raise ValueError("please specified a valid output dir for the imagedata")
 
 cp = CP()
+cp.preReadPixels()
 counter = 0
 curr = os.path.abspath(os.path.dirname(__file__))
 if curr.endswith("grideye"):

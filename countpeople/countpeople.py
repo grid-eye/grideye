@@ -16,7 +16,7 @@ from  otsuBinarize import otsuThreshold
 class CountPeople:
     __peoplenum = 0  # 统计的人的数量
     __diffThresh = 2.8  # 温度差阈值
-    __otsuThresh = 2.4  # otsu 阈值
+    __otsuThresh = 3.0 # otsu 阈值
     __averageDiffThresh = 0.3  # 平均温度查阈值
     __otsuResultForePropor = 0.0004
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
@@ -39,10 +39,12 @@ class CountPeople:
         # 8*8 grid
         self.points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
         # discard the first and the second frame
+    def preReadPixels(self,pre_read_count = 20):
+        self.pre_read_count =  pre_read_count
+        #预读取数据，让数据稳定
         for i in range(self.pre_read_count):
             for row in self.amg.pixels:
                 pass
-
     def interpolate(self, points, pixels, grid_x, grid_y, inter_type='cubic'):
         '''
         interpolating for the pixels,default method is cubic
@@ -155,7 +157,7 @@ class CountPeople:
         img = self.makeImgCompatibleForCv(img)
         mins = np.round(img.min())
         maxs = np.round(img.max())
-        ret, th = otsuThreshold(img ,self.imagesize ,ranges = (mins,maxs))
+        ret, th = otsuThreshold(img ,self.image_size ,ranges = (mins,maxs))
         if self.otsu_threshold:
             self.otsu_threshold = round(ret + self.otsu_threshold,1)
         else:
@@ -403,8 +405,10 @@ class CountPeople:
                         frame_counter += 1
                     continue
                 #如果当前图片中含有两个人
-                cnt_count,image ,contours,hierarchy =self.extractBody(medianBlur)
+                cnt_count,image ,contours,hierarchy =self.extractBody(self.average_temp_median , medianBlur)
                 print("当前帧数中存在的人数是%d"%(cnt_count))
+                #下一步是计算轮廓中的中心温度
+
                 sleep(0.5)
 
         except KeyboardInterrupt:
@@ -432,7 +436,7 @@ class CountPeople:
         while True:
             binary = ones * (curr_temp >= thre_temp)
             #如果区域面积大于图片1/3，则可能有两个人出现在图片上
-            if binary.sum() >=  self.imagesize * 0.3 :
+            if binary.sum() >=  self.image_size * 0.3 :
                 #ret ,thresh = self.otsuThreshold(thre_temp)
                 thresh = np.array(binary , np.uint8)
                 img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
@@ -461,8 +465,42 @@ class CountPeople:
         # save all image data in directory:./actual_dir
         np.save(outputdir+"/imagedata.npy", np.array(all_frames))
         # save all diff between bgtemperature and current temperature in actual dir
-    def findBodyLocation(self):
+    def findBodyLocation(self,img,contours,xcorr = [i for i in range(0,32)]):
+        '''
+         找到人体位置，确定中心温度,通过计算每一行的最大温度可以确定人体的位置
+         参数:img:当前帧 ， 
+              contours:轮廓
+        '''
+        pcount = len(contours)
+        row_max = []
+        for row in img:
+            row_max.append(row.sum())
+        #找到最行的索引
+        max_row_index =[ row_max.index(max(row_max))]
+        #max_row 是最大值的下标
+        if pcount > 1:
+            row_max[max_row[0]]= 0 
+            max_row_index.append(row_max.index(max(row_max)))
+        self.paintHist(xcorr , row_max , titles="row max hist",x_label = "row",y_label="row sum(。C)")
+        return max_row_index 
+
+
+
         pass
+
+    def paintHist(self,xcorr,y,titles= "title",x_label="xlabel",y_label="ylabel",fig_nums = [100]):
+        '''
+        绘制直方图
+        '''
+        fig_nums[0] += 1
+        plt.figure(num= fig_nums[0])
+        fig,(ax1,ax2,ax3,ax4) = plt.subplots(2,2)
+        ax1.plot(xcorr,y)
+        ax1.set_title(titles)
+        ax1.set_xlabel(x_label)
+        ax1.set_y_label("ylabel")
+        plt.show()
+
     def setPackageDir(self, pdir):
         self.pdir = pdir
     def trackPeople(self):
@@ -496,6 +534,7 @@ if __name__ == "__main__":
         if not os.path.exists(actual_dir):
             os.mkdir(actual_dir)
         countp = CountPeople()
+        countp.preReadPixels()
         # 这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
         countp.setPackageDir(packageDir)
         try:

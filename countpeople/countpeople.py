@@ -431,34 +431,51 @@ class CountPeople:
            参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
         '''
         thre_temp = average_temp+0.25 #阈值温度
+        print("current threshold is ")
+        print(thre_temp)
         ones = np.ones(average_temp.shape , np.float32)
-        ret = (0 , None,None,None)
-        while True:
-            binary = ones * (curr_temp >= thre_temp)
-            #如果区域面积大于图片1/3，则可能有两个人出现在图片上
-            if binary.sum() >=  self.image_size * 0.3 :
-                #ret ,thresh = self.otsuThreshold(thre_temp)
-                thresh = np.array(binary , np.uint8)
-                img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-                if len(contours[1]) == 2 :
-                    #存在两个轮廓
-                    cnt1,cnt2 = contours[0],contours[1]
-                    #求轮廓的面积
-                    cnt1_area = cv.contourArea(cnt1)
-                    cnt2_area = cv.contourArea(cnt2)
-                    if  cnt1_area > 0.1*self.imgsize and cnt2_area >  0.1*self.imgsize:
-                        #返回两个轮廓的点的坐标
-                        return (2,img2,contours,heirarchy)
-                else:
-                    if len(contours[1]) ==1:
-                        cnt = contours[1]
-                        cnt_area = cv.contourArea(cnt)
-                        if cnt_area < self.imgsize*0.1:
-                            return (1,img2,contours,heirarchy)
 
-            #不断提高阈值                    
-            thre_temp += 0.25
+        ret = (0 , None,None,None)
+        area_1_3,area_1_10 = self.image_size*0.3,self.image_size*0.1
+        while True:
+
+            binary = ones * (curr_temp >= thre_temp)
+            bsum = binary.sum()
+            proportion = round(bsum / self.image_size,2)
+            print("binary_sum is %d"%(bsum))
+            print("the propotion is %.2f"%(proportion))
+            thresh = np.array(binary , np.uint8)
+            img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+            #求轮廓的面积
+            cnt1 = cv.contourArea(coutours[1][0])
+            if len(contours[1]) > 1:
+                #存在两个轮廓
+                cnt2 = cv.contourArea(contours[1][1])
+                #如果两个轮廓的大小大于图片的1/10,那么可以认为存在两个人体
+                img2  = cv.drawContours(img2,contours,-1,(0,255,0),3)
+                if cnt1 > area_1_10 and cnt2 > area_1_10:
+                    return (2,img2,contours,heirarchy)
+           
+            '''
+            if cnt1 >  area_1_3:
+                #如果区域面积大于图片1/3，则可能有两个人出现在图片上
+                #增大阈值
+                thre_temp += 0.25
+            '''
+            if cnt1 < rea_1_10):
+                img2 = cv.drawContours(img2,contours,-1,(0,255,0),3)
+                return (1,img2,contours,heirarchy)
+            else:
+                #不断提高阈值                    
+                thre_temp += 0.25
+            self.showExtractProcessImage(curr_temp ,img2)
         return ret
+    def showExtractProcessImage(self,origin,images_contours):
+        #输出提取人体过程的图片
+        fig,(ax1,ax2) = plt.subplots(1,2)
+        ax1.imshow(origin)
+        ax2.imshow(images_contours)
+        plt.show()
     def saveImageData(self, all_frames, outputdir):
         print("length of the all_frames: %d" % (len(all_frames)))
         print("save all images data in "+outputdir+"/"+"imagedata.npy")

@@ -22,11 +22,11 @@ cp = CountPeople()
 average_median = cp.medianFilter(average_temp_intepol)
 print("create countpeople object")
 def showImage(original , newImage):
-    figure , (ax1,ax2,ax3,ax4) = plt.subplots(2,2)
+    figure , (ax1,ax2) = plt.subplots(1,2)
     ax1.imshow(original)
-    ax1.title("original image")
+    ax1.set_title("original image")
     ax2.imshow(newImage)
-    ax2.title("image contours")
+    ax2.set_title("image contours")
     plt.show()
 for i in range(all_frames_intepol.shape[0]):
     print("the %dth frame in all_frames "%(frame_arr[i]))
@@ -37,6 +37,8 @@ for i in range(all_frames_intepol.shape[0]):
     print(medianBlur)
     print("capture the body contours")
     cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , medianBlur)
+    print("return image is ")
+    print(img2)
     showImage(frame_copy , img2)
 
 

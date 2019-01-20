@@ -424,7 +424,7 @@ class CountPeople:
             prin("exit")
             raise KeyboardInterrupt("catch keyboard interrupt")
    
-    def extractBody(self,average_temp , curr_temp):
+    def extractBody(self,average_temp , curr_temp,show_frame = False ):
         '''
            找到两人之间的间隙(如果有两人通过)
            在背景温度的基础上增加0.25摄氏度作为阈值,低于阈值作为背景，高于阈值作为前景，观察是否能区分两个轮廓，如果不能就继续循环增加0.25
@@ -446,29 +446,51 @@ class CountPeople:
             print("the propotion is %.2f"%(proportion))
             thresh = np.array(binary , np.uint8)
             img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+            print(contours)
+            cont_cnt = len(contours)
+            print("has %d people"%(cont_cnt))
             #求轮廓的面积
-            cnt1 = cv.contourArea(coutours[1][0])
-            if len(contours[1]) > 1:
+            cnt1 = cv.contourArea(contours[0])
+            print("cnt1 = %.2f"%(cnt1))
+            if len(contours) > 2:
+                #暂时无法检测三个人以上进入
+                thre_temp += 0.25
+                continue
+            if len(contours) > 1:
+
                 #存在两个轮廓
-                cnt2 = cv.contourArea(contours[1][1])
+                cnt2 = cv.contourArea(contours[1])
+                print("cnt2= %.2f"%(cnt1))
                 #如果两个轮廓的大小大于图片的1/10,那么可以认为存在两个人体
-                img2  = cv.drawContours(img2,contours,-1,(0,255,0),3)
+                img2_copy = img2
+                #cv.drawContours(img2,contours,-1,(0,255,0),3)
                 if cnt1 > area_1_10 and cnt2 > area_1_10:
-                    return (2,img2,contours,heirarchy)
-           
+                    print("return two people?!!!!!")
+                    img2 = np.array(img2,np.float32)
+                    if show_frame:
+                        self.showExtractProcessImage(curr_temp,img2)
+                    return (2,img2_copy,contours,heirarchy)
             '''
             if cnt1 >  area_1_3:
                 #如果区域面积大于图片1/3，则可能有两个人出现在图片上
                 #增大阈值
                 thre_temp += 0.25
             '''
-            if cnt1 < rea_1_10):
-                img2 = cv.drawContours(img2,contours,-1,(0,255,0),3)
-                return (1,img2,contours,heirarchy)
+            if cnt1 < area_1_10 and cont_cnt == 1 :
+                img2_copy = img2.copy()
+                #cv.drawContours(img2,contours,-1,(0,255,0),1)
+                print("return !!!!!")
+                img2 = np.array(img2,np.float32)
+                if show_frame:
+                    self.showExtractProcessImage(curr_temp,img2)
+                return (1,img2_copy,contours,heirarchy)
             else:
                 #不断提高阈值                    
                 thre_temp += 0.25
-            self.showExtractProcessImage(curr_temp ,img2)
+            x1,y1,w1,h1 = cv.boundingRect(contours[0])
+            img2 = np.array(img2,np.float32)
+            if show_frame:
+                self.showExtractProcessImage(curr_temp,img2)
         return ret
     def showExtractProcessImage(self,origin,images_contours):
         #输出提取人体过程的图片

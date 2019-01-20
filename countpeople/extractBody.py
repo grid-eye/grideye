@@ -28,6 +28,7 @@ def showImage(original , newImage):
     ax2.imshow(newImage)
     ax2.set_title("image contours")
     plt.show()
+all_result = []
 for i in range(all_frames_intepol.shape[0]):
     print("the %dth frame in all_frames "%(frame_arr[i]))
     frame = all_frames_intepol[i]
@@ -39,7 +40,10 @@ for i in range(all_frames_intepol.shape[0]):
     cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , medianBlur)
     print("return image is ")
     print(img2)
-    showImage(frame_copy , img2)
+    all_result.append(cnt_count)
+    print("==============================has %d people in this frame "%(cnt_count))
+    #showImage(frame_copy , img2)
+print(all_result)
 
 
 

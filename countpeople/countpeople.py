@@ -38,7 +38,9 @@ class CountPeople:
         # temp and current temp
         # 8*8 grid
         self.points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
-        # discard the first and the second frame
+        print("size of image is (%d,%d)"%(self.row,self.col)) 
+        print("imagesize of image is %d"%(self.image_size))
+        #i discard the first and the second frame
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
         #预读取数据，让数据稳定
@@ -407,8 +409,10 @@ class CountPeople:
                 #如果当前图片中含有两个人
                 cnt_count,image ,contours,hierarchy =self.extractBody(self.average_temp_median , medianBlur)
                 print("当前帧数中存在的人数是%d"%(cnt_count))
-                #下一步是计算轮廓中的中心温度
-
+                #下一步是计算轮当前帧的中心位置
+                loc = self.findBodyLocation(medianBlur)
+                print("location is on the  %dth row ")
+                print(loc)
                 sleep(0.5)
 
         except KeyboardInterrupt:
@@ -431,14 +435,15 @@ class CountPeople:
            参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
         '''
         thre_temp = average_temp+0.25 #阈值温度
-        print("current threshold is ")
-        print(thre_temp)
         ones = np.ones(average_temp.shape , np.float32)
-
+        print("ones' shape is  (%d,%d)"%(average_temp.shape[0],average_temp.shape[1]))
         ret = (0 , None,None,None)
         area_1_3,area_1_10 = self.image_size*0.3,self.image_size*0.1
         while True:
-
+            print("current threshold is ")
+            print(thre_temp)
+            print("current temperature is")
+            print(curr_temp)
             binary = ones * (curr_temp >= thre_temp)
             bsum = binary.sum()
             proportion = round(bsum / self.image_size,2)
@@ -448,9 +453,17 @@ class CountPeople:
             img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
             print(contours)
             cont_cnt = len(contours)
+            if cont_cnt == 0:
+                return (0,None,None,None)
+
             print("has %d people"%(cont_cnt))
             #求轮廓的面积
-            cnt1 = cv.contourArea(contours[0])
+            if contours:
+                cnt1 = cv.contourArea(contours[0])
+            else:
+                print(contours)
+                print("oh ,something wrong!")
+                time.sleep(0.5)
             print("cnt1 = %.2f"%(cnt1))
             if len(contours) > 2:
                 #暂时无法检测三个人以上进入
@@ -504,7 +517,7 @@ class CountPeople:
         # save all image data in directory:./actual_dir
         np.save(outputdir+"/imagedata.npy", np.array(all_frames))
         # save all diff between bgtemperature and current temperature in actual dir
-    def findBodyLocation(self,img,contours,xcorr = [i for i in range(0,32)]):
+    def findBodyLocation(self,img,contours,xcorr ):
         '''
          找到人体位置，确定中心温度,通过计算每一行的最大温度可以确定人体的位置
          参数:img:当前帧 ， 
@@ -514,14 +527,28 @@ class CountPeople:
         row_max = []
         for row in img:
             row_max.append(row.sum())
+        row_max_copy = row_max.copy()
         #找到最行的索引
-        max_row_index =[ row_max.index(max(row_max))]
+        max_row_index =row_max.index(max(row_max))
+        rowlist = img[max_row_index].tolist()
+        max_col_index =rowlist.index(max(rowlist))
+        print(max_col_index)
+        time.sleep(0.5)
+        print("max_col_index's list is ")
+        ret = [(max_row_index,max_col_index)]
+        print("ret")
+        print(ret)
+        time.sleep(2)
         #max_row 是最大值的下标
         if pcount > 1:
             row_max[max_row[0]]= 0 
-            max_row_index.append(row_max.index(max(row_max)))
+            max_row_index =[ row_max.index(max(row_max))]
+            rowlist = img[max_row_index].tolist()
+            max_col_index =rowlist.index(max(rowlist))
+            ret.append((max_row_index,max_col_index))
         self.paintHist(xcorr , row_max , titles="row max hist",x_label = "row",y_label="row sum(。C)")
-        return max_row_index 
+        
+        return ret
 
 
 
@@ -532,12 +559,11 @@ class CountPeople:
         绘制直方图
         '''
         fig_nums[0] += 1
-        plt.figure(num= fig_nums[0])
-        fig,(ax1,ax2,ax3,ax4) = plt.subplots(2,2)
+        fig,ax1 = plt.subplots(1,1,num=fig_nums[0])
         ax1.plot(xcorr,y)
         ax1.set_title(titles)
         ax1.set_xlabel(x_label)
-        ax1.set_y_label("ylabel")
+        ax1.set_ylabel(y_label)
         plt.show()
 
     def setPackageDir(self, pdir):

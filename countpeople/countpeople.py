@@ -38,6 +38,7 @@ class CountPeople:
         # temp and current temp
         # 8*8 grid
         self.points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
+        self.otsu_threshold = 0
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
@@ -156,6 +157,7 @@ class CountPeople:
         return img
         
     def otsuThreshold(self, img):
+        print("start otsu binarize")
         img = self.makeImgCompatibleForCv(img)
         mins = np.round(img.min())
         maxs = np.round(img.max())
@@ -164,6 +166,7 @@ class CountPeople:
             self.otsu_threshold = round(ret + self.otsu_threshold,1)
         else:
             self.otsu_threshold = round(ret , 1)
+        self.otsu_th_mask = th
         return th
 
     def equalizeHist(self, img):
@@ -399,8 +402,7 @@ class CountPeople:
                 medianBlur = self.medianFilter(currFrameIntepol)
                 #对滤波后的当前温度和平均温度进行差值计算
                 temp_diff =self.calAverageAndCurrDiff(self.average_temp_median , medianBlur)
-                ret =self.currentFrameContainHuman(medianBlur,self.average_temp_median
-                    ,temp_diff )
+                ret =self.currentFrameContainHuman(medianBlur,self.average_temp_median ,temp_diff )
                 if not ret[0]:
                     if ret[1]:
                         bg_frames.append(currFrame)
@@ -413,7 +415,7 @@ class CountPeople:
                 loc = self.findBodyLocation(medianBlur)
                 print("location is on the  %dth row ")
                 print(loc)
-                sleep(0.5)
+                #sleep(0.5)
 
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
@@ -450,6 +452,8 @@ class CountPeople:
             print("binary_sum is %d"%(bsum))
             print("the propotion is %.2f"%(proportion))
             thresh = np.array(binary , np.uint8)
+            print("after binarize :")
+            print(thresh)
             img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
             print(contours)
             cont_cnt = len(contours)
@@ -458,13 +462,9 @@ class CountPeople:
 
             print("has %d people"%(cont_cnt))
             #求轮廓的面积
-            if contours:
+            if cont_cnt  >= 1:
                 cnt1 = cv.contourArea(contours[0])
-            else:
-                print(contours)
-                print("oh ,something wrong!")
-                time.sleep(0.5)
-            print("cnt1 = %.2f"%(cnt1))
+                print("cnt1 = %.2f"%(cnt1))
             if len(contours) > 2:
                 #暂时无法检测三个人以上进入
                 thre_temp += 0.25
@@ -502,8 +502,6 @@ class CountPeople:
                 thre_temp += 0.25
             x1,y1,w1,h1 = cv.boundingRect(contours[0])
             img2 = np.array(img2,np.float32)
-            if show_frame:
-                self.showExtractProcessImage(curr_temp,img2)
         return ret
     def showExtractProcessImage(self,origin,images_contours):
         #输出提取人体过程的图片
@@ -523,41 +521,50 @@ class CountPeople:
          参数:img:当前帧 ， 
               contours:轮廓
         '''
+        print("find body location")
+        print("current temperature is ")
+        print(np.round(img,2))
         pcount = len(contours)
         row_max = []
-        for row in img:
+        img_after_otsu = img*self.otsu_th_mask
+        print("otsu ")
+        print(self.otsu_th_mask)
+        print(img_after_otsu)
+        for row in img_after_otsu:
             row_max.append(row.sum())
         row_max_copy = row_max.copy()
+        print(np.round(row_max,2))
         #找到最行的索引
+        
         max_row_index =row_max.index(max(row_max))
         rowlist = img[max_row_index].tolist()
         max_col_index =rowlist.index(max(rowlist))
         print(max_col_index)
-        time.sleep(0.5)
+        #time.sleep(0.5)
         print("max_col_index's list is ")
         ret = [(max_row_index,max_col_index)]
         print("ret")
         print(ret)
-        time.sleep(2)
+        #time.sleep(2)
         #max_row 是最大值的下标
         if pcount > 1:
-            row_max[max_row[0]]= 0 
+            row_max[max_row_index]= 0 
             max_row_index =[ row_max.index(max(row_max))]
             rowlist = img[max_row_index].tolist()
             max_col_index =rowlist.index(max(rowlist))
             ret.append((max_row_index,max_col_index))
-        self.paintHist(xcorr , row_max , titles="row max hist",x_label = "row",y_label="row sum(。C)")
+        #self.paintHist(xcorr , row_max_copy, titles="row max hist",x_label = "row",y_label="row sum(。C)")
         
         return ret
-
-
-
         pass
-
     def paintHist(self,xcorr,y,titles= "title",x_label="xlabel",y_label="ylabel",fig_nums = [100]):
         '''
         绘制直方图
+
         '''
+        print("绘制直方图")
+        print(xcorr)
+        print(y)
         fig_nums[0] += 1
         fig,ax1 = plt.subplots(1,1,num=fig_nums[0])
         ax1.plot(xcorr,y)

@@ -10,15 +10,52 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
-from  otsuBinarize import otsuThreshold
+from .otsuBinarize import otsuThreshold
 
-
+class ObjectTrack:
+    '''
+    目标轨迹类
+    '''
+    __loc_list = [] #运动轨迹队列
+    __pos = -1
+    __size = 0
+    def __init__(self):
+        pass
+    def put(self,point):
+        self.__loc_list.append(point)
+        self.__size += 1
+    def get(self):
+        loc = self.__loc_list[self.__size -1]
+        return loc
+    def isEmpty(self):
+        return self.__size == 0 
+    def hasPassDoor(self,frame_width = 32):
+        '''
+            是否已经通过
+        '''
+        xs,xend = self.__loc_list[0] ,self.__loc_list[self.__size-1]
+        return (xend - xs) == (frame_width -1 )
+class Target:
+    '''
+    运动目标
+    '''
+    __center_temperature = 0 #邻域平均温度
+    def __init__(self ,center_temperature= 0 ):
+        self.__center_temperature = center_temperature
+    def getNeiborhoddTemp(self):
+        return self.__center_temperature
+    def setNeiborhoodTemp(self , neiborhood):
+        self.__center_temperature = neiborhood
 class CountPeople:
     __peoplenum = 0  # 统计的人的数量
     __diffThresh = 2# 温度差阈值
     __otsuThresh = 3.0 # otsu 阈值
     __averageDiffThresh = 0.3  # 平均温度查阈值
     __otsuResultForePropor = 0.0004
+    __objecTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
+    __objectImgDict = {}#目标图片数据字典
+    __neiborhoodTemperature = {}#m目标图片邻域均值
+    __neibor_diff_thresh = 1
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
     def __init__(self, pre_read_count=30, th_bgframes=200, row=32, col=32):
@@ -53,15 +90,6 @@ class CountPeople:
         interpolating for the pixels,default method is cubic
         '''
         return griddata(points, pixels, (grid_x, grid_y), method=inter_type)
-
-    def readPixelsArray(self):
-        '''
-          func:  read pixels
-          args:none
-          return :2-d array
-        '''
-        pass
-
     def displayImage_bg_curr(self, average_temperature, currFrameIntepol):
         '''
         '''
@@ -155,7 +183,6 @@ class CountPeople:
     def makeImgCompatibleForCv(self, img,datatype=np.float32):
         img = np.array(img, datatype)
         return img
-        
     def otsuThreshold(self, img):
         print("start otsu binarize")
         img = self.makeImgCompatibleForCv(img)
@@ -522,6 +549,22 @@ class CountPeople:
         # save all image data in directory:./actual_dir
         np.save(outputdir+"/imagedata.npy", np.array(all_frames))
         # save all diff between bgtemperature and current temperature in actual dir
+    def findMaxLocation(self,img):
+        row_max = []
+        for i in range(len(img)):
+            row_max.append(img[i].max())
+        max_temp ,max_temp_row = row_max[0] ,0
+        for i in range(1,len(row_max)):
+            if row_max[i] >max_temp:
+                max_temp = row_max[i]
+                max_temp_row = i
+        max_col_index= 0 
+        for i in range(len(img[max_temp_row])):
+            if max_temp == img[max_temp_row][i]:
+                max_col_index = i
+                break
+        return (max_temp_row,max_col_index)
+
     def findBodyLocation(self,img,contours,xcorr ):
         '''
          找到人体位置，确定中心温度,通过计算每一行的最大温度可以确定人体的位置
@@ -530,18 +573,25 @@ class CountPeople:
         '''
         print("find body location")
         print("current temperature is ")
-        self.showContours(img,contours)
+        #self.showContours(img,contours)
         print(np.round(img,2))
         pcount = len(contours)
         ret = []
+        #for i in range(pcount):
+            #cnt = contours[i]
+            #moment = cv.moments(cnt)#求图像的矩
+            #cx =int(moment['m10']/moment['m00'])
+            #cy = int(moment['m01']/moment['m00'])
+            #ret.append((cx,cy))
+                #break
+        imgs = img.copy()
         for i in range(pcount):
-            cnt = contours[i]
-            moment = cv.moments(cnt)#求图像的矩
-            cx =int(moment['m10']/moment['m00'])
-            cy = int(moment['m01']/moment['m00'])
-            ret.append((cx,cy))
+            res = self.findMaxLocation(imgs)
+            imgs[res[0],res[1]] = 0
+            ret.append(res)
+        print("==================found the place of the center of temperature=================")
+        print(ret)
         return ret
-        row_max = []
         img_after_otsu = img*self.otsu_th_mask
         print("otsu ")
         print(self.otsu_th_mask)
@@ -551,7 +601,6 @@ class CountPeople:
         #row_max_copy = row_max.copy()
         print(np.round(row_max,2))
         #找到最行的索引
-        
         max_row_index =row_max.index(max(row_max))
         rowlist = img[max_row_index].tolist()
         max_col_index =rowlist.index(max(rowlist))
@@ -570,7 +619,6 @@ class CountPeople:
             max_col_index =rowlist.index(max(rowlist))
             ret.append((max_row_index,max_col_index))
         #self.paintHist(xcorr , row_max_copy, titles="row max hist",x_label = "row",y_label="row sum(。C)")
-        
         return ret
         pass
     def showContours(self,img,contours):
@@ -599,7 +647,189 @@ class CountPeople:
 
     def setPackageDir(self, pdir):
         self.pdir = pdir
-    def trackPeople(self):
+    def __neiborhoodTemp(self,img,points,nsize = 4):
+        '''
+        求邻域平均温度
+        '''
+        x,y = points
+        count = 0 
+        temp_sum = img[x][y]
+        if nsize == 4:
+            if x == 0:
+                if y == 0 :
+                    temp_sum += img[x+1][y]
+                    temp_sum += img[x][y+1]
+                    count=2
+                elif y == 31:
+                    temp_sum += img[x+1][y]
+                    temp_sum += img[x][y-1]
+                    count=2
+                else:
+                    temp_sum += img[x+1][y]
+                    temp_sum += img[x][y-1]
+                    temp_sum += img[x][y+1]
+                    count=3
+            elif x == 31:
+                if y == 0 :
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y+1]
+                    count=2
+                elif y == 31:
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y-1]
+                    count=2
+                else:
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y-1]
+                    temp_sum += img[x][y+1]
+                    count =3
+            else:
+                if y == 0 :
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y+1]
+                    tmep_sum += img[x+1][y]
+                    count=3
+                elif y == 31:
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y-1]
+                    temp_sum += img[x+1][y]
+                    count=3
+                else:
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y-1]
+                    temp_sum += img[x][y+1]
+                    temp_sum += img[x+1][y]
+                    count=4
+        elif nsize == 8:
+            if x == 0:
+                if y == 0 :
+                    temp_sum += img[x+1][y]
+                    temp_sum += img[x][y+1]
+                    temp_sum +=img[x+1][y+1]
+                    count=3
+                elif y == 31:
+                    temp_sum += img[x+1][y]
+                    temp_sum += img[x][y-1]
+                    temp_sum += img[x+1][y-1]
+                    count=3
+                else:
+                    temp_sum += img[x+1][y-1]
+                    temp_sum += img[x+1][y+1]
+                    temp_sum += img[x+1][y]
+                    temp_sum += img[x][y-1]
+                    temp_sum += img[x][y+1]
+                    count=5
+            elif x == 31:
+                if y == 0 :
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y+1]
+                    temp_sum += img[x-1][y+1]
+                    count=3
+                elif y == 31:
+                    temp_sum += img[x-1][y-1]
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y-1]
+                    count=3
+                else:
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y-1]
+                    temp_sum += img[x][y+1]
+                    temp_sum += img[x-1][y-1]
+                    temp_sum += img[x-1][y+1]
+                    count =5
+            else:
+                if y == 0 :
+                    temp_sum += img[x-1][y+1]
+                    temp_sum += img[x+1][y+1]
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y+1]
+                    tmep_sum += img[x+1][y]
+                    count = 5
+                elif y == 31:
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y-1]
+                    temp_sum += img[x+1][y]
+                    temp_sum += img[x-1][y-1]
+                    tmep_sum += img[x+1][y-1]
+                    count = 5
+                else:
+                    temp_sum += img[x-1][y]
+                    temp_sum += img[x][y-1]
+                    temp_sum += img[x][y+1]
+                    temp_sum += img[x+1][y]
+                    temp_sum += img[x-1][y+1]
+                    temp_sum += img[x-1][y-1]
+                    temp_sum += img[x+1][y-1]
+                    temp_sum += img[x+1][y+1]
+                    count = 8
+            count+=1
+        else:
+            print("has only 2 choice :4 or 8")
+        neibor = temp_sum / count
+        return neibor
+    def __extractFeature(self,img,corr):
+        '''
+        为当前帧提取目标特征
+        '''
+        #空间距离
+        for cp in corr:
+            for k,v in self.__objectTrackDict.items():
+                last_place = v.get()
+                euclidean_distance = math.sqrt(math.pow((cp[0] - last_place[0]),2),math.pow((cp[1] - last_place[1]),2))
+                print("euclidean distance is %.2f"%(euclidean_distance))
+                #温度差不会超过1摄氏度
+                previous_img = self.__objectImgDict[k]
+                preivous_cnt = previous_img[last_place[0],last_place[1]]#前一帧的中心温度
+                diff_temp = img[cp[0],cp[1]] - previous_cnt#当前中心温度和前一帧数的中心温度差
+                #中心温度邻域均值
+                ave = self.__neiborhoodTemp(img , cp[0],cp[1])
+                heibor_diff = math.abs(ave - self._neiborhoodTemperature[k])
+                if neibor_diff < self.__neibor_diff_thresh:
+                    self.__objectTrackDict[k].put(cp)
+                    self.__neiborhoodTempemperature[k] = ave
+                    self.__objectImgDict[k] = img
+    def __classifyObject(self,img, corr):
+
+        '''
+        分类目标，确定当前点属于哪个目标
+
+        '''
+        if len(self.__objectTrackDict) == 0:
+            track = ObjectTrack()
+            for i in corr:
+                obj = Target()
+                track.put(i)
+                self.__objectTrackDict[obj] = track
+        else:
+            self.__extractFeature(img,corr)
+
+    def __updateTrackStack(self,corr,classId):
+        '''
+        更新运动帧，更新目标的位置
+        '''
+    def __updatePeopleCount(self):
+        '''
+        更新检测的人数
+        '''
+        karr = []
+        for k,v in self.__objectTrackDict.items():
+            if v.hasPassDoor():
+                self.__peoplenum+=1
+                karr.append(k)
+        for k in karr:
+            del self.__objectTractDict[k]
+            del self.__objectImgDict[k]
+            del self.__neiborhoodTemperature[k]
+            
+    def trackPeople(self,img , loc):
+        '''
+        loc:对象当前位置数组
+        img:图片
+        '''
+        self.__classifyObject(img,loc)
+        self.__
+        print("=========================people num is %d ==================="%(self.__peoplenum))
+
         pass
 if __name__ == "__main__":
     if len(sys.argv) > 1:

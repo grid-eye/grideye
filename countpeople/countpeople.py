@@ -15,7 +15,7 @@ from  otsuBinarize import otsuThreshold
 
 class CountPeople:
     __peoplenum = 0  # 统计的人的数量
-    __diffThresh = 2.8  # 温度差阈值
+    __diffThresh = 2# 温度差阈值
     __otsuThresh = 3.0 # otsu 阈值
     __averageDiffThresh = 0.3  # 平均温度查阈值
     __otsuResultForePropor = 0.0004
@@ -254,22 +254,29 @@ class CountPeople:
         print('counter: %d' % (counter))
 
     def judgeFrameByHist(self, img):  # 根据直方图判断当前帧是否含有人类
-        hist, bins = np.histogram(img.ravel(), [0], bins=120, range=(-6, 6))
+        print("judge by hist")
+        hist, bins = np.histogram(img.ravel(), bins=120, range=(-6, 6))
+        print(len(hist))
+        print(len(bins))
         bins = bins[:-1]
-        freqMap = dict.fromkeys(bins, 0)
-        for i in range(hist.shape[0]):
+        diff = self.image_size - hist.sum()
+        #将超过5.9的温度差的像素点的数目加到5.9中，这样让像素总数保持一致
+        hist[-1] += diff
+        freqMap = {}
+        
+        for i in range(bins.size):
             freqMap[bins[i]] = hist[i]
         sum = 0
-        for i in range(self.__diffThresh, 5.9, 0.1):
+        for i in bins:
             sum += freqMap[i]
-        if sum > self.image_size / 9:
+        if sum > self.image_size / 10:
             return True
         else:
             return False
 
     # 根据当前温度和平均温度（表示背景温度)的差值判断是否含有人类
     def judgeFrameByDiffAndBTSU(self, img_diff):
-        if img.max() > self.__diffThresh:
+        if img_diff.max() > self.__diffThresh:
             ret, hist = otsuThreshold(img_diff, 1024)
             fore_proportion = hist.sum() / self.image_size
             if fore_proportion > self.__otsuResultForePropor:
@@ -523,8 +530,17 @@ class CountPeople:
         '''
         print("find body location")
         print("current temperature is ")
+        self.showContours(img,contours)
         print(np.round(img,2))
         pcount = len(contours)
+        ret = []
+        for i in range(pcount):
+            cnt = contours[i]
+            moment = cv.moments(cnt)#求图像的矩
+            cx =int(moment['m10']/moment['m00'])
+            cy = int(moment['m01']/moment['m00'])
+            ret.append((cx,cy))
+        return ret
         row_max = []
         img_after_otsu = img*self.otsu_th_mask
         print("otsu ")
@@ -532,7 +548,7 @@ class CountPeople:
         print(img_after_otsu)
         for row in img_after_otsu:
             row_max.append(row.sum())
-        row_max_copy = row_max.copy()
+        #row_max_copy = row_max.copy()
         print(np.round(row_max,2))
         #找到最行的索引
         
@@ -557,6 +573,14 @@ class CountPeople:
         
         return ret
         pass
+    def showContours(self,img,contours):
+        print("====================now paint the contours of the image========")
+        img2 = np.array(img.copy(),np.uint8)
+        cv.drawContours(img2,contours ,-1 ,(0,255,0),1)
+        cv.imshow("contours",img2)
+        cv.waitKey(0)
+        time.sleep(10)
+        cv.destroyAllWindows()
     def paintHist(self,xcorr,y,titles= "title",x_label="xlabel",y_label="ylabel",fig_nums = [100]):
         '''
         绘制直方图

@@ -10,7 +10,7 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
-from .otsuBinarize import otsuThreshold
+from otsuBinarize import otsuThreshold
 
 class ObjectTrack:
     '''
@@ -444,6 +444,7 @@ class CountPeople:
                     continue
                 #如果当前图片中含有两个人
                 cnt_count,image ,contours,hierarchy =self.extractBody(self.average_temp_median , medianBlur)
+                self
                 print("当前帧数中存在的人数是%d"%(cnt_count))
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(medianBlur)
@@ -461,10 +462,10 @@ class CountPeople:
             #    self.saveDiffHist(diff_queues[i])
             #   self.saveImage(average_temperature ,all_frames[i],True)
             print("save all frames")
-            prin("exit")
+            print("exit")
             raise KeyboardInterrupt("catch keyboard interrupt")
    
-    def extractBody(self,average_temp , curr_temp,show_frame = False ):
+    def extractBody(self,average_temp , curr_temp,show_frame = False):
         '''
            找到两人之间的间隙(如果有两人通过)
            在背景温度的基础上增加0.25摄氏度作为阈值,低于阈值作为背景，高于阈值作为前景，观察是否能区分两个轮廓，如果不能就继续循环增加0.25
@@ -493,7 +494,6 @@ class CountPeople:
             cont_cnt = len(contours)
             if cont_cnt == 0:
                 return (0,None,None,None)
-
             print("has %d people"%(cont_cnt))
             #求轮廓的面积
             if cont_cnt  >= 1:
@@ -504,18 +504,17 @@ class CountPeople:
                 thre_temp += 0.25
                 continue
             if len(contours) > 1:
-
                 #存在两个轮廓
                 cnt2 = cv.contourArea(contours[1])
                 print("cnt2= %.2f"%(cnt1))
                 #如果两个轮廓的大小大于图片的1/10,那么可以认为存在两个人体
-                img2_copy = img2
-                #cv.drawContours(img2,contours,-1,(0,255,0),3)
+                img2_copy = img2.copy()
+                #cv.drawContours(img2,contours,-1,(0,255,0),2)
                 if cnt1 > area_1_10 and cnt2 > area_1_10:
                     print("return two people?!!!!!")
                     img2 = np.array(img2,np.float32)
                     if show_frame:
-                        self.showExtractProcessImage(curr_temp,img2)
+                        self.showExtractProcessImage(curr_temp,thresh ,img2)
                     return (2,img2_copy,contours,heirarchy)
             '''
             if cnt1 >  area_1_3:
@@ -525,23 +524,31 @@ class CountPeople:
             '''
             if cnt1 < area_1_10 and cont_cnt == 1 :
                 img2_copy = img2.copy()
-                #cv.drawContours(img2,contours,-1,(0,255,0),1)
-                print("return !!!!!")
+                #img_ret = cv.drawContours(img2,contours,-1,(0,255,0),1)
+                print("has one people return !!!!!")
                 img2 = np.array(img2,np.float32)
+                rect = np.zeros(img2.shape,np.uint8)
+                rect = cv.cvtColor(rect , cv.COLOR_GRAY2BGR)
+                x,y,w,h = cv.boundingRect(contours[0])
+                cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
+                print(rect.sum())
                 if show_frame:
-                    self.showExtractProcessImage(curr_temp,img2)
+                    self.showExtractProcessImage(curr_temp,thresh ,rect)
                 return (1,img2_copy,contours,heirarchy)
             else:
                 #不断提高阈值                    
                 thre_temp += 0.25
-            x1,y1,w1,h1 = cv.boundingRect(contours[0])
-            img2 = np.array(img2,np.float32)
         return ret
-    def showExtractProcessImage(self,origin,images_contours):
+    def showExtractProcessImage(self,origin,thresh ,images_contours):
         #输出提取人体过程的图片
-        fig,(ax1,ax2) = plt.subplots(1,2)
+        print("=================the contours of the image==============")
+        fig,(ax1,ax2,ax3) = plt.subplots(1,3)
         ax1.imshow(origin)
-        ax2.imshow(images_contours)
+        ax1.set_title("origin")
+        ax2.imshow(thresh)
+        ax2.set_title("after thresh")
+        ax3.imshow(images_contours)
+        ax3.set_title("contours")
         plt.show()
     def saveImageData(self, all_frames, outputdir):
         print("length of the all_frames: %d" % (len(all_frames)))
@@ -577,6 +584,16 @@ class CountPeople:
         print(np.round(img,2))
         pcount = len(contours)
         ret = []
+        for cnt in contours:
+            x,y,w,h = cv.boundingRect(cnt)
+            mask = img[y:y+h,x:x+w]
+            row_sum = []
+            for row in mask:
+                row_sum.append(row.sum())
+            max_row = row_sum.index(max(row_sum))
+            mrow = mask[max_row].tolist()
+            max_col = mrow.index(max(mrow))
+            ret.append((max_row,max_col))
         #for i in range(pcount):
             #cnt = contours[i]
             #moment = cv.moments(cnt)#求图像的矩

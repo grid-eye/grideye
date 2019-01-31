@@ -19,6 +19,7 @@ class ObjectTrack:
     __loc_list = [] #运动轨迹队列
     __pos = -1
     __size = 0
+    __direction = 1#进入
     def __init__(self):
         pass
     def put(self,point):
@@ -34,7 +35,13 @@ class ObjectTrack:
             是否已经通过
         '''
         xs,xend = self.__loc_list[0] ,self.__loc_list[self.__size-1]
-        return (xend - xs) == (frame_width -1 )
+        if xend[0] < xs[0] :
+            self.__direction = 0 
+        s = frame_width -1 
+        dis = xend[0] - xs[0]
+        return abs(dis)== s
+    def getDirection(self):
+        return self.__direction
 class Target:
     '''
     运动目标
@@ -52,7 +59,7 @@ class CountPeople:
     __otsuThresh = 3.0 # otsu 阈值
     __averageDiffThresh = 0.3  # 平均温度查阈值
     __otsuResultForePropor = 0.0004
-    __objecTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
+    __objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
     __objectImgDict = {}#目标图片数据字典
     __neiborhoodTemperature = {}#m目标图片邻域均值
     __neibor_diff_thresh = 1
@@ -586,14 +593,21 @@ class CountPeople:
         ret = []
         for cnt in contours:
             x,y,w,h = cv.boundingRect(cnt)
+            print(x,y,w,h)
             mask = img[y:y+h,x:x+w]
+            print(mask)
             row_sum = []
             for row in mask:
                 row_sum.append(row.sum())
             max_row = row_sum.index(max(row_sum))
             mrow = mask[max_row].tolist()
             max_col = mrow.index(max(mrow))
+            max_row += y
+            max_col += x
             ret.append((max_row,max_col))
+        print(ret)
+        #input("press Enter continue...")
+        return ret
         #for i in range(pcount):
             #cnt = contours[i]
             #moment = cv.moments(cnt)#求图像的矩
@@ -601,6 +615,7 @@ class CountPeople:
             #cy = int(moment['m01']/moment['m00'])
             #ret.append((cx,cy))
                 #break
+        '''
         imgs = img.copy()
         for i in range(pcount):
             res = self.findMaxLocation(imgs)
@@ -638,6 +653,8 @@ class CountPeople:
         #self.paintHist(xcorr , row_max_copy, titles="row max hist",x_label = "row",y_label="row sum(。C)")
         return ret
         pass
+
+        '''
     def showContours(self,img,contours):
         print("====================now paint the contours of the image========")
         img2 = np.array(img.copy(),np.uint8)
@@ -792,7 +809,7 @@ class CountPeople:
         for cp in corr:
             for k,v in self.__objectTrackDict.items():
                 last_place = v.get()
-                euclidean_distance = math.sqrt(math.pow((cp[0] - last_place[0]),2),math.pow((cp[1] - last_place[1]),2))
+                euclidean_distance = math.sqrt(math.pow((cp[0] - last_place[0]),2)+math.pow((cp[1] - last_place[1]),2))
                 print("euclidean distance is %.2f"%(euclidean_distance))
                 #温度差不会超过1摄氏度
                 previous_img = self.__objectImgDict[k]
@@ -803,7 +820,7 @@ class CountPeople:
                 heibor_diff = math.abs(ave - self._neiborhoodTemperature[k])
                 if neibor_diff < self.__neibor_diff_thresh:
                     self.__objectTrackDict[k].put(cp)
-                    self.__neiborhoodTempemperature[k] = ave
+                    self.__neiborhoodTempemperature[k] = (ave+self._neigborhoodTemperature[k])/2
                     self.__objectImgDict[k] = img
     def __classifyObject(self,img, corr):
 
@@ -817,9 +834,14 @@ class CountPeople:
                 obj = Target()
                 track.put(i)
                 self.__objectTrackDict[obj] = track
+                ntp = self.__neigborhoodTemp(img,i[0],i[1])
+                obj.setNeiborhoddTemp(ntp)
+                self.__objectImgDict[k]=[img]
+                self.__neiborhoodTemperature[k] =ntp
         else:
             self.__extractFeature(img,corr)
-
+    def showTargetFeature(self):
+        pass
     def __updateTrackStack(self,corr,classId):
         '''
         更新运动帧，更新目标的位置
@@ -831,20 +853,22 @@ class CountPeople:
         karr = []
         for k,v in self.__objectTrackDict.items():
             if v.hasPassDoor():
-                self.__peoplenum+=1
+                if v.getDirection() > 0:
+                    self.__peoplenum+=1
+                else:
+                    self.__peoplenum-=1
                 karr.append(k)
         for k in karr:
             del self.__objectTractDict[k]
             del self.__objectImgDict[k]
             del self.__neiborhoodTemperature[k]
-            
     def trackPeople(self,img , loc):
         '''
         loc:对象当前位置数组
         img:图片
         '''
         self.__classifyObject(img,loc)
-        self.__
+        self.__updatePeopleCount()
         print("=========================people num is %d ==================="%(self.__peoplenum))
 
         pass

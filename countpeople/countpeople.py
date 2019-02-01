@@ -451,12 +451,10 @@ class CountPeople:
                     continue
                 #如果当前图片中含有两个人
                 cnt_count,image ,contours,hierarchy =self.extractBody(self.average_temp_median , medianBlur)
-                self
+                
                 print("当前帧数中存在的人数是%d"%(cnt_count))
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(medianBlur)
-                print("location is on the  %dth row ")
-                print(loc)
                 #sleep(0.5)
 
         except KeyboardInterrupt:
@@ -482,7 +480,7 @@ class CountPeople:
         ones = np.ones(average_temp.shape , np.float32)
         print("ones' shape is  (%d,%d)"%(average_temp.shape[0],average_temp.shape[1]))
         ret = (0 , None,None,None)
-        area_1_3,area_1_10 = self.image_size*0.3,self.image_size*0.1
+        area_1_3,area_1_14 = self.image_size*0.3,self.image_size/15
         while True:
             print("current threshold is ")
             print(thre_temp)
@@ -517,7 +515,7 @@ class CountPeople:
                 #如果两个轮廓的大小大于图片的1/10,那么可以认为存在两个人体
                 img2_copy = img2.copy()
                 #cv.drawContours(img2,contours,-1,(0,255,0),2)
-                if cnt1 > area_1_10 and cnt2 > area_1_10:
+                if cnt1 > area_1_14 and cnt2 > area_1_14:
                     print("return two people?!!!!!")
                     img2 = np.array(img2,np.float32)
                     if show_frame:
@@ -529,7 +527,7 @@ class CountPeople:
                 #增大阈值
                 thre_temp += 0.25
             '''
-            if cnt1 < area_1_10 and cont_cnt == 1 :
+            if cnt1 < area_1_14 and cont_cnt == 1 :
                 img2_copy = img2.copy()
                 #img_ret = cv.drawContours(img2,contours,-1,(0,255,0),1)
                 print("has one people return !!!!!")
@@ -594,9 +592,22 @@ class CountPeople:
         for cnt in contours:
             x,y,w,h = cv.boundingRect(cnt)
             print(x,y,w,h)
+            print(img.max())
             mask = img[y:y+h,x:x+w]
             print(mask)
+            #input("press any key")
             row_sum = []
+            row_max =[]
+            for row in mask:
+                row_max.append(row.max())
+            row,col =0,0
+            row = row_max.index(max(row_max))
+            max_row = mask[row].tolist()
+            col = max_row.index(max(max_row))
+            row += y
+            col += x
+            ret.append((row,col))
+            continue
             for row in mask:
                 row_sum.append(row.sum())
             max_row = row_sum.index(max(row_sum))
@@ -606,6 +617,7 @@ class CountPeople:
             max_col += x
             ret.append((max_row,max_col))
         print(ret)
+        print(img[ret[0][0],ret[0][1]])
         #input("press Enter continue...")
         return ret
         #for i in range(pcount):

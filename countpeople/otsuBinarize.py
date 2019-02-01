@@ -7,18 +7,14 @@ def findThresh(histogram , total,ranges = (-6,6),interval =
         total:图像的pixel个数
     '''
     sum = 0 
-    print("the histogram is ")
-    print(histogram)
     allsum =  0
     for k,v in histogram.items():
         allsum += v
-    print("allsum = %d"%(allsum))
     allsum = 0
     sortHist = sorted(histogram.items(),key = lambda item:item[0])
     for k,v in sortHist:
         sum += k*v
         allsum  += v
-    print("allsum = %d"%(allsum))
     sumB = 0
     wB = 0
     wF = 0
@@ -48,13 +44,10 @@ def calcHistogram(images,ranges = (-6,6) ):
     bins = (ranges[1] - ranges[0]) * 10
     images = np.round(images,1)
     hist ,bins = np.histogram(images.ravel() , bins=bins , range=(-6,6))
-    print(hist.sum())
-    print(bins)
     bins = bins[:-1]
     freqMap  = {}
     for i in range(hist.shape[0]):
         freqMap[round(bins[i],1)] = hist[i]
-    print(freqMap)
     return freqMap
 def otsuThreshold(images , total,ranges = (-6,6),interval =0.1,thre = None):
     histogram = calcHistogram(images)
@@ -62,7 +55,6 @@ def otsuThreshold(images , total,ranges = (-6,6),interval =0.1,thre = None):
         ret = thre
     else:
         ret = findThresh(histogram,total,ranges,interval)
-    print("ret is %.1f"%(ret))
     shape = images.shape
     hist  = np.ones(shape)
     for i in range(shape[0]):

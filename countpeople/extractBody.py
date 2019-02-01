@@ -4,6 +4,7 @@ from countpeople import CountPeople
 from interpolate import imageInterpolate
 import time
 import os
+import math
 import sys
 import cv2 as cv
 if len(sys.argv) < 2:
@@ -54,18 +55,18 @@ mask_arr = []
 respect_img=[]
 contours_rect = []
 center_temp_arr=[]
+curr_arr = []
 for i in range(sel_frames.shape[0]):
     print("the %dth frame in all_frames "%(frame_arr[i]))
     #frame = all_frames_intepol[i]
     frame = all_frames_intepol[i]
     frame_copy = frame.copy()
-    medianBlur = cp.medianFilter(frame)
-    print("after the median filter")
-    print(medianBlur)
-    curr = medianBlur - average_median
-    ret = cp.isCurrentFrameContainHuman(medianBlur,average_median,curr)
+    blur = cp.medianFilter(frame)
+    curr = blur - average_median
+    curr_arr.append(curr)
+    ret = cp.isCurrentFrameContainHuman(blur,average_median,curr)
     print("capture the body contours")
-    cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , medianBlur,False)
+    cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , blur)
     if cnt_count == 0:
         print("current frame has no people")
         raise ValueError("no people")
@@ -78,7 +79,7 @@ for i in range(sel_frames.shape[0]):
     print("==============================has %d people in this frame======================= "%(cnt_count))
     if cnt_count > 0:
         contours_rect.append(rect_arr)
-        diff_ave_curr = medianBlur - average_median
+        diff_ave_curr =curr 
         pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
         for item in pos:
             print("=================body is on the place (%d,%d) of the frame ======================"%(item[0],item[1]))
@@ -87,20 +88,31 @@ for i in range(sel_frames.shape[0]):
             mask[item[0],item[1]] = 1
        # cp.trackPeople(img2,pos)
         mask_arr.append(mask)
-        respect_img.append(medianBlur)
+        respect_img.append(blur)
         center_temp_arr.append(pos)
 mask_arr = np.array(mask_arr)
 respect_img =np.array(respect_img)
 print(mask_arr.shape)
 print(respect_img.shape)
 print("================contours_rect length is %d================="%(len(contours_rect)))
-print(center_temp_arr)
 for i in  range(len(center_temp_arr)):
-    img = respect_img[i]
-    print("=================center=================")
+    img = curr_arr[i]
     for pos in center_temp_arr[i]:
-        print(img[pos[0],pos[1]])
-
-showImage(respect_img,mask_arr ,contours_rect)
-plt.show()
-
+        print(round(img[pos[0],pos[1]],2),end=",")
+print()
+print("===================calculate the distance===================================")
+pos_arr = []
+for i in center_temp_arr:
+    for pos in i:
+        pos_arr.append(pos)
+print(pos_arr)
+pre = pos_arr[0]
+for i in range(1,len(pos_arr)):
+    pos = pos_arr[i]
+    eu_dis = math.sqrt(math.pow(pos[0]-pre[0],2)+math.pow(pos[1]-pre[1],2))
+    pre = pos
+    print(round(eu_dis,2),end=";")
+print()
+#showImage(respect_img,mask_arr ,contours_rect)
+#plt.show()
+ 

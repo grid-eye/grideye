@@ -10,7 +10,7 @@ import os
 import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
-from otsuBinarize import otsuThreshold
+from .otsuBinarize import otsuThreshold
 
 class ObjectTrack:
     '''

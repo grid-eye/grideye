@@ -23,7 +23,7 @@ def analyseImageData(path,interpolate_method="linear"):
     maxm = maxArr.max()
     aveave = np.average(average)
     overThresh = []
-    if maxm > 2.7:
+    if maxm > 3.5:
         for i in range(len(maxArr)):
             if maxArr[i].max() >2.7:
                 overThresh.append(i)

@@ -14,23 +14,20 @@ from otsuBinarize import otsuThreshold
 
 class ObjectTrack:
     '''
-    目标轨迹类,保存每个目标的在每一帧的位置
+    目标轨迹类
     '''
     __loc_list = [] #运动轨迹队列
-    __img_list = [] #运动所在的帧的数据，和上面的轨迹一一对应
     __pos = -1
     __size = 0
     __direction = 1#进入
     def __init__(self):
         pass
-    def put(self,point,img):
+    def put(self,point):
         self.__loc_list.append(point)
-        self.__img_list.append(img)
         self.__size += 1
     def get(self):
         loc = self.__loc_list[self.__size -1]
-        img = self.__img_list[self.__size-1]
-        return loc,img
+        return loc
     def isEmpty(self):
         return self.__size == 0 
     def hasPassDoor(self,frame_width = 32):
@@ -63,9 +60,9 @@ class CountPeople:
     __averageDiffThresh = 0.3  # 平均温度查阈值
     __otsuResultForePropor = 0.0004
     __objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
+    __objectImgDict = {}#目标图片数据字典
     __neiborhoodTemperature = {}#m目标图片邻域均值
     __neibor_diff_thresh = 1
-    __isExist = False #前一帧是否存在人，人员通过感应区域后的执行统计人数步骤的开关
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
     def __init__(self, pre_read_count=30, th_bgframes=200, row=32, col=32):
@@ -167,8 +164,7 @@ class CountPeople:
         for aitem in range(len(self.all_bgframes)):
             total_frames = total_frames+np.array(all_bgframes[aitem])
         return total_frames/len(all_bgframes)
-    def setExistPeople(self,exist=False):
-        self.__isExist = exist
+
     def detectionNoise(self):
         '''
             func:remove noise from image
@@ -176,14 +172,17 @@ class CountPeople:
             return :2-d array
         '''
         pass
+
     def medianFilter(self, img):
         img = self.makeImgCompatibleForCv(img)
         median = cv.medianBlur(img, 5)
         return median
+
     def gaussianFilter(self, img):
         img = self.makeImgCompatibleForCv(img)
         blur = cv.GaussianBlur(img, (3, 3), 0)
         return blur
+
     def bilateralFilter(self, img):
         img = self.makeImgCompatibleForCv(img)
         cv.bilateralFilter(img, 9, 75, 75)
@@ -819,24 +818,22 @@ class CountPeople:
         为当前帧提取目标特征
         '''
         #空间距离
-        
         for cp in corr:
             for k,v in self.__objectTrackDict.items():
-                last_place ,last_frame = v.get()
+                last_place = v.get()
                 euclidean_distance = math.sqrt(math.pow((cp[0] - last_place[0]),2)+math.pow((cp[1] - last_place[1]),2))
                 print("euclidean distance is %.2f"%(euclidean_distance))
-                #温度差不会超过某个阈值
+                #温度差不会超过1摄氏度
                 previous_img = self.__objectImgDict[k]
                 preivous_cnt = previous_img[last_place[0],last_place[1]]#前一帧的中心温度
                 diff_temp = img[cp[0],cp[1]] - previous_cnt#当前中心温度和前一帧数的中心温度差
                 #中心温度邻域均值
                 ave = self.__neiborhoodTemp(img , cp[0],cp[1])
                 heibor_diff = math.abs(ave - self._neiborhoodTemperature[k])
-                horizontal_dis =abs(cp[0] - last_place[0])
-                vertical_dis = abs(cp[1] - last_place[1])
-                if horizontal_dis < self.col / 5:
-                    self.__objectTrackDict[k].put(cp,img)
+                if neibor_diff < self.__neibor_diff_thresh:
+                    self.__objectTrackDict[k].put(cp)
                     self.__neiborhoodTempemperature[k] = (ave+self._neigborhoodTemperature[k])/2
+                    self.__objectImgDict[k] = img
     def __classifyObject(self,img, corr):
 
         '''
@@ -848,12 +845,11 @@ class CountPeople:
                 #为多个目标初始化轨迹字典
                 track = ObjectTrack()
                 obj = Target()
-                track.put(i,img)
+                track.put(i)
                 self.__objectTrackDict[obj] = track
                 ntp = self.__neigborhoodTemp(img,i[0],i[1])
-                #设置邻域温度
-                obj.setNeiborhoddTemp(ntp)a
-                #设置目标对象的所对应的帧
+                obj.setNeiborhoddTemp(ntp)
+                self.__objectImgDict[k]=[img]
                 self.__neiborhoodTemperature[k] =ntp
         else:
             self.__extractFeature(img,corr)
@@ -887,6 +883,8 @@ class CountPeople:
         self.__classifyObject(img,loc)
         self.__updatePeopleCount()
         print("=========================people num is %d ==================="%(self.__peoplenum))
+
+        pass
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] == "start":

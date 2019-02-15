@@ -81,10 +81,10 @@ for i in range(sel_frames.shape[0]):
         contours_rect.append(rect_arr)
         diff_ave_curr =curr 
         pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
+        mask = np.zeros((cp.row,cp.col),np.uint8)
         for item in pos:
             print("=================body is on the place (%d,%d) of the frame ======================"%(item[0],item[1]))
             print(item)
-            mask = np.zeros((cp.row,cp.col),np.uint8)
             mask[item[0],item[1]] = 1
        # cp.trackPeople(img2,pos)
         mask_arr.append(mask)
@@ -113,6 +113,6 @@ for i in range(1,len(pos_arr)):
     pre = pos
     print(round(eu_dis,2),end=";")
 print()
-#showImage(respect_img,mask_arr ,contours_rect)
-#plt.show()
+showImage(respect_img,mask_arr ,contours_rect)
+plt.show()
  

@@ -100,6 +100,8 @@ class CountPeople:
         interpolating for the pixels,default method is cubic
         '''
         return griddata(points, pixels, (grid_x, grid_y), method=inter_type)
+    def getPeopleNum(self):
+        return self.__peoplenum
     def displayImage_bg_curr(self, average_temperature, currFrameIntepol):
         '''
         '''
@@ -449,13 +451,18 @@ class CountPeople:
                     if ret[1]:
                         bg_frames.append(currFrame)
                         frame_counter += 1
+                        if self.getExistPeople():
+                            self.updatePeopleCount()
+                            self.setExistPeople(False)
+                            
                     continue
+                self.setExistPeople(True)
                 #如果当前图片中含有两个人
                 cnt_count,image ,contours,hierarchy =self.extractBody(self.average_temp_median , medianBlur)
-                
                 print("当前帧数中存在的人数是%d"%(cnt_count))
                 #下一步是计算轮当前帧的中心位置
-                loc = self.findBodyLocation(medianBlur)
+                loc = self.findBodyLocation(medianBlur,contours,[ i for i in range(self.row))
+                self.trackPeople(medianBlur,loc)
                 #sleep(0.5)
 
         except KeyboardInterrupt:
@@ -470,7 +477,8 @@ class CountPeople:
             print("save all frames")
             print("exit")
             raise KeyboardInterrupt("catch keyboard interrupt")
-   
+    def getExistPeople(self):
+        return self.__isExist
     def extractBody(self,average_temp , curr_temp,show_frame = False):
         '''
            找到两人之间的间隙(如果有两人通过)
@@ -885,7 +893,6 @@ class CountPeople:
         img:图片
         '''
         self.__classifyObject(img,loc)
-        self.__updatePeopleCount()
         print("=========================people num is %d ==================="%(self.__peoplenum))
 if __name__ == "__main__":
     if len(sys.argv) > 1:

@@ -71,7 +71,8 @@ for i in range(sel_frames.shape[0]):
     cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , blur)
     if cnt_count == 0:
         print("current frame has no people")
-        raise ValueError("no people")
+        #print(len(contours))
+        #raise ValueError("no people")
         continue
     plt_frames.append(seq)
     rect_arr = []

@@ -491,22 +491,29 @@ class CountPeople:
         ret = (0 , None,None,None)
         area_1_3,area_1_14 = self.image_size*0.3,self.image_size/15
         while True:
+            '''
             print("current threshold is ")
             print(thre_temp)
             print("current temperature is")
             print(curr_temp)
+            '''
             binary = ones * (curr_temp >= thre_temp)
             bsum = binary.sum()
             proportion = round(bsum / self.image_size,2)
             print("binary_sum is %d"%(bsum))
             print("the propotion is %.2f"%(proportion))
             thresh = np.array(binary , np.uint8)
-            print("after binarize :")
-            print(thresh)
+            #print("after binarize :")
+            #print(thresh)
             img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-            print(contours)
             cont_cnt = len(contours)
             if cont_cnt == 0:
+                print(ones.sum())
+                time.sleep(2)
+                print(bsum)
+                time.sleep(2)
+                print(thresh)
+                raise ValueError()
                 return (0,None,None,None)
             print("has %d people"%(cont_cnt))
             #求轮廓的面积
@@ -536,19 +543,40 @@ class CountPeople:
                 #增大阈值
                 thre_temp += 0.25
             '''
-            if cnt1 < area_1_14 and cont_cnt == 1 :
-                img2_copy = img2.copy()
-                #img_ret = cv.drawContours(img2,contours,-1,(0,255,0),1)
-                print("has one people return !!!!!")
-                img2 = np.array(img2,np.float32)
-                rect = np.zeros(img2.shape,np.uint8)
-                rect = cv.cvtColor(rect , cv.COLOR_GRAY2BGR)
-                x,y,w,h = cv.boundingRect(contours[0])
-                cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
-                print(rect.sum())
-                if show_frame:
-                    self.showExtractProcessImage(curr_temp,thresh ,rect)
-                return (1,img2_copy,contours,heirarchy)
+            if cnt1 < area_1_14 :
+                noMoreOne = False
+                #这个条件是去除一些噪音所造成的误差
+                if cont_cnt > 1:
+                    area_arr = []
+                    area_dict={cnt1:contours[0]}
+                    for i in range(len(contours)):
+                        area = cv.contourArea(contours[i])
+                        while True:
+                            if area  not in area_dict:
+                                area_dict[area] = contours[i]
+                                break
+                            area += 0.1
+                        area_arr.append(area)
+                    area_arr.sort()
+                    max_area = area_arr[-1]
+                    area_arr = area_arr[0:-1]
+                    if all(area_arr) <= 3:
+                        noMoreOne=True
+                    contours=[area_dict[max_area]]
+                    cnt1 = max_area
+                if  cnt1 < area_1_14 and (cont_cnt ==1 or noMoreOne):
+                    img2_copy = img2.copy()
+                    #img_ret = cv.drawContours(img2,contours,-1,(0,255,0),1)
+                    print("has one people return !!!!!")
+                    img2 = np.array(img2,np.float32)
+                    rect = np.zeros(img2.shape,np.uint8)
+                    rect = cv.cvtColor(rect , cv.COLOR_GRAY2BGR)
+                    x,y,w,h = cv.boundingRect(contours[0])
+                    cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
+                    print(rect.sum())
+                    if show_frame:
+                        self.showExtractProcessImage(curr_temp,thresh ,rect)
+                    return (1,img2_copy,contours,heirarchy)
             else:
                 #不断提高阈值                    
                 thre_temp += 0.25

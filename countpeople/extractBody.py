@@ -25,9 +25,8 @@ cp = CountPeople(row=32,col=32)
 average_median = cp.medianFilter(average_temp_intepol)
 average_median_unintel = cp.medianFilter(average_temp)
 print("create countpeople object")
-def plotImage(original ,img,rect , figs = [0]):
-    figure , (ax1,ax2,ax3) = plt.subplots(1,3,num=figs[0])
-    figs[0]+=1
+def plotImage(original ,img,rect , frame_seq):
+    figure , (ax1,ax2,ax3) = plt.subplots(1,3,num=frame_seq)
     ax1.imshow(original)
     ax1.set_title("original image")
     ax2.imshow(img)
@@ -40,15 +39,16 @@ def plotImage(original ,img,rect , figs = [0]):
         cv.rectangle(rect_img,(r[0],r[1]),(r[0]+r[2],r[1]+r[3]),(0,255,0),1)
     ax3.imshow(rect_img)
     ax3.set_xticks([]),ax3.set_yticks([])
-def showImage(original , newImage,contours_arr,figs_num=[0]):
+def showImage(original , newImage,contours_arr,plt_frames):
     if len(newImage.shape) == 3:
         for i in range(len(newImage)):
             img = newImage[i]
             omg = original[i]
             rect = contours_arr[i]
-            plotImage(omg, img,rect,figs_num)
+            seq = plt_frames[i]
+            plotImage(omg, img,rect,seq)
     else:
-        plotImage(original,newImage,contours_arr,figs_num)
+        plotImage(original,newImage,contours_arr,plt_frames)
 
 all_result = []
 mask_arr = []
@@ -56,12 +56,14 @@ respect_img=[]
 contours_rect = []
 center_temp_arr=[]
 curr_arr = []
+plt_frames = []#被绘制的帧的序号
 for i in range(sel_frames.shape[0]):
     print("the %dth frame in all_frames "%(frame_arr[i]))
     #frame = all_frames_intepol[i]
     frame = all_frames_intepol[i]
     frame_copy = frame.copy()
     blur = cp.medianFilter(frame)
+    seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
     curr = blur - average_median
     curr_arr.append(curr)
     ret = cp.isCurrentFrameContainHuman(blur,average_median,curr)
@@ -71,6 +73,7 @@ for i in range(sel_frames.shape[0]):
         print("current frame has no people")
         raise ValueError("no people")
         continue
+    plt_frames.append(seq)
     rect_arr = []
     for cont in contours:
         x,y,w,d = cv.boundingRect(cont)
@@ -84,7 +87,6 @@ for i in range(sel_frames.shape[0]):
         mask = np.zeros((cp.row,cp.col),np.uint8)
         for item in pos:
             print("=================body is on the place (%d,%d) of the frame ======================"%(item[0],item[1]))
-            print(item)
             mask[item[0],item[1]] = 1
        # cp.trackPeople(img2,pos)
         mask_arr.append(mask)
@@ -92,13 +94,15 @@ for i in range(sel_frames.shape[0]):
         center_temp_arr.append(pos)
 mask_arr = np.array(mask_arr)
 respect_img =np.array(respect_img)
-print(mask_arr.shape)
-print(respect_img.shape)
 print("================contours_rect length is %d================="%(len(contours_rect)))
+
 for i in  range(len(center_temp_arr)):
     img = curr_arr[i]
+    seq = plt_frames[i]
+    print("===frame is %d === "%(seq),end=",")
     for pos in center_temp_arr[i]:
         print(round(img[pos[0],pos[1]],2),end=",")
+    print()
 print()
 print("===================calculate the distance===================================")
 pos_arr = []
@@ -112,7 +116,7 @@ for i in range(1,len(pos_arr)):
     eu_dis = math.sqrt(math.pow(pos[0]-pre[0],2)+math.pow(pos[1]-pre[1],2))
     pre = pos
     print(round(eu_dis,2),end=";")
-print()
-showImage(respect_img,mask_arr ,contours_rect)
+print(plt_frames)
+showImage(respect_img,mask_arr ,contours_rect,plt_frames)
 plt.show()
  

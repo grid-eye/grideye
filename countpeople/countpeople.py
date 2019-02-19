@@ -461,7 +461,7 @@ class CountPeople:
                 cnt_count,image ,contours,hierarchy =self.extractBody(self.average_temp_median , medianBlur)
                 print("当前帧数中存在的人数是%d"%(cnt_count))
                 #下一步是计算轮当前帧的中心位置
-                loc = self.findBodyLocation(medianBlur,contours,[ i for i in range(self.row))
+                loc = self.findBodyLocation(medianBlur,contours,[ i for i in range(self.row)])
                 self.trackPeople(medianBlur,loc)
                 #sleep(0.5)
 
@@ -860,7 +860,7 @@ class CountPeople:
                 self.__objectTrackDict[obj] = track
                 ntp = self.__neigborhoodTemp(img,i[0],i[1])
                 #设置邻域温度
-                obj.setNeiborhoddTemp(ntp)a
+                obj.setNeiborhoddTemp(ntp)
                 #设置目标对象的所对应的帧
                 self.__neiborhoodTemperature[k] =ntp
         else:

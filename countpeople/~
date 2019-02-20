@@ -454,6 +454,7 @@ class CountPeople:
                         if self.getExistPeople():
                             self.updatePeopleCount()
                             self.setExistPeople(False)
+                            
                     continue
                 self.setExistPeople(True)
                 #如果当前图片中含有两个人
@@ -486,8 +487,9 @@ class CountPeople:
         '''
         thre_temp = average_temp+0.25 #阈值温度
         ones = np.ones(average_temp.shape , np.float32)
+        print("ones' shape is  (%d,%d)"%(average_temp.shape[0],average_temp.shape[1]))
         ret = (0 , None,None,None)
-        area_1_100,area_1_14,area_1_15 = self.image_size*0.01,self.image_size/9,self.image_size/10
+        area_1_100,area_1_14 = self.image_size*0.01,self.image_size/15
         while True:
             '''
             print("current threshold is ")
@@ -520,21 +522,26 @@ class CountPeople:
                 print("cnt1 = %.2f"%(cnt1))
             '''
             if len(contours) > 2:
+                #暂时无法检测三个人以上进入
                 thre_temp += 0.25
                 continue
             '''
-            if cont_cnt  > 1:
+            if len(contours) > 1:
                 #存在两个轮廓以上
                 area_arr = []
                 for c in contours:
                     area_arr.append(cv.contourArea(c))
-                if all(area_arr) > area_1_100 and ( all(area_arr) < area_1_14 or all(area_arr) < area_1_15):
-                    img2_copy = img2.copy()
-                    #cv.drawContours(img2,contours,-1,(0,255,0),2)
+                if all(area_arr) > area_1_100 &&( all(area_arr) < area_1_14 or all(area_arr) < area_1_15):
+                print("cnt2= %.2f"%(cnt1))
+                #如果两个轮廓的大小大于图片的1/10,那么可以认为存在两个人体
+                img2_copy = img2.copy()
+                #cv.drawContours(img2,contours,-1,(0,255,0),2)
+                if cnt1 > area_1_14 and cnt2 > area_1_14:
+                    print("return two people?!!!!!")
                     img2 = np.array(img2,np.float32)
                     if show_frame:
                         self.showExtractProcessImage(curr_temp,thresh ,img2)
-                    return (len(contours),img2_copy,contours,heirarchy)
+                    return (2,img2_copy,contours,heirarchy)
             '''
             if cnt1 >  area_1_3:
                 #如果区域面积大于图片1/3，则可能有两个人出现在图片上

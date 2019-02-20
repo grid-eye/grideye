@@ -33,8 +33,6 @@ def plotImage(original ,img,rect , frame_seq):
     ax2.set_title("image contours")
     rect_img = np.zeros(img.shape,np.uint8)
     rect_img = cv.cvtColor(rect_img,cv.COLOR_GRAY2BGR)
-    print("plot")
-    print(rect)
     for r in rect:
         cv.rectangle(rect_img,(r[0],r[1]),(r[0]+r[2],r[1]+r[3]),(0,255,0),1)
     ax3.imshow(rect_img)
@@ -87,7 +85,6 @@ for i in range(sel_frames.shape[0]):
         pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
         mask = np.zeros((cp.row,cp.col),np.uint8)
         for item in pos:
-            print("=================body is on the place (%d,%d) of the frame ======================"%(item[0],item[1]))
             mask[item[0],item[1]] = 1
        # cp.trackPeople(img2,pos)
         mask_arr.append(mask)
@@ -95,14 +92,11 @@ for i in range(sel_frames.shape[0]):
         center_temp_arr.append(pos)
 mask_arr = np.array(mask_arr)
 respect_img =np.array(respect_img)
-print("================contours_rect length is %d================="%(len(contours_rect)))
-
 for i in  range(len(center_temp_arr)):
     img = curr_arr[i]
     seq = plt_frames[i]
-    print("===frame is %d === "%(seq),end=",")
     for pos in center_temp_arr[i]:
-        print(round(img[pos[0],pos[1]],2),end=",")
+        print(round(img[pos[0],pos[1]],2) ,end=",")
     print()
 print()
 print("===================calculate the distance===================================")
@@ -110,7 +104,6 @@ pos_arr = []
 for i in center_temp_arr:
     for pos in i:
         pos_arr.append(pos)
-print(pos_arr)
 pre = pos_arr[0]
 for i in range(1,len(pos_arr)):
     pos = pos_arr[i]

@@ -92,9 +92,11 @@ for i in range(sel_frames.shape[0]):
         center_temp_arr.append(pos)
 mask_arr = np.array(mask_arr)
 respect_img =np.array(respect_img)
+print("====print the loc of all center points===")
 for i in  range(len(center_temp_arr)):
     img = curr_arr[i]
     seq = plt_frames[i]
+    print(seq,end=",")
     for pos in center_temp_arr[i]:
         print(round(img[pos[0],pos[1]],2) ,end=",")
     print()

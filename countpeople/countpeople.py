@@ -487,7 +487,7 @@ class CountPeople:
         thre_temp = average_temp+0.25 #阈值温度
         ones = np.ones(average_temp.shape , np.float32)
         ret = (0 , None,None,None)
-        area_1_100,area_1_14,area_1_15 = self.image_size*0.01,self.image_size/9,self.image_size/10
+        area_down_thresh,thresh_up,thresh_down = self.image_size*0.02,self.image_size/9,self.image_size/10
         while True:
             '''
             print("current threshold is ")
@@ -507,14 +507,41 @@ class CountPeople:
             cont_cnt = len(contours)
             if cont_cnt == 0:
                 print(ones.sum())
-                time.sleep(2)
                 print(bsum)
-                time.sleep(2)
                 print(thresh)
                 raise ValueError()
                 return (0,None,None,None)
             print("has %d people"%(cont_cnt))
             #求轮廓的面积
+            area_dict = {}
+            area_list = []
+            for c in contours:
+                area = cv.contourArea(c)
+                area_dict[area] = c
+                area_list.append(area)
+            print("===========area list is =========")
+            print(area_list)
+            bool_arr_down = np.array(area_list) < thresh_down
+            bool_arr_up = np.array(area_list) < thresh_up
+            if all( bool_arr_down) or all(bool_arr_up) :
+                print(area_list)
+                print(thresh_down)
+                print("===yes ===")
+                ret = []
+                for a in area_list:
+                    if a > area_down_thresh:
+                        ret.append(a)
+                    else:
+                        del area_dict[a]
+                img2_copy = img2.copy()
+                #cv.drawContours(img2,contours,-1,(0,255,0),2)
+                cnts = []
+                for k,v in area_dict.items():
+                    cnts.append(v)
+                return (len(ret),img2_copy,cnts,heirarchy)
+            else:
+                thre_temp += 0.25
+                continue
             if cont_cnt  >= 1:
                 cnt1 = cv.contourArea(contours[0])
                 print("cnt1 = %.2f"%(cnt1))
@@ -525,10 +552,11 @@ class CountPeople:
             '''
             if cont_cnt  > 1:
                 #存在两个轮廓以上
+                print("cont_cnt > 1")
                 area_arr = []
                 for c in contours:
                     area_arr.append(cv.contourArea(c))
-                if all(area_arr) > area_1_100 and ( all(area_arr) < area_1_14 or all(area_arr) < area_1_15):
+                if all(area_arr) > area_down_thresh and ( all(area_arr) < area_1_14 or all(area_arr) < area_1_15):
                     img2_copy = img2.copy()
                     #cv.drawContours(img2,contours,-1,(0,255,0),2)
                     img2 = np.array(img2,np.float32)
@@ -564,6 +592,7 @@ class CountPeople:
                         noMoreOne=True
                     contours=[area_dict[max_area]]
                     cnt1 = max_area
+
                 if  cnt1 < area_1_14 and (cont_cnt ==1 or noMoreOne):
                     img2_copy = img2.copy()
                     #img_ret = cv.drawContours(img2,contours,-1,(0,255,0),1)

@@ -55,6 +55,7 @@ contours_rect = []
 center_temp_arr=[]
 curr_arr = []
 plt_frames = []#被绘制的帧的序号
+cp.setExistPeople(False)
 for i in range(sel_frames.shape[0]):
     print("the %dth frame in all_frames "%(frame_arr[i]))
     #frame = all_frames_intepol[i]
@@ -65,6 +66,15 @@ for i in range(sel_frames.shape[0]):
     curr = blur - average_median
     curr_arr.append(curr)
     ret = cp.isCurrentFrameContainHuman(blur,average_median,curr)
+    if not ret[0]:
+        if cp.getExistPeople():
+            cp.updatePeopleCount()
+            cp.setExistPeople(False)
+        else:
+            print("===no people===")
+        continue
+    else:
+        cp.setExistPeople(True)
     print("capture the body contours")
     cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , blur)
     if cnt_count == 0:
@@ -90,6 +100,10 @@ for i in range(sel_frames.shape[0]):
         mask_arr.append(mask)
         respect_img.append(blur)
         center_temp_arr.append(pos)
+        cp.trackPeople(blur,pos)
+cp.updatePeopleCount()
+result = cp.getPeopleNum()
+print("there are %d people in the room"%(result))
 mask_arr = np.array(mask_arr)
 respect_img =np.array(respect_img)
 print("====print the loc of all center points===")
@@ -112,7 +126,9 @@ for i in range(1,len(pos_arr)):
     eu_dis = math.sqrt(math.pow(pos[0]-pre[0],2)+math.pow(pos[1]-pre[1],2))
     pre = pos
     print(round(eu_dis,2),end=";")
-print(plt_frames)
-showImage(respect_img,mask_arr ,contours_rect,plt_frames)
-plt.show()
+y = input("plot the img?yes:y")
+if y == "y":
+    print(plt_frames)
+    showImage(respect_img,mask_arr ,contours_rect,plt_frames)
+    plt.show()
  

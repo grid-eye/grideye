@@ -38,13 +38,16 @@ class ObjectTrack:
             是否已经通过
         '''
         xs,xend = self.__loc_list[0] ,self.__loc_list[self.__size-1]
-        if xend[0] < xs[0] :
+        if xend[1] < xs[1] :
             self.__direction = 0 
         s = frame_width -1 
-        dis = xend[0] - xs[0]
+        dis = xend[1] - xs[1]
         return abs(dis)== s
     def getDirection(self):
         return self.__direction
+    def showContent(self):
+        print(self.__loc_list)
+        
 class Target:
     '''
     运动目标
@@ -56,6 +59,8 @@ class Target:
         return self.__center_temperature
     def setNeiborhoodTemp(self , neiborhood):
         self.__center_temperature = neiborhood
+    def showContent(self):
+        print(self.__center_temperature)
 class CountPeople:
     __peoplenum = 0  # 统计的人的数量
     __diffThresh = 2# 温度差阈值
@@ -452,7 +457,7 @@ class CountPeople:
                         bg_frames.append(currFrame)
                         frame_counter += 1
                         if self.getExistPeople():
-                            self.updatePeopleCount()
+                            self.__updatePeopleCount()
                             self.setExistPeople(False)
                     continue
                 self.setExistPeople(True)
@@ -654,15 +659,12 @@ class CountPeople:
         print("find body location")
         print("current temperature is ")
         #self.showContours(img,contours)
-        print(np.round(img,2))
+        #print(np.round(img,2))
         pcount = len(contours)
         ret = []
         for cnt in contours:
             x,y,w,h = cv.boundingRect(cnt)
-            print(x,y,w,h)
-            print(img.max())
             mask = img[y:y+h,x:x+w]
-            print(mask)
             #input("press any key")
             row_sum = []
             row_max =[]
@@ -685,7 +687,7 @@ class CountPeople:
             max_col += x
             ret.append((max_row,max_col))
         print(ret)
-        print(img[ret[0][0],ret[0][1]])
+        #print(img[ret[0][0],ret[0][1]])
         #input("press Enter continue...")
         return ret
         #for i in range(pcount):
@@ -886,24 +888,35 @@ class CountPeople:
         为当前帧提取目标特征
         '''
         #空间距离
-        
+        flags={}#已经更新轨迹的目标数组 
+        rest = {}#已经确认隶属的点
         for cp in corr:
             for k,v in self.__objectTrackDict.items():
                 last_place ,last_frame = v.get()
                 euclidean_distance = math.sqrt(math.pow((cp[0] - last_place[0]),2)+math.pow((cp[1] - last_place[1]),2))
                 print("euclidean distance is %.2f"%(euclidean_distance))
                 #温度差不会超过某个阈值
-                previous_img = self.__objectImgDict[k]
-                preivous_cnt = previous_img[last_place[0],last_place[1]]#前一帧的中心温度
+                previous_img = last_frame
+                previous_cnt = previous_img[last_place[0],last_place[1]]#前一帧的中心温度
                 diff_temp = img[cp[0],cp[1]] - previous_cnt#当前中心温度和前一帧数的中心温度差
                 #中心温度邻域均值
-                ave = self.__neiborhoodTemp(img , cp[0],cp[1])
-                heibor_diff = math.abs(ave - self._neiborhoodTemperature[k])
-                horizontal_dis =abs(cp[0] - last_place[0])
+                ave = self.__neiborhoodTemp(img , cp)
+                heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
+                horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[1] - last_place[1])
-                if horizontal_dis < self.col / 5:
-                    self.__objectTrackDict[k].put(cp,img)
-                    self.__neiborhoodTempemperature[k] = (ave+self._neigborhoodTemperature[k])/2
+                if horizontal_dis < self.col / 3 and horizontal_dis < self.row /6 :
+                    if  k not in flags:
+                        self.__objectTrackDict[k].put(cp,img)
+                        self.__neiborhoodTemperature[k] = (ave+self.__neiborhoodTemperature[k])/2
+                        flags.add(k)
+        if len(flags) < len(self.__objectTrckDict):
+            for pos in  corr:
+            if 
+
+
+                    
+    def showFeature(self):
+        pass
     def __classifyObject(self,img, corr):
 
         '''
@@ -911,25 +924,34 @@ class CountPeople:
 
         '''
         if len(self.__objectTrackDict) == 0:
+            print("====init track dict====")
             for i in corr:
                 #为多个目标初始化轨迹字典
                 track = ObjectTrack()
                 obj = Target()
                 track.put(i,img)
                 self.__objectTrackDict[obj] = track
-                ntp = self.__neigborhoodTemp(img,i[0],i[1])
+                ntp = self.__neiborhoodTemp(img,i)
                 #设置邻域温度
-                obj.setNeiborhoddTemp(ntp)
+                obj.setNeiborhoodTemp(ntp)
                 #设置目标对象的所对应的帧
-                self.__neiborhoodTemperature[k] =ntp
+                self.__neiborhoodTemperature[obj] =ntp
         else:
+            print("======extract feature=====")
             self.__extractFeature(img,corr)
+        self.showTargetFeature()
+
     def showTargetFeature(self):
-        pass
+        print("====show target feature===")
+        for k,v in self.__objectTrackDict.items():
+            k.showContent()
+            v.showContent()
     def __updateTrackStack(self,corr,classId):
         '''
         更新运动帧，更新目标的位置
         '''
+    def updatePeopleCount(self):
+        self.__updatePeopleCount()
     def __updatePeopleCount(self):
         '''
         更新检测的人数
@@ -952,6 +974,7 @@ class CountPeople:
         img:图片
         '''
         self.__classifyObject(img,loc)
+        
         print("=========================people num is %d ==================="%(self.__peoplenum))
 if __name__ == "__main__":
     if len(sys.argv) > 1:

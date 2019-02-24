@@ -457,7 +457,7 @@ class CountPeople:
                         bg_frames.append(currFrame)
                         frame_counter += 1
                         if self.getExistPeople():
-                            self.updatePeopleCount()
+                            self.__updatePeopleCount()
                             self.setExistPeople(False)
                     continue
                 self.setExistPeople(True)
@@ -659,7 +659,7 @@ class CountPeople:
         print("find body location")
         print("current temperature is ")
         #self.showContours(img,contours)
-        print(np.round(img,2))
+        #print(np.round(img,2))
         pcount = len(contours)
         ret = []
         for cnt in contours:
@@ -689,8 +689,8 @@ class CountPeople:
             max_row += y
             max_col += x
             ret.append((max_row,max_col))
-        print(ret)
-        print(img[ret[0][0],ret[0][1]])
+        #print(ret)
+        #print(img[ret[0][0],ret[0][1]])
         #input("press Enter continue...")
         return ret
         #for i in range(pcount):
@@ -903,12 +903,12 @@ class CountPeople:
                 diff_temp = img[cp[0],cp[1]] - previous_cnt#当前中心温度和前一帧数的中心温度差
                 #中心温度邻域均值
                 ave = self.__neiborhoodTemp(img , cp)
-                heibor_diff = math.abs(ave - self._neiborhoodTemperature[k])
+                heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[0] - last_place[0])
                 vertical_dis = abs(cp[1] - last_place[1])
                 if horizontal_dis < self.col / 5:
                     self.__objectTrackDict[k].put(cp,img)
-                    self.__neiborhoodTempemperature[k] = (ave+self._neigborhoodTemperature[k])/2
+                    self.__neiborhoodTemperature[k] = (ave+self.__neiborhoodTemperature[k])/2
     def showFeature(self):
         pass
     def __classifyObject(self,img, corr):
@@ -944,6 +944,8 @@ class CountPeople:
         '''
         更新运动帧，更新目标的位置
         '''
+    def updatePeopleCount(self):
+        self.__updatePeopleCount()
     def __updatePeopleCount(self):
         '''
         更新检测的人数

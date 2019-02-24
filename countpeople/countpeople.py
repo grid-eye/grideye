@@ -33,14 +33,15 @@ class ObjectTrack:
         return loc,img
     def isEmpty(self):
         return self.__size == 0 
-    def hasPassDoor(self,frame_width = 32):
+    def hasPassDoor(self,_width = 32):
         '''
             是否已经通过
+
         '''
         xs,xend = self.__loc_list[0] ,self.__loc_list[self.__size-1]
         if xend[1] < xs[1] :
             self.__direction = 0 
-        s = frame_width -1 
+        s =frame_width -1 
         dis = xend[1] - xs[1]
         return abs(dis)== s
     def getDirection(self):
@@ -888,6 +889,7 @@ class CountPeople:
         为当前帧提取目标特征
         '''
         #空间距离
+        obj_num = len(self.__objectTrackDict)#原来的目标数目
         flags={}#已经更新轨迹的目标数组 
         rest = {}#已经确认隶属的点
         for cp in corr:
@@ -898,23 +900,67 @@ class CountPeople:
                 #温度差不会超过某个阈值
                 previous_img = last_frame
                 previous_cnt = previous_img[last_place[0],last_place[1]]#前一帧的中心温度
-                diff_temp = img[cp[0],cp[1]] - previous_cnt#当前中心温度和前一帧数的中心温度差
+                diff_temp = abs(img[cp[0],cp[1]] - previous_cnt)#当前中心温度和前一帧数的中心温度差
                 #中心温度邻域均值
                 ave = self.__neiborhoodTemp(img , cp)
                 heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[1] - last_place[1])
-                if horizontal_dis < self.col / 3 and horizontal_dis < self.row /6 :
+                if vertical_dis < self.col / 6  and horizontal_dis < self.row /6 :
                     if  k not in flags:
+                        if not self.belongToEdge(cp) and not self.belongToEdge(last_place):
+                            if diff_temp > 1.2:
+                                continue#非边缘目标的中心的点温度之间的差距不能大于1.2
                         self.__objectTrackDict[k].put(cp,img)
                         self.__neiborhoodTemperature[k] = (ave+self.__neiborhoodTemperature[k])/2
                         flags.add(k)
-        if len(flags) < len(self.__objectTrckDict):
-            for pos in  corr:
-            if 
+                        rest.add(cp)
+        rest_length = len(rest)
+        rest_rest = {}
+        rest_point_rest={}
+        diff_obj_rest={}
+        if rest_length < obj_num:#是否还有目标尚未匹配
+            obj_set = set(self.__objectTrackDict.keys())
+            diff_set = obj_set - flags
+            diff_cp_set = set(corr) - rest
+            for point in diff_cp_set:
+                for obj in diff_set:
+                    v = self.__objectTrackDict[k]
+                    prev_point , prev_img = v.get()
+                    diff_temp = abs(prev_img[prev_point[0],prev_point[1]] - img[point[0],point[1])
+                    hozi_dis = abs(prev_point[1]-point[1])
+                    verti_dis = abs(prev_point[0]-point[0])
+                    if hori_dis < self.col / 6 and verti_dis < self.row / 6:
+                        if not self.belongToEdge(prev_point) and not self.belongToEdge(point):#中心点不在边缘
+                            if diff_temp > 1.5:
+                                continue#放松限制条件（由于传感器误差和计算误差）
+                        self.__objectTrack[obj].put(cp,img)
+                        rest_rest.add(point)
+                        rest_point_rest.add(point)
+            diff_point_rest = diff_cp_set - rest_point_rest
+            diff_obj__rest = diff_set - rest_rest
+        if len(diff_point_rest)> 0:#是否有新的人进入监控视野
+            for point in diff_point_rest:
+                obj = Target()
+                v = ObjectTrack()
+                v.put(point,img)
+                self.__objectTrackDict[obj]= v
+        if len(diff_obj_rest) > 0 :#证明有些人已经通过监控区域
+            for k in diff_obj_rest:
+                self.updateSpecifiedTarget(k)
+    def updateSpecifiedTarget(self,key):#某个目标突然消失，表示通过监控区域
+        for k in key:
+            track = self.__objectTrackDict[k]
+            if track.hasPassDoor(self.col):
+                if track.getDirection() == 1:
+                    self.__peoplenum += 1
+                else:
+                    self.__peoplenum -= 1
 
-
-                    
+    def belongToEdge(self,point):
+        if point[1] == 0 or point[1] == self.col-1:
+            return True
+        return False
     def showFeature(self):
         pass
     def __classifyObject(self,img, corr):

@@ -940,7 +940,7 @@ class CountPeople:
                         if not self.belongToEdge(prev_point) and not self.belongToEdge(point):#中心点不在边缘
                             if diff_temp > 1.5:
                                 continue#放松限制条件（由于传感器误差和计算误差）
-                        self.__objectTrackDict[obj].put(cp,img)
+                        self.__objectTrackDict[obj].put(point,img)
                         final_point_rest.remove(point)
                         final_obj_rest.remove(k)
         print("===final point_rest====")
@@ -1009,9 +1009,9 @@ class CountPeople:
                     self.__peoplenum-=1
                 karr.append(k)
         for k in karr:
-            del self.__objectTractDict[k]
-            del self.__objectImgDict[k]
-            del self.__neiborhoodTemperature[k]
+            del self.__objectTrackDict[k]
+            #del self.__objectImgDict[k]
+            #del self.__neiborhoodTemperature[k]
     def trackPeople(self,img , loc):
         '''
         loc:对象当前位置数组

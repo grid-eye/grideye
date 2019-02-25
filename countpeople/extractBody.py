@@ -120,6 +120,7 @@ pos_arr = []
 for i in center_temp_arr:
     for pos in i:
         pos_arr.append(pos)
+print(pos_arr)
 pre = pos_arr[0]
 for i in range(1,len(pos_arr)):
     pos = pos_arr[i]

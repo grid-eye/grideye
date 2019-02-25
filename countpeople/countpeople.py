@@ -16,13 +16,12 @@ class ObjectTrack:
     '''
     目标轨迹类,保存每个目标的在每一帧的位置
     '''
-    __loc_list = [] #运动轨迹队列
-    __img_list = [] #运动所在的帧的数据，和上面的轨迹一一对应
-    __pos = -1
-    __size = 0
-    __direction = 1#进入
     def __init__(self):
-        pass
+        self.__loc_list = [] #运动轨迹队列
+        self.__img_list = [] #运动所在的帧的数据，和上面的轨迹一一对应
+        self.__pos = -1
+        self.__size = 0
+        self.__direction = 1#进入
     def put(self,point,img):
         self.__loc_list.append(point)
         self.__img_list.append(img)
@@ -889,6 +888,8 @@ class CountPeople:
         为当前帧提取目标特征
         '''
         #空间距离
+        print("=====all corr is=====")
+        print(corr)
         obj_num = len(self.__objectTrackDict)#原来的目标数目
         updated_obj_set = set()#已经更新轨迹的目标集合 
         removed_point_set = set()#已经确认隶属的点的集合
@@ -906,7 +907,7 @@ class CountPeople:
                 #heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[1] - last_place[1])
-                if vertical_dis < self.col / 6  and horizontal_dis < self.row /6 :
+                if vertical_dis < self.col / 4  and horizontal_dis < self.row /6 :
                     if  k not in updated_obj_set:
                         if not self.belongToEdge(cp) and not self.belongToEdge(last_place):
                             if diff_temp > 1.2:
@@ -919,8 +920,12 @@ class CountPeople:
         obj_set = set(self.__objectTrackDict.keys())
         obj_rest = obj_set - updated_obj_set#剩余的未被更新轨迹的对象
         point_rest = set(corr)-removed_point_set#剩余的点
-        final_point_rest= point_rest#最终剩余的点，表示新进入的目标，位于视野边缘
-        final_obj_rest = obj_rest#最终剩余的目标，表示该目标消失，通过了监控区域
+        print("====obj rest is ====")
+        print(obj_rest)
+        print("====point rest is ===")
+        print(point_rest)
+        final_point_rest= point_rest.copy()#最终剩余的点，表示新进入的目标，位于视野边缘
+        final_obj_rest = obj_rest.copy()#最终剩余的目标，表示该目标消失，通过了监控区域
         if obj_length < obj_num:#是否还有目标尚未匹配
             for point in point_rest :
                 for obj in obj_rest :
@@ -931,11 +936,11 @@ class CountPeople:
                     diff_temp = abs(prev_img[prev_point[0],prev_point[1]] - img[point[0],point[1]])
                     hozi_dis = abs(prev_point[1]-point[1])
                     verti_dis = abs(prev_point[0]-point[0])
-                    if hozi_dis < self.col / 6 and verti_dis < self.row / 6:
+                    if hozi_dis < self.col / 3 and verti_dis < self.row / 6:
                         if not self.belongToEdge(prev_point) and not self.belongToEdge(point):#中心点不在边缘
                             if diff_temp > 1.5:
                                 continue#放松限制条件（由于传感器误差和计算误差）
-                        self.__objectTrack[obj].put(cp,img)
+                        self.__objectTrackDict[obj].put(cp,img)
                         final_point_rest.remove(point)
                         final_obj_rest.remove(k)
         print("===final point_rest====")
@@ -945,6 +950,8 @@ class CountPeople:
                 obj = Target()
                 v = ObjectTrack()
                 v.put(point,img)
+                print("new one entering the visual field")
+                v.showContent()
                 self.__objectTrackDict[obj]= v
         if len(final_obj_rest) > 0 :#证明有些人已经通过监控区域
             self.updateSpecifiedTarget(final_obj_rest)
@@ -978,6 +985,8 @@ class CountPeople:
 
     def showTargetFeature(self):
         print("====show target feature===")
+        num = len(self.__objectTrackDict)
+
         for k,v in self.__objectTrackDict.items():
             print(k,end=",")
             v.showContent()

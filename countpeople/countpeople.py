@@ -22,6 +22,7 @@ class ObjectTrack:
         self.__pos = -1
         self.__size = 0
         self.__direction = 1#进入
+        self.__compensation = 6
     def put(self,point,img):
         self.__loc_list.append(point)
         self.__img_list.append(img)
@@ -41,8 +42,8 @@ class ObjectTrack:
         if xend[1] < xs[1] :
             self.__direction = 0 
         s =frame_width -1 
-        dis = xend[1] - xs[1]
-        return abs(dis)== s
+        dis =abs( xend[1] - xs[1])+self.__compensation
+        return dis >= s
     def getDirection(self):
         return self.__direction
     def showContent(self):
@@ -348,11 +349,15 @@ class CountPeople:
         diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
         sums = [hist_result ,diff_result , ave_result]
-        if sum(sums) == 3:
+        if sum(sums) >=  2:
             return (True,)
         elif sum(sums) == 0:
+            print("case 2: ===no people")
+            print(sums)
             return (False,True)
         else:
+            print("case 3：===no people")
+            print(sums)
             return (False,False)
 
     def acquireImageData(self,frame_count = 2000,customDir = None):
@@ -492,7 +497,7 @@ class CountPeople:
         thre_temp = average_temp+0.25 #阈值温度
         ones = np.ones(average_temp.shape , np.float32)
         ret = (0 , None,None,None)
-        area_down_thresh,thresh_up,thresh_down = self.image_size*0.02,self.image_size/9,self.image_size/10
+        area_down_thresh,thresh_up,thresh_down = self.image_size*0.02,self.image_size/16,self.image_size/17
         while True:
             '''
             print("current threshold is ")
@@ -936,7 +941,7 @@ class CountPeople:
                     diff_temp = abs(prev_img[prev_point[0],prev_point[1]] - img[point[0],point[1]])
                     hozi_dis = abs(prev_point[1]-point[1])
                     verti_dis = abs(prev_point[0]-point[0])
-                    if hozi_dis < self.col / 3 and verti_dis < self.row / 6:
+                    if hozi_dis < (self.col *5/12) and verti_dis < self.row *5/12:
                         if not self.belongToEdge(prev_point) and not self.belongToEdge(point):#中心点不在边缘
                             if diff_temp > 1.5:
                                 continue#放松限制条件（由于传感器误差和计算误差）
@@ -966,6 +971,7 @@ class CountPeople:
                 del self.__objectTrackDict[k]
             else:
                 print("no pass door")
+                del self.__objectTrackDict[k]
 
     def belongToEdge(self,point):
         if point[1] == 0 or point[1] == self.col-1:

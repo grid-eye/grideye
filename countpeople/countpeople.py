@@ -33,7 +33,7 @@ class ObjectTrack:
         return loc,img
     def isEmpty(self):
         return self.__size == 0 
-    def hasPassDoor(self,_width = 32):
+    def hasPassDoor(self,frame_width = 32):
         '''
             是否已经通过
 
@@ -890,8 +890,8 @@ class CountPeople:
         '''
         #空间距离
         obj_num = len(self.__objectTrackDict)#原来的目标数目
-        flags={}#已经更新轨迹的目标数组 
-        rest = {}#已经确认隶属的点
+        updated_obj_set = set()#已经更新轨迹的目标集合 
+        removed_point_set = set()#已经确认隶属的点的集合
         for cp in corr:
             for k,v in self.__objectTrackDict.items():
                 last_place ,last_frame = v.get()
@@ -903,51 +903,51 @@ class CountPeople:
                 diff_temp = abs(img[cp[0],cp[1]] - previous_cnt)#当前中心温度和前一帧数的中心温度差
                 #中心温度邻域均值
                 ave = self.__neiborhoodTemp(img , cp)
-                heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
+                #heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[1] - last_place[1])
                 if vertical_dis < self.col / 6  and horizontal_dis < self.row /6 :
-                    if  k not in flags:
+                    if  k not in updated_obj_set:
                         if not self.belongToEdge(cp) and not self.belongToEdge(last_place):
                             if diff_temp > 1.2:
                                 continue#非边缘目标的中心的点温度之间的差距不能大于1.2
                         self.__objectTrackDict[k].put(cp,img)
-                        self.__neiborhoodTemperature[k] = (ave+self.__neiborhoodTemperature[k])/2
-                        flags.add(k)
-                        rest.add(cp)
-        rest_length = len(rest)
-        rest_rest = {}
-        rest_point_rest={}
-        diff_obj_rest={}
-        if rest_length < obj_num:#是否还有目标尚未匹配
-            obj_set = set(self.__objectTrackDict.keys())
-            diff_set = obj_set - flags
-            diff_cp_set = set(corr) - rest
-            for point in diff_cp_set:
-                for obj in diff_set:
+                        #self.__neiborhoodTemperature[k] = (ave+self.__neiborhoodTemperature[k])/2
+                        updated_obj_set.add(k)
+                        removed_point_set.add(cp)
+        obj_length = len(updated_obj_set)
+        obj_set = set(self.__objectTrackDict.keys())
+        obj_rest = obj_set - updated_obj_set#剩余的未被更新轨迹的对象
+        point_rest = set(corr)-removed_point_set#剩余的点
+        final_point_rest= point_rest#最终剩余的点，表示新进入的目标，位于视野边缘
+        final_obj_rest = obj_rest#最终剩余的目标，表示该目标消失，通过了监控区域
+        if obj_length < obj_num:#是否还有目标尚未匹配
+            for point in point_rest :
+                for obj in obj_rest :
+                    if obj not in final_obj_rest:#如果目标已经更新了轨迹
+                        continue
                     v = self.__objectTrackDict[k]
                     prev_point , prev_img = v.get()
-                    diff_temp = abs(prev_img[prev_point[0],prev_point[1]] - img[point[0],point[1])
+                    diff_temp = abs(prev_img[prev_point[0],prev_point[1]] - img[point[0],point[1]])
                     hozi_dis = abs(prev_point[1]-point[1])
                     verti_dis = abs(prev_point[0]-point[0])
-                    if hori_dis < self.col / 6 and verti_dis < self.row / 6:
+                    if hozi_dis < self.col / 6 and verti_dis < self.row / 6:
                         if not self.belongToEdge(prev_point) and not self.belongToEdge(point):#中心点不在边缘
                             if diff_temp > 1.5:
                                 continue#放松限制条件（由于传感器误差和计算误差）
                         self.__objectTrack[obj].put(cp,img)
-                        rest_rest.add(point)
-                        rest_point_rest.add(point)
-            diff_point_rest = diff_cp_set - rest_point_rest
-            diff_obj__rest = diff_set - rest_rest
-        if len(diff_point_rest)> 0:#是否有新的人进入监控视野
-            for point in diff_point_rest:
+                        final_point_rest.remove(point)
+                        final_obj_rest.remove(k)
+        print("===final point_rest====")
+        print(final_point_rest)
+        if len(final_point_rest)> 0:#是否有新的人进入监控视野
+            for point in final_point_rest:
                 obj = Target()
                 v = ObjectTrack()
                 v.put(point,img)
                 self.__objectTrackDict[obj]= v
-        if len(diff_obj_rest) > 0 :#证明有些人已经通过监控区域
-            for k in diff_obj_rest:
-                self.updateSpecifiedTarget(k)
+        if len(final_obj_rest) > 0 :#证明有些人已经通过监控区域
+            self.updateSpecifiedTarget(final_obj_rest)
     def updateSpecifiedTarget(self,key):#某个目标突然消失，表示通过监控区域
         for k in key:
             track = self.__objectTrackDict[k]
@@ -956,6 +956,9 @@ class CountPeople:
                     self.__peoplenum += 1
                 else:
                     self.__peoplenum -= 1
+                del self.__objectTrackDict[k]
+            else:
+                print("no pass door")
 
     def belongToEdge(self,point):
         if point[1] == 0 or point[1] == self.col-1:
@@ -969,28 +972,14 @@ class CountPeople:
         分类目标，确定当前点属于哪个目标
 
         '''
-        if len(self.__objectTrackDict) == 0:
-            print("====init track dict====")
-            for i in corr:
-                #为多个目标初始化轨迹字典
-                track = ObjectTrack()
-                obj = Target()
-                track.put(i,img)
-                self.__objectTrackDict[obj] = track
-                ntp = self.__neiborhoodTemp(img,i)
-                #设置邻域温度
-                obj.setNeiborhoodTemp(ntp)
-                #设置目标对象的所对应的帧
-                self.__neiborhoodTemperature[obj] =ntp
-        else:
-            print("======extract feature=====")
-            self.__extractFeature(img,corr)
+        print("======extract feature=====")
+        self.__extractFeature(img,corr)
         self.showTargetFeature()
 
     def showTargetFeature(self):
         print("====show target feature===")
         for k,v in self.__objectTrackDict.items():
-            k.showContent()
+            print(k,end=",")
             v.showContent()
     def __updateTrackStack(self,corr,classId):
         '''

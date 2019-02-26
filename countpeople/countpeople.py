@@ -497,7 +497,7 @@ class CountPeople:
         thre_temp = average_temp+0.25 #阈值温度
         ones = np.ones(average_temp.shape , np.float32)
         ret = (0 , None,None,None)
-        area_down_thresh,thresh_up,thresh_down = self.image_size*0.02,self.image_size/16,self.image_size/17
+        area_down_thresh,thresh_up,thresh_down = self.image_size*0.02,self.image_size/8,self.image_size/9
         while True:
             '''
             print("current threshold is ")
@@ -936,7 +936,7 @@ class CountPeople:
                 for obj in obj_rest :
                     if obj not in final_obj_rest:#如果目标已经更新了轨迹
                         continue
-                    v = self.__objectTrackDict[k]
+                    v = self.__objectTrackDict[obj]
                     prev_point , prev_img = v.get()
                     diff_temp = abs(prev_img[prev_point[0],prev_point[1]] - img[point[0],point[1]])
                     hozi_dis = abs(prev_point[1]-point[1])
@@ -947,7 +947,7 @@ class CountPeople:
                                 continue#放松限制条件（由于传感器误差和计算误差）
                         self.__objectTrackDict[obj].put(point,img)
                         final_point_rest.remove(point)
-                        final_obj_rest.remove(k)
+                        final_obj_rest.remove(obj)
         print("===final point_rest====")
         print(final_point_rest)
         if len(final_point_rest)> 0:#是否有新的人进入监控视野

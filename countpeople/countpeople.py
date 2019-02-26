@@ -63,15 +63,6 @@ class Target:
     def showContent(self):
         print(self.__center_temperature)
 class CountPeople:
-    __peoplenum = 0  # 统计的人的数量
-    __diffThresh = 2# 温度差阈值
-    __otsuThresh = 3.0 # otsu 阈值
-    __averageDiffThresh = 0.3  # 平均温度查阈值
-    __otsuResultForePropor = 0.0004
-    __objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
-    __neiborhoodTemperature = {}#m目标图片邻域均值
-    __neibor_diff_thresh = 1
-    __isExist = False #前一帧是否存在人，人员通过感应区域后的执行统计人数步骤的开关
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
     def __init__(self, pre_read_count=30, th_bgframes=200, row=32, col=32):
@@ -95,6 +86,16 @@ class CountPeople:
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
+        self.__peoplenum = 0  # 统计的人的数量
+        self.__diffThresh = 2# 温度差阈值
+        self.__otsuThresh = 3.0 # otsu 阈值
+        self.__averageDiffThresh = 0.3  # 平均温度查阈值
+        self.__otsuResultForePropor = 0.0004
+        self.__objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
+        self.__neiborhoodTemperature = {}#m目标图片邻域均值
+        self.__neibor_diff_thresh = 1
+        self.__isExist = False #前一帧是否存在人，人员通过感应区域后的执行统计人数步骤的开关
+        self.__image_area = (self.row-1)*(self.col-1)
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
         #预读取数据，让数据稳定
@@ -494,10 +495,11 @@ class CountPeople:
            在背景温度的基础上增加0.25摄氏度作为阈值,低于阈值作为背景，高于阈值作为前景，观察是否能区分两个轮廓，如果不能就继续循环增加0.25
            参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
         '''
-        thre_temp = average_temp+0.25 #阈值温度
+        thre_temp = average_temp #阈值温度
         ones = np.ones(average_temp.shape , np.float32)
         ret = (0 , None,None,None)
-        area_down_thresh,thresh_up,thresh_down = self.image_size*0.02,self.image_size/8,self.image_size/9
+        area_down_thresh,thresh_up,thresh_down = self.__image_area*0.02,self.__image_area/9,self.__image_area/10
+        kernel = np.ones((3,3))
         while True:
             '''
             print("current threshold is ")
@@ -505,6 +507,7 @@ class CountPeople:
             print("current temperature is")
             print(curr_temp)
             '''
+            show_frame=True
             binary = ones * (curr_temp >= thre_temp)
             bsum = binary.sum()
             proportion = round(bsum / self.image_size,2)
@@ -513,8 +516,16 @@ class CountPeople:
             thresh = np.array(binary , np.uint8)
             #print("after binarize :")
             #print(thresh)
+            #thresh = cv.erode(thresh,kernel,iterations=2)#进行形态学侵蚀
             img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-            cont_cnt = len(contours)
+            if show_frame:
+                cont_cnt = len(contours)
+                img2 = np.array(img2,np.float32)
+                rect = np.zeros(img2.shape,np.uint8)
+                rect = cv.cvtColor(rect , cv.COLOR_GRAY2BGR)
+                x,y,w,h = cv.boundingRect(contours[0])
+                cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
+                self.showExtractProcessImage(curr_temp,thresh ,rect)
             if cont_cnt == 0:
                 print(ones.sum())
                 print(bsum)
@@ -535,8 +546,6 @@ class CountPeople:
             bool_arr_up = np.array(area_list) < thresh_up
             if all( bool_arr_down) or all(bool_arr_up) :
                 print(area_list)
-                print(thresh_down)
-                print("===yes ===")
                 ret = []
                 for a in area_list:
                     if a > area_down_thresh:
@@ -952,14 +961,20 @@ class CountPeople:
         print(final_point_rest)
         if len(final_point_rest)> 0:#是否有新的人进入监控视野
             for point in final_point_rest:
-                obj = Target()
-                v = ObjectTrack()
-                v.put(point,img)
-                print("new one entering the visual field")
-                v.showContent()
-                self.__objectTrackDict[obj]= v
+                if self.nearlyCloseToEdge(point):
+                    obj = Target()
+                    v = ObjectTrack()
+                    v.put(point,img)
+                    print("new one entering the visual field")
+                    v.showContent()
+                    self.__objectTrackDict[obj]= v
         if len(final_obj_rest) > 0 :#证明有些人已经通过监控区域
             self.updateSpecifiedTarget(final_obj_rest)
+    def nearlyCloseToEdge(self,point):#近似作为边界
+        if point[1]+5 >= self.row-1 or point[1]-5 <= 0:
+            return True
+        return False
+
     def updateSpecifiedTarget(self,key):#某个目标突然消失，表示通过监控区域
         for k in key:
             track = self.__objectTrackDict[k]

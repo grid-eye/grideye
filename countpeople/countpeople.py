@@ -507,7 +507,7 @@ class CountPeople:
             print("current temperature is")
             print(curr_temp)
             '''
-            show_frame=True
+            #show_frame=True
             binary = ones * (curr_temp >= thre_temp)
             bsum = binary.sum()
             proportion = round(bsum / self.image_size,2)
@@ -518,8 +518,8 @@ class CountPeople:
             #print(thresh)
             #thresh = cv.erode(thresh,kernel,iterations=2)#进行形态学侵蚀
             img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+            cont_cnt = len(contours)
             if show_frame:
-                cont_cnt = len(contours)
                 img2 = np.array(img2,np.float32)
                 rect = np.zeros(img2.shape,np.uint8)
                 rect = cv.cvtColor(rect , cv.COLOR_GRAY2BGR)
@@ -538,6 +538,8 @@ class CountPeople:
             area_list = []
             for c in contours:
                 area = cv.contourArea(c)
+                while area  in area_dict:
+                    area += 0.1
                 area_dict[area] = c
                 area_list.append(area)
             print("===========area list is =========")

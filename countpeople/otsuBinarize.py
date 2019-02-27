@@ -50,6 +50,7 @@ def calcHistogram(images,ranges = (-6,6) ):
         freqMap[round(bins[i],1)] = hist[i]
     return freqMap
 def otsuThreshold(images , total,ranges = (-6,6),interval =0.1,thre = None):
+    print("===start otsuThreshold===")
     histogram = calcHistogram(images)
     if thre:
         ret = thre
@@ -61,4 +62,5 @@ def otsuThreshold(images , total,ranges = (-6,6),interval =0.1,thre = None):
         for j in range(shape[1]):
             if images[i][j] < ret:
                 hist[i][j] = 0
+    print("===end otsuThreshold===")
     return (ret,hist)

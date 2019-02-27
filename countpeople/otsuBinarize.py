@@ -57,10 +57,10 @@ def otsuThreshold(images , total,ranges = (-6,6),interval =0.1,thre = None):
     else:
         ret = findThresh(histogram,total,ranges,interval)
     shape = images.shape
-    hist  = np.ones(shape)
+    binary = np.ones(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
             if images[i][j] < ret:
-                hist[i][j] = 0
+                binary[i][j] = 0
     print("===end otsuThreshold===")
-    return (ret,hist)
+    return (ret,binary)

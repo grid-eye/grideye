@@ -63,9 +63,9 @@ for i in range(sel_frames.shape[0]):
     frame_copy = frame.copy()
     blur = cp.medianFilter(frame)
     seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
-    curr = blur - average_median
-    curr_arr.append(curr)
-    ret = cp.isCurrentFrameContainHuman(blur,average_median,curr)
+    curr_diff= blur - average_median
+    curr_arr.append(curr_diff)
+    ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff)
     if not ret[0]:
         if cp.getExistPeople():
             cp.updatePeopleCount()
@@ -76,6 +76,10 @@ for i in range(sel_frames.shape[0]):
     else:
         cp.setExistPeople(True)
     print("capture the body contours")
+    print("===before extractbody sum is===")
+    print(np.sum(blur))
+    print("====average median sum is===")
+    print(np.sum(average_median))
     cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , blur)
     if cnt_count == 0:
         print("current frame has no people")
@@ -91,7 +95,7 @@ for i in range(sel_frames.shape[0]):
     print("==============================has %d people in this frame======================= "%(cnt_count))
     if cnt_count > 0:
         contours_rect.append(rect_arr)
-        diff_ave_curr =curr 
+        diff_ave_curr =  curr_diff
         pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
         mask = np.zeros((cp.row,cp.col),np.uint8)
         for item in pos:
@@ -112,6 +116,7 @@ for i in  range(len(center_temp_arr)):
     seq = plt_frames[i]
     print(seq,end=",")
     for pos in center_temp_arr[i]:
+        print(pos,end="===>")
         print(round(img[pos[0],pos[1]],2) ,end=",")
     print()
 print()

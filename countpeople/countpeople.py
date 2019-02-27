@@ -205,13 +205,13 @@ class CountPeople:
         img = self.makeImgCompatibleForCv(img)
         mins = np.round(img.min())
         maxs = np.round(img.max())
-        ret, th = otsuThreshold(img ,self.image_size ,ranges = (mins,maxs))
+        ret, binary= otsuThreshold(img ,self.image_size ,ranges = (mins,maxs))
         if self.otsu_threshold:
             self.otsu_threshold = round(ret + self.otsu_threshold,1)
         else:
             self.otsu_threshold = round(ret , 1)
-        self.otsu_th_mask = th
-        return th
+        self.otsu_th_mask = ret
+        return ret ,binary
 
     def equalizeHist(self, img):
         '''
@@ -274,7 +274,7 @@ class CountPeople:
             plt.title('median filter')
             plt.subplot(row, col, ax_id)
             ax_id += 1
-            th = self.otsuThreshold(gblur)
+            th ,binarize= self.otsuThreshold(gblur)
             plt.imshow(th)
             plt.xticks([])
             plt.yticks([])
@@ -489,17 +489,18 @@ class CountPeople:
             raise KeyboardInterrupt("catch keyboard interrupt")
     def getExistPeople(self):
         return self.__isExist
-    def extractBody(self,average_temp , curr_temp,show_frame = False):
+    def extractBody(self,average_temp , curr_temp,show_frame = False,seq=None):
         '''
            找到两人之间的间隙(如果有两人通过)
            在背景温度的基础上增加0.25摄氏度作为阈值,低于阈值作为背景，高于阈值作为前景，观察是否能区分两个轮廓，如果不能就继续循环增加0.25
            参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
         '''
-        thre_temp = average_temp #阈值温度
+        show_frame =True
+        thre_temp = average_temp.copy() #阈值温度
         ones = np.ones(average_temp.shape , np.float32)
         ret = (0 , None,None,None)
-        area_down_thresh,thresh_up,thresh_down = self.__image_area*0.02,self.__image_area/9,self.__image_area/10
-        kernel = np.ones((3,3))
+        area_down_thresh,thresh_up,thresh_down = self.__image_area*0.01,self.__image_area/9,self.__image_area/10
+        kernel = np.ones((9,9))
         while True:
             '''
             print("current threshold is ")
@@ -508,15 +509,29 @@ class CountPeople:
             print(curr_temp)
             '''
             #show_frame=True
+            print("===curr_temp's sum is===")
+            print(curr_temp.sum())
+            print("===thre_temp's sum is ===")
+            print(thre_temp.sum())
+            print("===ones sum is===")
+            print(ones.sum())
+            diff = curr_temp - thre_temp
+            diff[diff<0] = 0
+            # 对图片进行ostu二值化
+            th,bin_img = self.otsuThreshold(diff)
+            print("after otsu binarize===")
+            plt.imshow(bin_img)
+            plt.show()
             binary = ones * (curr_temp >= thre_temp)
             bsum = binary.sum()
             proportion = round(bsum / self.image_size,2)
             print("binary_sum is %d"%(bsum))
             print("the propotion is %.2f"%(proportion))
-            thresh = np.array(binary , np.uint8)
+            thresh = np.round(binary)
+            thresh = np.array(thresh , np.uint8)
             #print("after binarize :")
             #print(thresh)
-            #thresh = cv.erode(thresh,kernel,iterations=2)#进行形态学侵蚀
+            thresh = cv.erode(thresh,kernel,iterations=1)#进行形态学侵蚀
             img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
             cont_cnt = len(contours)
             if show_frame:
@@ -527,10 +542,6 @@ class CountPeople:
                 cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
                 self.showExtractProcessImage(curr_temp,thresh ,rect)
             if cont_cnt == 0:
-                print(ones.sum())
-                print(bsum)
-                print(thresh)
-                raise ValueError()
                 return (0,None,None,None)
             print("has %d people"%(cont_cnt))
             #求轮廓的面积
@@ -563,14 +574,15 @@ class CountPeople:
             else:
                 thre_temp += 0.25
                 continue
+            '''
             if cont_cnt  >= 1:
                 cnt1 = cv.contourArea(contours[0])
                 print("cnt1 = %.2f"%(cnt1))
-            '''
+            
             if len(contours) > 2:
                 thre_temp += 0.25
                 continue
-            '''
+        
             if cont_cnt  > 1:
                 #存在两个轮廓以上
                 print("cont_cnt > 1")
@@ -584,12 +596,12 @@ class CountPeople:
                     if show_frame:
                         self.showExtractProcessImage(curr_temp,thresh ,img2)
                     return (len(contours),img2_copy,contours,heirarchy)
-            '''
+            
             if cnt1 >  area_1_3:
                 #如果区域面积大于图片1/3，则可能有两个人出现在图片上
                 #增大阈值
                 thre_temp += 0.25
-            '''
+            
             if cnt1 < area_1_14 :
                 noMoreOne = False
                 #这个条件是去除一些噪音所造成的误差
@@ -633,6 +645,7 @@ class CountPeople:
                 #不断提高阈值                    
                 thre_temp += 0.25
         return ret
+        '''
     def showExtractProcessImage(self,origin,thresh ,images_contours):
         #输出提取人体过程的图片
         print("=================the contours of the image==============")
@@ -954,7 +967,8 @@ class CountPeople:
                     verti_dis = abs(prev_point[0]-point[0])
                     if hozi_dis < (self.col *5/12) and verti_dis < self.row *5/12:
                         if not self.belongToEdge(prev_point) and not self.belongToEdge(point):#中心点不在边缘
-                            if diff_temp > 1.5:
+                            if diff_temp > 1.6:
+                                print("===diff_temp > 1.5 ====",diff_temp)
                                 continue#放松限制条件（由于传感器误差和计算误差）
                         self.__objectTrackDict[obj].put(point,img)
                         final_point_rest.remove(point)

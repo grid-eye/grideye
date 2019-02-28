@@ -495,12 +495,12 @@ class CountPeople:
            在背景温度的基础上增加0.25摄氏度作为阈值,低于阈值作为背景，高于阈值作为前景，观察是否能区分两个轮廓，如果不能就继续循环增加0.25
            参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
         '''
-        show_frame =True
-        thre_temp = average_temp.copy() #阈值温度
+        #show_frame =True
+        thre_temp = average_temp.copy()+1 #阈值温度
         ones = np.ones(average_temp.shape , np.float32)
         ret = (0 , None,None,None)
         area_down_thresh,thresh_up,thresh_down = self.__image_area*0.01,self.__image_area/9,self.__image_area/10
-        kernel = np.ones((9,9))
+        kernel = np.ones((3,3))
         while True:
             '''
             print("current threshold is ")
@@ -520,8 +520,9 @@ class CountPeople:
             # 对图片进行ostu二值化
             th,bin_img = self.otsuThreshold(diff)
             print("after otsu binarize===")
-            plt.imshow(bin_img)
-            plt.show()
+            #plt.imshow(bin_img)
+            #plt.show()
+            '''
             binary = ones * (curr_temp >= thre_temp)
             bsum = binary.sum()
             proportion = round(bsum / self.image_size,2)
@@ -531,8 +532,10 @@ class CountPeople:
             thresh = np.array(thresh , np.uint8)
             #print("after binarize :")
             #print(thresh)
-            thresh = cv.erode(thresh,kernel,iterations=1)#进行形态学侵蚀
-            img2 , contours , heirarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+            '''
+            bin_img = np.array(bin_img,np.uint8)
+            #thresh = cv.erode(bin_img,kernel,iterations=1)#进行形态学侵蚀
+            img2 , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
             cont_cnt = len(contours)
             if show_frame:
                 img2 = np.array(img2,np.float32)
@@ -540,7 +543,7 @@ class CountPeople:
                 rect = cv.cvtColor(rect , cv.COLOR_GRAY2BGR)
                 x,y,w,h = cv.boundingRect(contours[0])
                 cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
-                self.showExtractProcessImage(curr_temp,thresh ,rect)
+                self.showExtractProcessImage(curr_temp,img2 ,rect)
             if cont_cnt == 0:
                 return (0,None,None,None)
             print("has %d people"%(cont_cnt))
@@ -568,6 +571,21 @@ class CountPeople:
                 img2_copy = img2.copy()
                 #cv.drawContours(img2,contours,-1,(0,255,0),2)
                 cnts = []
+                origin_num = len(ret)#原来的轮廓的数目
+                erosion = cv.erode(bin_img,kernel,iterations=1)#进行侵蚀
+                img2 , conts , heir = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+                erode_cnt = len(conts)#侵蚀后的轮廓数目
+                if erode_cnt != origin_num:
+                    erosion_area_list=[]
+                    for c in conts:
+                        erosion_area_list.append(cv.contourArea(c))
+                    print("====ersion area list is====")
+                    print(erosion_area_list)
+                    print("===after erosing===")
+                    plt.imshow(erosion)
+                    plt.show()
+                    return (erode_cnt,img2.copy,conts,heir)
+
                 for k,v in area_dict.items():
                     cnts.append(v)
                 return (len(ret),img2_copy,cnts,heirarchy)
@@ -937,7 +955,7 @@ class CountPeople:
                 horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[1] - last_place[1])
                 if vertical_dis < self.col / 4  and horizontal_dis < self.row /6 :
-                    if  k not in updated_obj_set:
+                    if  k not in updated_obj_set and cp not in removed_point_set:#防止重复更新某些目标的点
                         if not self.belongToEdge(cp) and not self.belongToEdge(last_place):
                             if diff_temp > 1.2:
                                 continue#非边缘目标的中心的点温度之间的差距不能大于1.2

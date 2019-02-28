@@ -82,7 +82,7 @@ class CountPeople:
         # temp and current temp
         # 8*8 grid
         self.points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
-        self.diff_ave_otsu= 0.75#通过OTSU分类的背景和前景的差的阈值,用于判断是否有人
+        self.otsu_threshold = 0
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
@@ -321,19 +321,11 @@ class CountPeople:
     # 根据当前温度和平均温度（表示背景温度)的差值判断是否含有人类
     def judgeFrameByDiffAndBTSU(self, img_diff):
         if img_diff.max() > self.__diffThresh:
-            ret, hist = self.otsuThreshold(img_diff)
-            hist = np.array(hist,np.uint8)
-            fg_img = img_diff[hist==1]
-            bg_img = img_diff[hist==0]
-            if len(bg_img) ==0 :
-                return False
-            fg_ave = np.average(fg_img)
-            bg_ave = np.average(bg_img)
-            diff_ave = fg_ave - bg_ave
-            if diff_ave <= self.diff_ave_otsu:
-                return False
-            else:
-                return True
+            ret, hist = otsuThreshold(img_diff, 1024)
+            img, contours , heirarchy = cv.findContours(hist,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+            ave_arr =[]#平均温度数组
+            print(contours)
+
     # 根据当前温度的平均值和背景温度的平均值判断当前帧是否含有人类
     def judgeFrameByAverage(self, average_temp, current_temp):
         ave_ave = np.average(average_temp)

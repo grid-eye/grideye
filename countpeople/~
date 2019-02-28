@@ -82,14 +82,14 @@ class CountPeople:
         # temp and current temp
         # 8*8 grid
         self.points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
-        self.diff_ave_otsu= 0.75#通过OTSU分类的背景和前景的差的阈值,用于判断是否有人
+        self.otsu_threshold = 0
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
         self.__peoplenum = 0  # 统计的人的数量
-        self.__diffThresh = 2.5 #温度差阈值
+        self.__diffThresh = 2# 温度差阈值
         self.__otsuThresh = 3.0 # otsu 阈值
-        self.__averageDiffThresh = 0.20 # 平均温度查阈值
+        self.__averageDiffThresh = 0.5  # 平均温度查阈值
         self.__otsuResultForePropor = 0.0004
         self.__objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
         self.__neiborhoodTemperature = {}#m目标图片邻域均值
@@ -310,10 +310,10 @@ class CountPeople:
         
         for i in range(bins.size):
             freqMap[bins[i]] = hist[i]
-        sums= 0
+        sum = 0
         for i in bins:
-            sums += freqMap[i]
-        if sums > self.image_size / 14:
+            sum += freqMap[i]
+        if sum > self.image_size / 10:
             return True
         else:
             return False
@@ -321,19 +321,14 @@ class CountPeople:
     # 根据当前温度和平均温度（表示背景温度)的差值判断是否含有人类
     def judgeFrameByDiffAndBTSU(self, img_diff):
         if img_diff.max() > self.__diffThresh:
-            ret, hist = self.otsuThreshold(img_diff)
-            hist = np.array(hist,np.uint8)
-            fg_img = img_diff[hist==1]
-            bg_img = img_diff[hist==0]
-            if len(bg_img) ==0 :
-                return False
-            fg_ave = np.average(fg_img)
-            bg_ave = np.average(bg_img)
-            diff_ave = fg_ave - bg_ave
-            if diff_ave <= self.diff_ave_otsu:
-                return False
-            else:
+            ret, hist = otsuThreshold(img_diff, 1024)
+            fore_proportion = hist.sum() / self.image_size
+            if fore_proportion > self.__otsuResultForePropor:
                 return True
+            return False
+        else:
+            return False
+
     # 根据当前温度的平均值和背景温度的平均值判断当前帧是否含有人类
     def judgeFrameByAverage(self, average_temp, current_temp):
         ave_ave = np.average(average_temp)
@@ -355,8 +350,6 @@ class CountPeople:
         diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
         sums = [hist_result ,diff_result , ave_result]
-        print("judge results= ====")
-        print(sums)
         if sum(sums) >=  2:
             return (True,)
         elif sum(sums) == 0:

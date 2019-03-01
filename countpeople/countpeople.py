@@ -48,7 +48,6 @@ class ObjectTrack:
         return self.__direction
     def showContent(self):
         print(self.__loc_list)
-        
 class Target:
     '''
     运动目标
@@ -65,7 +64,7 @@ class Target:
 class CountPeople:
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
-    def __init__(self, pre_read_count=30, th_bgframes=40, row=32, col=32):
+    def __init__(self, pre_read_count=30, th_bgframes=50, row=32, col=32):
         # the counter of the bgframes
         self.i2c = busio.I2C(board.SCL, board.SDA)
         self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
@@ -96,6 +95,9 @@ class CountPeople:
         self.__neibor_diff_thresh = 1
         self.__isExist = False #前一帧是否存在人，人员通过感应区域后的执行统计人数步骤的开关
         self.__image_area = (self.row-1)*(self.col-1)
+        self.__hist_x_thresh = 2.0
+        self.__hist_amp_thresh = 20
+        self.otsu_threshold =0
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
         #预读取数据，让数据稳定
@@ -173,7 +175,7 @@ class CountPeople:
                     n frames
         '''
         total_frames = np.zeros((8, 8))
-        for aitem in range(len(self.all_bgframes)):
+        for aitem in range(len(all_bgframes)):
             total_frames = total_frames+np.array(all_bgframes[aitem])
         return total_frames/len(all_bgframes)
     def setExistPeople(self,exist=False):
@@ -300,20 +302,18 @@ class CountPeople:
     def judgeFrameByHist(self, img):  # 根据直方图判断当前帧是否含有人类
         print("judge by hist")
         hist, bins = np.histogram(img.ravel(), bins=120, range=(-6, 6))
-        print(len(hist))
-        print(len(bins))
         bins = bins[:-1]
         diff = self.image_size - hist.sum()
         #将超过5.9的温度差的像素点的数目加到5.9中，这样让像素总数保持一致
         hist[-1] += diff
         freqMap = {}
-        
         for i in range(bins.size):
             freqMap[bins[i]] = hist[i]
         sums= 0
-        for i in bins:
-            sums += freqMap[i]
-        if sums > self.image_size / 14:
+        for k,v in freqMap.items():
+            if k > self.__hist_x_thresh:#直方图x轴阈值
+                sums += v 
+        if sums > self.__hist_amp_thresh:#直方图振幅阈值
             return True
         else:
             return False
@@ -334,6 +334,8 @@ class CountPeople:
                 return False
             else:
                 return True
+        else:
+            return False
     # 根据当前温度的平均值和背景温度的平均值判断当前帧是否含有人类
     def judgeFrameByAverage(self, average_temp, current_temp):
         ave_ave = np.average(average_temp)
@@ -351,22 +353,22 @@ class CountPeople:
             ret : (bool,bool) ret[0] True:含有人类，ret[0] False:没有人类，表示属于背景
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
+        print(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
         diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
         sums = [hist_result ,diff_result , ave_result]
-        print("judge results= ====")
-        print(sums)
         if sum(sums) >=  2:
+            print("=================detect people ============")
             return (True,)
-        elif sum(sums) == 0:
-            print("case 2: ===no people")
-            print(sums)
-            return (False,True)
-        else:
-            print("case 3：===no people")
+        elif sum(sums) >0:
+            print("case 2:=======no people with some noise=====")
             print(sums)
             return (False,False)
+        else:
+            print("case 3：=======no people=======")
+            print(sums)
+            return (False,True)
 
     def acquireImageData(self,frame_count = 2000,customDir = None):
         '''
@@ -439,8 +441,10 @@ class CountPeople:
                 print(currFrame)
                 if frame_counter  ==  self.th_bgframes :#是否测完平均温度
                     frame_counter = 0 
-                    self.th_bgframes = 1000
+                    self.th_bgframes =400
                     #更新计算背景的阈值
+                    num = len(bg_frames)
+                    print("====num is %d==="%(num))
                     self.average_temp = self.calAverageTemp(bg_frames)
                     #对平均温度进行插值
                     self.average_temp_intepol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'linear')
@@ -450,6 +454,8 @@ class CountPeople:
                     bg_frames = [] #清空保存的图片以节省内存
                     self.calcBg = True # has calculated the bg temperature
                     print("===finish testing bg temperature===")
+                    print("===average temp is ===")
+                    print(self.average_temp_median)
 
                 elif not self.calcBg: #是否计算完背景温度
                     bg_frames.append(currFrame)

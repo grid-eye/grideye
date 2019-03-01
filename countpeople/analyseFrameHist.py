@@ -23,7 +23,17 @@ def analyseSequence(path ,argarray,interpolate_method = "linear"):
         plt.imshow(currframe)
         plt.xticks([]),plt.yticks([])
         hists,bins = np.histogram(currframe.ravel() , bins=120 , range=(-6,6) )
+        histMap = {}
         bins = bins[:-1]
+        rest = currframe.size - hists.sum() 
+        hists[-1]+=rest
+        for i in range(len(bins)):
+            histMap[bins[i]] = hists[i]
+        exceed_sum=0#溢出之和
+        for k, v in  histMap.items():
+            if k > 2:
+                exceed_sum += v
+        print("====exceed sum is %d ===="%(exceed_sum))
         plt.subplot(2,2,2)
         plt.plot(bins , hists)
         gaussian = cv.GaussianBlur(diff_frame[i],(5,5),0)

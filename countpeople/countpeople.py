@@ -64,7 +64,7 @@ class Target:
 class CountPeople:
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
-    def __init__(self, pre_read_count=30, th_bgframes=50, row=32, col=32):
+    def __init__(self, pre_read_count=30, th_bgframes=100, row=32, col=32):
         # the counter of the bgframes
         self.i2c = busio.I2C(board.SCL, board.SDA)
         self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
@@ -203,7 +203,7 @@ class CountPeople:
         img = np.array(img, datatype)
         return img
     def otsuThreshold(self, img):
-        print("start otsu binarize")
+        #print("start otsu binarize")
         img = self.makeImgCompatibleForCv(img)
         mins = np.round(img.min())
         maxs = np.round(img.max())
@@ -353,7 +353,7 @@ class CountPeople:
             ret : (bool,bool) ret[0] True:含有人类，ret[0] False:没有人类，表示属于背景
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
-        print(img_diff)
+        #print(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
         diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
@@ -429,18 +429,22 @@ class CountPeople:
             self.preReadPixels()
             self.calcBg = False #传感器是否计算完背景温度
             frame_counter = 0 #帧数计数器
+            seq_counter = 0 
             bg_frames = [] #保存用于计算背景温度的帧
+            frame_with_human = []
             while True:
                 currFrame = []
                 for row in self.amg.pixels:
                     # Pad to 1 decimal place
                     currFrame.append(row)
                 currFrame = np.array(currFrame)
-                print("the %dth frame of the bgtemperature "%(len(bg_frames)+1))
+                seq_counter += 1
+                print("the %dth frame of the bgtemperature "%(seq_counter))
                 print("current temperature is ")
                 print(currFrame)
                 if frame_counter  ==  self.th_bgframes :#是否测完平均温度
                     frame_counter = 0 
+
                     self.th_bgframes =400
                     #更新计算背景的阈值
                     num = len(bg_frames)
@@ -463,6 +467,7 @@ class CountPeople:
                     continue
                 #计算完背景温度的步骤
                 #对当前帧进行内插
+
                 currFrameIntepol = self.interpolate(
                     self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
                 #对当前帧进行中值滤波，也可以进行高斯滤波进行降噪，考虑到分辨率太低，二者效果区别不大
@@ -475,13 +480,16 @@ class CountPeople:
                         bg_frames.append(currFrame)
                         frame_counter += 1
                         if self.getExistPeople():
+
+                            if self.getPeopleNum() != 0 :
+                                np.save('test/2019-3-1/imageata.npy',np.array(frame_with_human))
+                                print("sucessfully save the image data")
+                                quit()
+                            return 
                             self.__updatePeopleCount()
                             self.setExistPeople(False)
                     continue
-                else:
-                    plt.imshow(currFrameIntepol)
-                    plt.show()
-                raise ValueError()
+                frame_with_human.append(currFrame) 
                 self.setExistPeople(True)
                 #如果当前图片中含有两个人
                 cnt_count,image ,contours,hierarchy =self.extractBody(self.average_temp_median , medianBlur)
@@ -490,9 +498,6 @@ class CountPeople:
                 loc = self.findBodyLocation(medianBlur,contours,[ i for i in range(self.row)])
                 self.trackPeople(medianBlur,loc)
                 self.showPeopleNum() 
-                if self.getPeopleNum() > 1:
-                    time.sleep(20)
-
                 #sleep(0.5)
 
         except KeyboardInterrupt:
@@ -519,7 +524,7 @@ class CountPeople:
            参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
         '''
         #show_frame =True
-        thre_temp = average_temp.copy()+1 #阈值温度
+        thre_temp = average_temp.copy()+2 #阈值温度
         ones = np.ones(average_temp.shape , np.float32)
         ret = (0 , None,None,None)
         area_down_thresh,thresh_up,thresh_down = self.__image_area*0.01,self.__image_area/9,self.__image_area/10
@@ -532,21 +537,25 @@ class CountPeople:
             print(curr_temp)
             '''
             #show_frame=True
+            '''
             print("===curr_temp's sum is===")
             print(curr_temp.sum())
             print("===thre_temp's sum is ===")
             print(thre_temp.sum())
             print("===ones sum is===")
             print(ones.sum())
-            diff = curr_temp - thre_temp
-            diff[diff<0] = 0
+            '''
+            #diff = curr_temp - thre_temp
+            #diff[diff<0] = 0
             # 对图片进行ostu二值化
-            th,bin_img = self.otsuThreshold(diff)
+            #th,bin_img = self.otsuThreshold(diff)
+            '''
             print("after otsu binarize===")
+            '''
             #plt.imshow(bin_img)
             #plt.show()
+            bin_img = ones * (curr_temp >= thre_temp)
             '''
-            binary = ones * (curr_temp >= thre_temp)
             bsum = binary.sum()
             proportion = round(bsum / self.image_size,2)
             print("binary_sum is %d"%(bsum))
@@ -569,7 +578,7 @@ class CountPeople:
                 self.showExtractProcessImage(curr_temp,img2 ,rect)
             if cont_cnt == 0:
                 return (0,None,None,None)
-            print("has %d people"%(cont_cnt))
+            #print("has %d people"%(cont_cnt))
             #求轮廓的面积
             area_dict = {}
             area_list = []
@@ -579,8 +588,8 @@ class CountPeople:
                     area += 0.1
                 area_dict[area] = c
                 area_list.append(area)
-            print("===========area list is =========")
-            print(area_list)
+            #print("===========area list is =========")
+            #print(area_list)
             bool_arr_down = np.array(area_list) < thresh_down
             bool_arr_up = np.array(area_list) < thresh_up
             if all( bool_arr_down) or all(bool_arr_up) :
@@ -602,9 +611,11 @@ class CountPeople:
                     erosion_area_list=[]
                     for c in conts:
                         erosion_area_list.append(cv.contourArea(c))
+                    '''
                     print("====ersion area list is====")
                     print(erosion_area_list)
                     print("===after erosing===")
+                    '''
                     return (erode_cnt,img2.copy,conts,heir)
 
                 for k,v in area_dict.items():
@@ -725,7 +736,6 @@ class CountPeople:
               contours:轮廓
         '''
         print("find body location")
-        print("current temperature is ")
         #self.showContours(img,contours)
         #print(np.round(img,2))
         pcount = len(contours)
@@ -964,14 +974,14 @@ class CountPeople:
         for cp in corr:
             for k,v in self.__objectTrackDict.items():
                 last_place ,last_frame = v.get()
-                euclidean_distance = math.sqrt(math.pow((cp[0] - last_place[0]),2)+math.pow((cp[1] - last_place[1]),2))
-                print("euclidean distance is %.2f"%(euclidean_distance))
+                #euclidean_distance = math.sqrt(math.pow((cp[0] - last_place[0]),2)+math.pow((cp[1] - last_place[1]),2))
+                #print("euclidean distance is %.2f"%(euclidean_distance))
                 #温度差不会超过某个阈值
                 previous_img = last_frame
                 previous_cnt = previous_img[last_place[0],last_place[1]]#前一帧的中心温度
-                diff_temp = abs(img[cp[0],cp[1]] - previous_cnt)#当前中心温度和前一帧数的中心温度差
+                #diff_temp = abs(img[cp[0],cp[1]] - previous_cnt)#当前中心温度和前一帧数的中心温度差
                 #中心温度邻域均值
-                ave = self.__neiborhoodTemp(img , cp)
+                #ave = self.__neiborhoodTemp(img , cp)
                 #heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[1] - last_place[1])
@@ -1094,7 +1104,7 @@ class CountPeople:
         img:图片
         '''
         self.__classifyObject(img,loc)
-        print("=========================people num is %d ==================="%(self.__peoplenum))
+        #print("=========================people num is %d ==================="%(self.__peoplenum))
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] == "start":

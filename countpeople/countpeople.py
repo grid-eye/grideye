@@ -477,14 +477,20 @@ class CountPeople:
                 ret =self.isCurrentFrameContainHuman(medianBlur,self.average_temp_median ,temp_diff )
                 if not ret[0]:
                     if self.getExistPeople():
-                        output_path = "test/"
+                        output_path = ""
+                        default_path = "test"
                         if testSubDir:
-                            output_path+testSubDir+"/"
+                            output_path += testSubDir+"/"
+                        else:
+                            output_path = default_path+"/"
+                        if not  os.path.exists(output_path):
+                            os.mkdir(output_path)
                         frame_output_path =output_path+ "imagedata.npy"
                         avg_output_path = output_path +"avgtemp.npy"
                         np.save(frame_output_path,np.array(frame_with_human))
                         np.save(avg_output_path,np.array(self.average_temp))
                         print("sucessfully save the image data")
+                        print("path is in "+output_path)
                         quit()
 
                     if ret[1]:

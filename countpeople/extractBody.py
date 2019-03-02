@@ -7,12 +7,16 @@ import os
 import math
 import sys
 import cv2 as cv
-if len(sys.argv) < 2:
+if len(sys.argv) < 1:
     raise ValueError("please specify a valid path and frame array")
 path = sys.argv[1]
-frame_arr =[int(i) for i in  sys.argv[2:] ]
 all_frames = np.load(path+"/imagedata.npy")
 average_temp = np.load(path+"/avgtemp.npy")
+if len(sys.argv ) > 2:
+    frame_arr =[int(i) for i in  sys.argv[2:] ]
+else:
+    frame_arr = [i for i in range(len(all_frames))]
+
 select_frames_dict = {}
 select_frames_list = []
 for i in frame_arr:

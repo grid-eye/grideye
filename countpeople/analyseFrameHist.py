@@ -5,9 +5,7 @@ import matplotlib.pyplot as plt
 from interpolate import imageInterpolate
 import cv2 as cv
 from otsuBinarize import otsuThreshold
-def analyseSequence(path ,argarray,interpolate_method = "linear"):
-    allframe = np.load(path+"/imagedata.npy")
-    avgtemp = np.load(path+"/avgtemp.npy")
+def analyseSequence(allframe,avgtemp,argarray,interpolate_method = "linear"):
     allframe = imageInterpolate(allframe,interpolate_method)
     avgtemp = imageInterpolate(avgtemp,interpolate_method)
     print(allframe.shape)
@@ -54,12 +52,15 @@ def analyseSequence(path ,argarray,interpolate_method = "linear"):
 
     plt.show()
 if __name__ == "__main__":
-    if len(sys.argv) < 2 :
-        raise ValueError("please specify a or more than one frame")
     path = sys.argv[1]
     if os.path.exists(path) == False:
         raise ValueError("no such path %s"%(path))
-    argarray = sys.argv[2:]
-    for i in range(len(argarray)):
-        argarray[i] = int(argarray[i])
-    analyseSequence(path , argarray)
+    allframe = np.load(path+"/imagedata.npy")
+    avgtemp = np.load(path+"/avgtemp.npy")
+    if len(sys.argv) > 2:
+        argarray = sys.argv[2:]
+        for i in range(len(argarray)):
+            argarray[i] = int(argarray[i])
+    else:
+        argarray = [i for i in range(len(allframe))]
+    analyseSequence(allframe,avgtemp , argarray)

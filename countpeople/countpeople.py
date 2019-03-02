@@ -426,6 +426,7 @@ class CountPeople:
         '''
         try:
             print("start running the application")
+            time.sleep(15)
             self.preReadPixels()
             self.calcBg = False #传感器是否计算完背景温度
             frame_counter = 0 #帧数计数器
@@ -487,11 +488,10 @@ class CountPeople:
                             os.mkdir(output_path)
                         frame_output_path =output_path+ "imagedata.npy"
                         avg_output_path = output_path +"avgtemp.npy"
-                        np.save(frame_output_path,np.array(frame_with_human))
-                        np.save(avg_output_path,np.array(self.average_temp))
+                        #np.save(frame_output_path,np.array(frame_with_human))
+                        #np.save(avg_output_path,np.array(self.average_temp))
                         print("sucessfully save the image data")
                         print("path is in "+output_path)
-                        quit()
 
                     if ret[1]:
                         bg_frames.append(currFrame)
@@ -560,7 +560,7 @@ class CountPeople:
             #diff = curr_temp - thre_temp
             #diff[diff<0] = 0
             # 对图片进行ostu二值化
-            #th,bin_img = self.otsuThreshold(diff)
+            ##th,bin_img = self.otsuThreshold(diff)
             '''
             print("after otsu binarize===")
             '''

@@ -5,3 +5,6 @@ imagedata/
 *.jpg
 *.tiff
 *temp/
+*.npy
+*test/
+

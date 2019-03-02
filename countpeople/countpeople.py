@@ -426,7 +426,7 @@ class CountPeople:
         '''
         try:
             print("start running the application")
-            time.sleep(15)
+            time.sleep(2)
             self.preReadPixels()
             self.calcBg = False #传感器是否计算完背景温度
             frame_counter = 0 #帧数计数器
@@ -488,10 +488,11 @@ class CountPeople:
                             os.mkdir(output_path)
                         frame_output_path =output_path+ "imagedata.npy"
                         avg_output_path = output_path +"avgtemp.npy"
-                        #np.save(frame_output_path,np.array(frame_with_human))
-                        #np.save(avg_output_path,np.array(self.average_temp))
+                        np.save(frame_output_path,np.array(frame_with_human))
+                        np.save(avg_output_path,np.array(self.average_temp))
                         print("sucessfully save the image data")
                         print("path is in "+output_path)
+                        return
 
                     if ret[1]:
                         bg_frames.append(currFrame)
@@ -1019,7 +1020,7 @@ class CountPeople:
         if obj_length < obj_num:#是否还有目标尚未匹配
             for point in point_rest :
                 for obj in obj_rest :
-                    if obj not in final_obj_rest:#如果目标已经更新了轨迹
+                    if obj not in final_obj_rest or point not in final_obj_rest :#如果目标已经更新了轨迹
                         continue
                     v = self.__objectTrackDict[obj]
                     prev_point , prev_img = v.get()

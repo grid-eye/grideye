@@ -412,7 +412,7 @@ class CountPeople:
             self.saveImageData(all_frames, customDir)
             print("save all frames")
 
-    def process(self,  frame_interval=400):
+    def process(self,  frame_interval=400,testSubDir=None):
         '''
             main function
 
@@ -476,16 +476,22 @@ class CountPeople:
                 temp_diff =self.calAverageAndCurrDiff(self.average_temp_median , medianBlur)
                 ret =self.isCurrentFrameContainHuman(medianBlur,self.average_temp_median ,temp_diff )
                 if not ret[0]:
+                    if self.getExistPeople():
+                        output_path = "test/"
+                        if testSubDir:
+                            output_path+testSubDir+"/"
+                        frame_output_path =output_path+ "imagedata.npy"
+                        avg_output_path = output_path +"avgtemp.npy"
+                        np.save(frame_output_path,np.array(frame_with_human))
+                        np.save(avg_output_path,np.array(self.average_temp))
+                        print("sucessfully save the image data")
+                        quit()
+
                     if ret[1]:
                         bg_frames.append(currFrame)
                         frame_counter += 1
                         if self.getExistPeople():
 
-                            if self.getPeopleNum() != 0 :
-                                np.save('test/2019-3-1/imageata.npy',np.array(frame_with_human))
-                                print("sucessfully save the image data")
-                                quit()
-                            return 
                             self.__updatePeopleCount()
                             self.setExistPeople(False)
                     continue
@@ -979,7 +985,7 @@ class CountPeople:
                 #温度差不会超过某个阈值
                 previous_img = last_frame
                 previous_cnt = previous_img[last_place[0],last_place[1]]#前一帧的中心温度
-                #diff_temp = abs(img[cp[0],cp[1]] - previous_cnt)#当前中心温度和前一帧数的中心温度差
+                diff_temp = abs(img[cp[0],cp[1]] - previous_cnt)#当前中心温度和前一帧数的中心温度差
                 #中心温度邻域均值
                 #ave = self.__neiborhoodTemp(img , cp)
                 #heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
@@ -1106,38 +1112,45 @@ class CountPeople:
         self.__classifyObject(img,loc)
         #print("=========================people num is %d ==================="%(self.__peoplenum))
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 1 :
         if sys.argv[1] == "start":
             cp = CountPeople()
-            cp.process()
-    else:
-        if len(sys.argv) > 2:
-            if sys.argv[2] == 'people':
-                print('test human,sleep 10 s')
-                time.sleep(10)
-        else:
-            time.sleep(2)
-        # sys.argv[2] represents the custom  dir of  the image saved
-        current_dir = os.path.abspath(os.path.dirname(__file__))
-        adjust_dir = current_dir
-        if current_dir.endswith("grideye"):
-            adjust_dir = current_dir + "/countpeople"
-        packageDir = adjust_dir
-        actual_dir = adjust_dir
-        path_arg = ""
-        if len(sys.argv) > 1:
-            actual_dir = actual_dir + "/"+sys.argv[1]
-            path_arg = sys.argv[1]+"/"
-        # sleep 10 s
-        print("the actual_dir is %s" % (actual_dir))
+            interval = 400
+            outputSubDir=None
+            if len(sys.argv) > 2:
+                outputSubDir =  sys.argv[2]
+            cp.process(interval , outputSubDir)
+        elif sys.argc[1] == "collect":
+            if len(sys.argv)>2:
+                subdir =""
+                if sys.argv[2] == "delay":
+                    print('delay 10 s')
+                    time.sleep(10)
+                    # sys.argv[2] represents the custom  dir of  the image saved    
+                    if len(sys.argv) > 3:
+                        subdir = sys.argv[2]
+                else:
+                    subdir = sys.argv[1]
+                current_dir = os.path.abspath(os.path.dirname(__file__))
+                adjust_dir = current_dir
+                if current_dir.endswith("grideye"):
+                    adjust_dir = current_dir + "/countpeople"
+                packageDir = adjust_dir
+                actual_dir = adjust_dir
+                path_arg = ""
+                if len(sys.argv) > 3:
+                    actual_dir = actual_dir + "/"+subdir
+                    path_arg = subdir+"/"
+                # sleep 10 s
+                print("the actual_dir is %s" % (actual_dir))
 
-        if not os.path.exists(actual_dir):
-            os.mkdir(actual_dir)
-        countp = CountPeople()
-        countp.preReadPixels()
-        # 这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
-        countp.setPackageDir(packageDir)
-        try:
-            countp.acquireImageData()
-        except KeyboardInterrupt("keyboard interrupt"):
-            print("exit")
+                if not os.path.exists(actual_dir):
+                    os.mkdir(actual_dir)
+                countp = CountPeople()
+                countp.preReadPixels()
+                # 这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
+                countp.setPackageDir(packageDir)
+                try:
+                    countp.acquireImageData()
+                except KeyboardInterrupt("keyboard interrupt"):
+                    print("exit")

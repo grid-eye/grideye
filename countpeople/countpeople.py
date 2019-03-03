@@ -97,6 +97,7 @@ class CountPeople:
         self.__image_area = (self.row-1)*(self.col-1)
         self.__hist_x_thresh = 2.0
         self.__hist_amp_thresh = 20
+        self.__isSingle = False
         self.otsu_threshold =0
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
@@ -140,7 +141,10 @@ class CountPeople:
             'difference between bg temperature and current temperature')
         fig.tight_layout()
         plt.show()
-
+    def setSinglePeople(self,isSingle):
+        self.__isSingle = isSingle
+    def isSinglePeople(self):
+        return self.__isSingle
     def calAverageAndCurrDiff(self, average_temp, curr_temp):
         '''
             calculate the difference between avereage temperature and current temperature
@@ -605,9 +609,12 @@ class CountPeople:
                 area_list.append(area)
             if first_thresh:
                 first_thresh_sum = sum(area_list)
+                print("=====first_thresh_sum=====")
+                print(first_thresh_sum)
                 if first_thresh_sum < 200:
                     first_thresh=False
                     single_people_flag=True
+                    self.setSinglePeople(True)
             print("===========area list is =========")
             print(area_list)
             bool_arr_down = np.array(area_list) < thresh_down
@@ -627,20 +634,30 @@ class CountPeople:
                 erosion = cv.erode(bin_img,kernel,iterations=1)#进行侵蚀
                 img2 , conts , heir = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
                 erode_cnt = len(conts)#侵蚀后的轮廓数目
-                if erode_cnt != origin_num:
+                if erode_cnt != origin_num and not single_people_flag:
                     erosion_area_list=[]
                     for c in conts:
                         erosion_area_list.append(cv.contourArea(c))
-                    '''
                     print("====ersion area list is====")
                     print(erosion_area_list)
                     print("===after erosing===")
-                    '''
+                    
                     return (erode_cnt,img2.copy,conts,heir),first_thresh_sum
 
                 for k,v in area_dict.items():
                     cnts.append(v)
-                return (len(ret),img2_copy,cnts,heirarchy),first_thresh_sum
+                pnum = len(ret)
+                if pnum > 1:
+                    if single_people_flag :
+                        print("=======only has one people======")
+                        max_area_k = -1
+                        for k,v in area_dict.items():
+                            if k > max_area_k :
+                                max_area_k = k
+                            else:
+                                cnts.remove(v)
+                        pnum = 1
+                return (pnum,img2_copy,cnts,heirarchy),first_thresh_sum
             else:
                 thre_temp += 0.25
                 continue
@@ -841,7 +858,7 @@ class CountPeople:
         cv.drawContours(img2,contours ,-1 ,(0,255,0),1)
         cv.imshow("contours",img2)
         cv.waitKey(0)
-        time.sleep(10)
+        #time.sleep(10)
         cv.destroyAllWindows()
     def paintHist(self,xcorr,y,titles= "title",x_label="xlabel",y_label="ylabel",fig_nums = [100]):
         '''
@@ -1005,10 +1022,10 @@ class CountPeople:
                 #heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[1] - last_place[1])
-                if vertical_dis < self.row / 4  and horizontal_dis < self.col/3 :
+                if vertical_dis < self.row * 5/ 12  and horizontal_dis < self.col/3 :
                     if  k not in updated_obj_set and cp not in removed_point_set:#防止重复更新某些目标的点
                         if not self.belongToEdge(cp) and not self.belongToEdge(last_place):
-                            if diff_temp > 1.2:
+                            if diff_temp > 1.2 and not self.isSinglePeople:
                                 continue#非边缘目标的中心的点温度之间的差距不能大于1.2
                         self.__objectTrackDict[k].put(cp,img)
                         #self.__neiborhoodTemperature[k] = (ave+self.__neiborhoodTemperature[k])/2
@@ -1024,10 +1041,13 @@ class CountPeople:
         print(point_rest)
         final_point_rest= point_rest.copy()#最终剩余的点，表示新进入的目标，位于视野边缘
         final_obj_rest = obj_rest.copy()#最终剩余的目标，表示该目标消失，通过了监控区域
+        print(obj_rest)
+        print(final_obj_rest)
         if obj_length < obj_num:#是否还有目标尚未匹配
             for point in point_rest :
                 for obj in obj_rest :
-                    if obj not in final_obj_rest or point not in final_obj_rest :#如果目标已经更新了轨迹
+                    if obj not in final_obj_rest or point not in final_point_rest :#如果目标已经更新了轨迹
+                        print("==================not in final_obj_rest=================")
                         continue
                     v = self.__objectTrackDict[obj]
                     prev_point , prev_img = v.get()
@@ -1042,6 +1062,8 @@ class CountPeople:
                         self.__objectTrackDict[obj].put(point,img)
                         final_point_rest.remove(point)
                         final_obj_rest.remove(obj)
+                    else:
+                        print("=============================second match fail==============================")
         print("===final point_rest====")
         print(final_point_rest)
         if len(final_point_rest)> 0:#是否有新的人进入监控视野

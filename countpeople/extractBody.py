@@ -122,12 +122,13 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         for pos in i:
             pos_arr.append(pos)
     print(pos_arr)
-    pre = pos_arr[0]
-    for i in range(1,len(pos_arr)):
-        pos = pos_arr[i]
-        eu_dis = math.sqrt(math.pow(pos[0]-pre[0],2)+math.pow(pos[1]-pre[1],2))
-        pre = pos
-        print(round(eu_dis,2),end=";")
+    if len(pos_arr) > 0:
+        pre = pos_arr[0]
+        for i in range(1,len(pos_arr)):
+            pos = pos_arr[i]
+            eu_dis = math.sqrt(math.pow(pos[0]-pre[0],2)+math.pow(pos[1]-pre[1],2))
+            pre = pos
+            print(round(eu_dis,2),end=";")
     y = "n"
     if show_frame == True:
         y = input("plot the img?yes:y,no:enter")
@@ -135,15 +136,16 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         print(plt_frames)
         showImage(respect_img,mask_arr ,contours_rect,plt_frames)
         plt.show()
-    return area_ret
-if __name__ == "main":
+    return area_ret,cp.getPeopleNum()
+if __name__ == "__main__":
     if len(sys.argv) < 1:
         raise ValueError("please specify a valid path and frame array")
     path = sys.argv[1]
     all_frames = np.load(path+"/imagedata.npy")
     average_temp = np.load(path+"/avgtemp.npy")
+    print("==============loaded people =====================")
     if len(sys.argv ) > 2:
         frame_arr =[int(i) for i in  sys.argv[2:] ]
     else:
         frame_arr = [i for i in range(len(all_frames))]
-        analyseFrameSequence(frame_arr,all_frames,average_temp,True)
+    analyseFrameSequence(frame_arr,all_frames,average_temp,True)

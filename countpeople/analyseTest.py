@@ -11,6 +11,7 @@ else:
     quit()
 all_frame = []
 all_avgframe=[]
+all_area_ret = []
 for postfix in arg_arr:
     subpath = path+postfix+"/"+"imagedata.npy"
     avgpath = path+postfix+"/"+"avgtemp.npy"
@@ -23,7 +24,10 @@ for i in range(len(all_frame)):
     print(frame_arr)
     print(len(frame_seq))
     print("===============analyse a frame seqeunce in %s =================="%(subpath))
-    analyseFrameSequence(frame_arr , frame_seq,avgtemp,False)
+    area_ret = analyseFrameSequence(frame_arr , frame_seq,avgtemp,False)
+    all_area_ret.append(area_ret)
 print()
+print("=====all_area_ret is =================")
+print(np.array(all_area_ret))
 
 

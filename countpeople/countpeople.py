@@ -592,7 +592,7 @@ class CountPeople:
                 cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
                 self.showExtractProcessImage(curr_temp,img2 ,rect)
             if cont_cnt == 0:
-                return (0,None,None,None)
+                return (0,None,None,None),0
             #print("has %d people"%(cont_cnt))
             #求轮廓的面积
             area_dict = {}
@@ -603,10 +603,11 @@ class CountPeople:
                     area += 0.1
                 area_dict[area] = c
                 area_list.append(area)
-            area_sum = sum(area_list)
             if first_thresh:
-                if area_sum < 200:
+                first_thresh_sum = sum(area_list)
+                if first_thresh_sum < 200:
                     first_thresh=False
+                    single_people_flag=True
             print("===========area list is =========")
             print(area_list)
             bool_arr_down = np.array(area_list) < thresh_down
@@ -635,11 +636,11 @@ class CountPeople:
                     print(erosion_area_list)
                     print("===after erosing===")
                     '''
-                    return (erode_cnt,img2.copy,conts,heir)
+                    return (erode_cnt,img2.copy,conts,heir),first_thresh_sum
 
                 for k,v in area_dict.items():
                     cnts.append(v)
-                return (len(ret),img2_copy,cnts,heirarchy)
+                return (len(ret),img2_copy,cnts,heirarchy),first_thresh_sum
             else:
                 thre_temp += 0.25
                 continue

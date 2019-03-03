@@ -32,6 +32,7 @@ def showImage(original , newImage,contours_arr,plt_frames):
 def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
     select_frames_dict = {}
     select_frames_list = []
+    area_ret= []#返回的结果，表示人经过监控区域经过初步阈值处理后的面积，用于判断经过的人数
     for i in frame_arr:
         select_frames_dict[i] = all_frames[i]
         select_frames_list.append(all_frames[i])
@@ -74,7 +75,8 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         print(np.sum(blur))
         print("====average median sum is===")
         print(np.sum(average_median))
-        cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , blur)
+        (cnt_count , img2,contours , hierarchy),area = cp.extractBody(average_median , blur)
+        area_ret.append(area)
         if cnt_count == 0:
             print("current frame has no people")
             #print(len(contours))
@@ -133,6 +135,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         print(plt_frames)
         showImage(respect_img,mask_arr ,contours_rect,plt_frames)
         plt.show()
+    return area_ret
 if __name__ == "main":
     if len(sys.argv) < 1:
         raise ValueError("please specify a valid path and frame array")

@@ -542,6 +542,8 @@ class CountPeople:
         ret = (0 , None,None,None)
         area_down_thresh,thresh_up,thresh_down = self.__image_area*0.01,self.__image_area/9,self.__image_area/10
         kernel = np.ones((3,3))
+        single_people_flag=False
+        first_thresh = True
         while True:
             '''
             print("current threshold is ")
@@ -601,8 +603,12 @@ class CountPeople:
                     area += 0.1
                 area_dict[area] = c
                 area_list.append(area)
-            #print("===========area list is =========")
-            #print(area_list)
+            area_sum = sum(area_list)
+            if first_thresh:
+                if area_sum < 200:
+                    first_thresh=False
+            print("===========area list is =========")
+            print(area_list)
             bool_arr_down = np.array(area_list) < thresh_down
             bool_arr_up = np.array(area_list) < thresh_up
             if all( bool_arr_down) or all(bool_arr_up) :
@@ -998,7 +1004,7 @@ class CountPeople:
                 #heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[1] - last_place[1])
-                if vertical_dis < self.col / 4  and horizontal_dis < self.row /6 :
+                if vertical_dis < self.row / 4  and horizontal_dis < self.col/3 :
                     if  k not in updated_obj_set and cp not in removed_point_set:#防止重复更新某些目标的点
                         if not self.belongToEdge(cp) and not self.belongToEdge(last_place):
                             if diff_temp > 1.2:

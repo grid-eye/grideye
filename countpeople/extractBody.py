@@ -7,28 +7,6 @@ import os
 import math
 import sys
 import cv2 as cv
-if len(sys.argv) < 1:
-    raise ValueError("please specify a valid path and frame array")
-path = sys.argv[1]
-all_frames = np.load(path+"/imagedata.npy")
-average_temp = np.load(path+"/avgtemp.npy")
-if len(sys.argv ) > 2:
-    frame_arr =[int(i) for i in  sys.argv[2:] ]
-else:
-    frame_arr = [i for i in range(len(all_frames))]
-
-select_frames_dict = {}
-select_frames_list = []
-for i in frame_arr:
-    select_frames_dict[i] = all_frames[i]
-    select_frames_list.append(all_frames[i])
-sel_frames = np.array(select_frames_list , np.float32)
-average_temp_intepol = imageInterpolate(average_temp)
-all_frames_intepol = imageInterpolate(sel_frames)
-cp = CountPeople(row=32,col=32)
-average_median = cp.medianFilter(average_temp_intepol)
-average_median_unintel = cp.medianFilter(average_temp)
-print("create countpeople object")
 def plotImage(original ,img,rect , frame_seq):
     figure , (ax1,ax2,ax3) = plt.subplots(1,3,num=frame_seq)
     ax1.imshow(original)
@@ -51,94 +29,118 @@ def showImage(original , newImage,contours_arr,plt_frames):
             plotImage(omg, img,rect,seq)
     else:
         plotImage(original,newImage,contours_arr,plt_frames)
-
-all_result = []
-mask_arr = []
-respect_img=[]
-contours_rect = []
-center_temp_arr=[]
-curr_arr = []
-plt_frames = []#被绘制的帧的序号
-cp.setExistPeople(False)
-for i in range(sel_frames.shape[0]):
-    print("the %dth frame in all_frames "%(frame_arr[i]))
-    #frame = all_frames_intepol[i]
-    frame = all_frames_intepol[i]
-    frame_copy = frame.copy()
-    blur = cp.medianFilter(frame)
-    seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
-    curr_diff= blur - average_median
-    curr_arr.append(curr_diff)
-    ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff)
-    if not ret[0]:
-        if cp.getExistPeople():
-            cp.updatePeopleCount()
-            cp.setExistPeople(False)
+def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
+    select_frames_dict = {}
+    select_frames_list = []
+    for i in frame_arr:
+        select_frames_dict[i] = all_frames[i]
+        select_frames_list.append(all_frames[i])
+    sel_frames = np.array(select_frames_list , np.float32)
+    average_temp_intepol = imageInterpolate(average_temp)
+    all_frames_intepol = imageInterpolate(sel_frames)
+    cp = CountPeople(row=32,col=32)
+    average_median = cp.medianFilter(average_temp_intepol)
+    average_median_unintel = cp.medianFilter(average_temp)
+    print("create countpeople object")
+    all_result = []
+    mask_arr = []
+    respect_img=[]
+    contours_rect = []
+    center_temp_arr=[]
+    curr_arr = []
+    plt_frames = []#被绘制的帧的序号
+    cp.setExistPeople(False)
+    for i in range(sel_frames.shape[0]):
+        print("the %dth frame in all_frames "%(frame_arr[i]))
+        #frame = all_frames_intepol[i]
+        frame = all_frames_intepol[i]
+        frame_copy = frame.copy()
+        blur = cp.medianFilter(frame)
+        seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
+        curr_diff= blur - average_median
+        curr_arr.append(curr_diff)
+        ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff)
+        if not ret[0]:
+            if cp.getExistPeople():
+                cp.updatePeopleCount()
+                cp.setExistPeople(False)
+            else:
+                print("===no people===")
+            continue
         else:
-            print("===no people===")
-        continue
-    else:
-        cp.setExistPeople(True)
-    print("capture the body contours")
-    print("===before extractbody sum is===")
-    print(np.sum(blur))
-    print("====average median sum is===")
-    print(np.sum(average_median))
-    cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , blur)
-    if cnt_count == 0:
-        print("current frame has no people")
-        #print(len(contours))
-        #raise ValueError("no people")
-        continue
-    plt_frames.append(seq)
-    rect_arr = []
-    for cont in contours:
-        x,y,w,d = cv.boundingRect(cont)
-        rect_arr.append((x,y,w,d))
-    all_result.append(cnt_count)
-    print("==============================has %d people in this frame======================= "%(cnt_count))
-    if cnt_count > 0:
-        contours_rect.append(rect_arr)
-        diff_ave_curr =  curr_diff
-        pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
-        mask = np.zeros((cp.row,cp.col),np.uint8)
-        for item in pos:
-            mask[item[0],item[1]] = 1
-       # cp.trackPeople(img2,pos)
-        mask_arr.append(mask)
-        respect_img.append(blur)
-        center_temp_arr.append(pos)
-        cp.trackPeople(blur,pos)
-cp.updatePeopleCount()
-result = cp.getPeopleNum()
-print("there are %d people in the room"%(result))
-mask_arr = np.array(mask_arr)
-respect_img =np.array(respect_img)
-print("====print the loc of all center points===")
-for i in  range(len(center_temp_arr)):
-    img = curr_arr[i]
-    seq = plt_frames[i]
-    print(seq,end=",")
-    for pos in center_temp_arr[i]:
-        print(pos,end="===>")
-        print(round(img[pos[0],pos[1]],2) ,end=",")
+            cp.setExistPeople(True)
+        print("capture the body contours")
+        print("===before extractbody sum is===")
+        print(np.sum(blur))
+        print("====average median sum is===")
+        print(np.sum(average_median))
+        cnt_count , img2,contours , hierarchy = cp.extractBody(average_median , blur)
+        if cnt_count == 0:
+            print("current frame has no people")
+            #print(len(contours))
+            #raise ValueError("no people")
+            continue
+        plt_frames.append(seq)
+        rect_arr = []
+        for cont in contours:
+            x,y,w,d = cv.boundingRect(cont)
+            rect_arr.append((x,y,w,d))
+        all_result.append(cnt_count)
+        print("==============================has %d people in this frame======================= "%(cnt_count))
+        if cnt_count > 0:
+            contours_rect.append(rect_arr)
+            diff_ave_curr =  curr_diff
+            pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
+            mask = np.zeros((cp.row,cp.col),np.uint8)
+            for item in pos:
+                mask[item[0],item[1]] = 1
+           # cp.trackPeople(img2,pos)
+            mask_arr.append(mask)
+            respect_img.append(blur)
+            center_temp_arr.append(pos)
+            cp.trackPeople(blur,pos)
+    cp.updatePeopleCount()
+    result = cp.getPeopleNum()
+    print("there are %d people in the room"%(result))
+    mask_arr = np.array(mask_arr)
+    respect_img =np.array(respect_img)
+    print("====print the loc of all center points===")
+    for i in  range(len(center_temp_arr)):
+        img = curr_arr[i]
+        seq = plt_frames[i]
+        print(seq,end=",")
+        for pos in center_temp_arr[i]:
+            print(pos,end="===>")
+            print(round(img[pos[0],pos[1]],2) ,end=",")
+        print()
     print()
-print()
-print("===================calculate the distance===================================")
-pos_arr = []
-for i in center_temp_arr:
-    for pos in i:
-        pos_arr.append(pos)
-print(pos_arr)
-pre = pos_arr[0]
-for i in range(1,len(pos_arr)):
-    pos = pos_arr[i]
-    eu_dis = math.sqrt(math.pow(pos[0]-pre[0],2)+math.pow(pos[1]-pre[1],2))
-    pre = pos
-    print(round(eu_dis,2),end=";")
-y = input("plot the img?yes:y")
-if y == "y":
-    print(plt_frames)
-    showImage(respect_img,mask_arr ,contours_rect,plt_frames)
-    plt.show()
- 
+    print("===================calculate the distance===================================")
+    pos_arr = []
+    for i in center_temp_arr:
+        for pos in i:
+            pos_arr.append(pos)
+    print(pos_arr)
+    pre = pos_arr[0]
+    for i in range(1,len(pos_arr)):
+        pos = pos_arr[i]
+        eu_dis = math.sqrt(math.pow(pos[0]-pre[0],2)+math.pow(pos[1]-pre[1],2))
+        pre = pos
+        print(round(eu_dis,2),end=";")
+    y = "n"
+    if show_frame == True:
+        y = input("plot the img?yes:y,no:enter")
+    if y == "y":
+        print(plt_frames)
+        showImage(respect_img,mask_arr ,contours_rect,plt_frames)
+        plt.show()
+if __name__ == "main":
+    if len(sys.argv) < 1:
+        raise ValueError("please specify a valid path and frame array")
+    path = sys.argv[1]
+    all_frames = np.load(path+"/imagedata.npy")
+    average_temp = np.load(path+"/avgtemp.npy")
+    if len(sys.argv ) > 2:
+        frame_arr =[int(i) for i in  sys.argv[2:] ]
+    else:
+        frame_arr = [i for i in range(len(all_frames))]
+        analyseFrameSequence(frame_arr,all_frames,average_temp,True)

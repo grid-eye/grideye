@@ -325,7 +325,7 @@ class CountPeople:
     # 根据当前温度和平均温度（表示背景温度)的差值判断是否含有人类
     def judgeFrameByDiffAndBTSU(self, img_diff):
         if img_diff.max() > self.__diffThresh:
-            ret, hist = self.otsuThreshold(img_diff)
+            ret, hist = self.otsuThreshold(img_diff.copy())
             print("=============otsu ret is %.2f ============="%(ret))
             hist = np.array(hist,np.uint8)
             fg_img = img_diff[hist==1]
@@ -359,9 +359,9 @@ class CountPeople:
         '''
         #print(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
-        #diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
+        diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
-        sums = [hist_result , ave_result]
+        sums = [hist_result , diff_result,ave_result]
         if sum(sums) >=  2:
             print("=================detect people ============")
             return (True,)
@@ -490,6 +490,7 @@ class CountPeople:
                             output_path = default_path+"/"
                         if not  os.path.exists(output_path):
                             #os.mkdir(output_path)
+                            pass
                         frame_output_path =output_path+ "imagedata.npy"
                         avg_output_path = output_path +"avgtemp.npy"
                         #np.save(frame_output_path,np.array(frame_with_human))
@@ -509,7 +510,7 @@ class CountPeople:
                 frame_with_human.append(currFrame) 
                 self.setExistPeople(True)
                 #如果当前图片中含有两个人
-                cnt_count,image ,contours,hierarchy =self.extractBody(self.average_temp_median , medianBlur)
+                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp_median , medianBlur)
                 print("当前帧数中存在的人数是%d"%(cnt_count))
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(medianBlur,contours,[ i for i in range(self.row)])

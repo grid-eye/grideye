@@ -1,4 +1,6 @@
 import numpy as np
+import cv2 as cv
+import matplotlib.pyplot as plt
 def findThresh(histogram , total,ranges = (-6,6),interval =
         0.1,dtype=np.float32):
     '''
@@ -49,16 +51,36 @@ def calcHistogram(images,ranges = (-6,6) ):
     for i in range(hist.shape[0]):
         freqMap[round(bins[i],1)] = hist[i]
     return freqMap
+def approxCalcHistogram(images,ranges=(-6,6)):
+    bins = (ranges[1]-ranges[0])+1
+    hist,bins = np.histogram(images.ravel(),bins=bins,range=(-6,6))
+    bins =bins[:-1]
+    freqMap={}
+    for i in range(hist.shape[0]):
+        freqMap[bins[i]] = hist[i]
+    return freqMap
 def otsuThreshold(images , total,ranges = (-6,6),interval =0.1,thre = None):
-    histogram = calcHistogram(images)
+    images = np.round(images)
+    images = images.astype(np.uint8)
+    #histogram =approxCalcHistogram(images)
+    #histogram = calcHistogram(images)
+    '''
     if thre:
         ret = thre
     else:
         ret = findThresh(histogram,total,ranges,interval)
+    '''
+    ret,th = cv.threshold(images,-6,6,cv.THRESH_BINARY+cv.THRESH_OTSU)
+    print("====th is =====")
+    print(th)
+    print("====ret is =====")
+    print(ret)
     shape = images.shape
     binary = np.ones(shape)
     for i in range(shape[0]):
         for j in range(shape[1]):
-            if images[i][j] < ret:
+            if images[i][j] <ret + 0.1:
                 binary[i][j] = 0
+    plt.imshow(binary)
+    plt.show()
     return (ret,binary)

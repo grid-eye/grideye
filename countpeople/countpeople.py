@@ -85,6 +85,7 @@ class CountPeople:
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
+        self.__diff_individual_tempera= 0.3 #单人进出时的中心温度阈值
         self.__peoplenum = 0  # 统计的人的数量
         self.__diffThresh = 2.5 #温度差阈值
         self.__otsuThresh = 3.0 # otsu 阈值
@@ -359,9 +360,9 @@ class CountPeople:
         '''
         #print(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
-        diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
+        #diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
-        sums = [hist_result , diff_result,ave_result]
+        sums = [hist_result , ave_result]
         if sum(sums) >=  2:
             print("=================detect people ============")
             return (True,)
@@ -489,12 +490,11 @@ class CountPeople:
                         else:
                             output_path = default_path+"/"
                         if not  os.path.exists(output_path):
-                            #os.mkdir(output_path)
-                            pass
+                            os.mkdir(output_path)
                         frame_output_path =output_path+ "imagedata.npy"
                         avg_output_path = output_path +"avgtemp.npy"
-                        #np.save(frame_output_path,np.array(frame_with_human))
-                        #np.save(avg_output_path,np.array(self.average_temp))
+                        np.save(frame_output_path,np.array(frame_with_human))
+                        np.save(avg_output_path,np.array(self.average_temp))
                         print("sucessfully save the image data")
                         print("path is in "+output_path)
                         return
@@ -1009,6 +1009,16 @@ class CountPeople:
         obj_num = len(self.__objectTrackDict)#原来的目标数目
         updated_obj_set = set()#已经更新轨迹的目标集合 
         removed_point_set = set()#已经确认隶属的点的集合
+        if len(self.__objectTrackDict) == 1:
+           if len(corr) == 1:
+               for k, v in self.__objectTrackDict.items():
+                   last_place,last_frame = v.get()
+                   last_tempera = last_frame[last_place[0],last_place[1]]
+                   curr_tempera = img[corr[0][0],corr[0][1]]
+                   diff = curr_tempera - last_tempera
+                   if diff <=self.__diff_individual_tempera:
+                       v.put(corr[0],img)
+                       return 
         for cp in corr:
             for k,v in self.__objectTrackDict.items():
                 last_place ,last_frame = v.get()

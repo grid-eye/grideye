@@ -81,6 +81,6 @@ def otsuThreshold(images , total,ranges = (-6,6),interval =0.1,thre = None):
         for j in range(shape[1]):
             if images[i][j] <ret + 0.1:
                 binary[i][j] = 0
-    plt.imshow(binary)
-    plt.show()
+    #plt.imshow(binary)
+    #plt.show()
     return (ret,binary)

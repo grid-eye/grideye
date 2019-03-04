@@ -60,7 +60,12 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
         curr_arr.append(curr_diff)
+        start_time = time.perf_counter()
         ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff)
+        end_time = time.perf_counter()
+        interval = end_time - start_time
+        print("=============analyse this frame contain human's time is====================")
+        print(interval)
         if not ret[0]:
             if cp.getExistPeople():
                 cp.updatePeopleCount()
@@ -75,7 +80,13 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         print(np.sum(blur))
         print("====average median sum is===")
         print(np.sum(average_median))
+        start_time = time.perf_counter()
         (cnt_count , img2,contours , hierarchy),area = cp.extractBody(average_median , blur)
+        end_time = time.perf_counter()
+        interval = end_time - start_time
+        interval = end_time -start_time
+        print("=====================extractBody's time is====================")
+        print(interval)
         area_ret.append(area)
         if cnt_count == 0:
             print("current frame has no people")
@@ -92,7 +103,12 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         if cnt_count > 0:
             contours_rect.append(rect_arr)
             diff_ave_curr =  curr_diff
+            start_time = time.perf_counter()
             pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
+            end_time = time.perf_counter()
+            interval = end_time -start_time
+            print("===============analyse findBodyLocation's tiem ================")
+            print(interval)
             mask = np.zeros((cp.row,cp.col),np.uint8)
             for item in pos:
                 mask[item[0],item[1]] = 1
@@ -100,7 +116,12 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
             mask_arr.append(mask)
             respect_img.append(blur)
             center_temp_arr.append(pos)
+            start_time = time.perf_counter()
             cp.trackPeople(blur,pos)
+            end_time = time.perf_counter()
+            interval = end_time - start_time
+            print("===============analyse track people's time==================")
+            print(interval)
     cp.updatePeopleCount()
     result = cp.getPeopleNum()
     print("there are %d people in the room"%(result))

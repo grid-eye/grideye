@@ -88,7 +88,7 @@ class CountPeople:
         self.__peoplenum = 0  # 统计的人的数量
         self.__diffThresh = 2.5 #温度差阈值
         self.__otsuThresh = 3.0 # otsu 阈值
-        self.__averageDiffThresh = 0.20 # 平均温度查阈值
+        self.__averageDiffThresh = 0.3 # 平均温度查阈值
         self.__otsuResultForePropor = 0.0004
         self.__objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
         self.__neiborhoodTemperature = {}#m目标图片邻域均值
@@ -326,6 +326,7 @@ class CountPeople:
     def judgeFrameByDiffAndBTSU(self, img_diff):
         if img_diff.max() > self.__diffThresh:
             ret, hist = self.otsuThreshold(img_diff)
+            print("=============otsu ret is %.2f ============="%(ret))
             hist = np.array(hist,np.uint8)
             fg_img = img_diff[hist==1]
             bg_img = img_diff[hist==0]
@@ -349,7 +350,6 @@ class CountPeople:
             return True
         else:
             return False
-
     def isCurrentFrameContainHuman(self,current_temp,
             average_temperature,img_diff):
         '''
@@ -359,9 +359,9 @@ class CountPeople:
         '''
         #print(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
-        diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
+        #diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
-        sums = [hist_result ,diff_result , ave_result]
+        sums = [hist_result , ave_result]
         if sum(sums) >=  2:
             print("=================detect people ============")
             return (True,)
@@ -489,11 +489,11 @@ class CountPeople:
                         else:
                             output_path = default_path+"/"
                         if not  os.path.exists(output_path):
-                            os.mkdir(output_path)
+                            #os.mkdir(output_path)
                         frame_output_path =output_path+ "imagedata.npy"
                         avg_output_path = output_path +"avgtemp.npy"
-                        np.save(frame_output_path,np.array(frame_with_human))
-                        np.save(avg_output_path,np.array(self.average_temp))
+                        #np.save(frame_output_path,np.array(frame_with_human))
+                        #np.save(avg_output_path,np.array(self.average_temp))
                         print("sucessfully save the image data")
                         print("path is in "+output_path)
                         return

@@ -438,6 +438,7 @@ class CountPeople:
             seq_counter = 0 
             bg_frames = [] #保存用于计算背景温度的帧
             frame_with_human = []
+            dir_counter = 1#目录计数器
             while True:
                 currFrame = []
                 for row in self.amg.pixels:
@@ -450,8 +451,6 @@ class CountPeople:
                 print(currFrame)
                 if frame_counter  ==  self.th_bgframes :#是否测完平均温度
                     frame_counter = 0 
-
-                    self.th_bgframes =400
                     #更新计算背景的阈值
                     num = len(bg_frames)
                     print("====num is %d==="%(num))
@@ -486,9 +485,12 @@ class CountPeople:
                         output_path = ""
                         default_path = "test"
                         if testSubDir:
-                            output_path += testSubDir+"/"
+                            output_path += testSubDir
                         else:
-                            output_path = default_path+"/"
+                            output_path = default_path
+                        output_path += str(dir_counter )
+                        dir_counter += 1#目录计数器自行递增
+                        output_path +="/"
                         if not  os.path.exists(output_path):
                             os.mkdir(output_path)
                         frame_output_path =output_path+ "imagedata.npy"
@@ -497,8 +499,10 @@ class CountPeople:
                         np.save(avg_output_path,np.array(self.average_temp))
                         print("sucessfully save the image data")
                         print("path is in "+output_path)
-                        return
-
+                        print("============restart calculate the bgtemp======")
+                        self.calcBg=False
+                        bg_frames = []#重置背景缓冲区
+                        self.frame_counter =0 #重置背景帧数计数器
                     if ret[1]:
                         bg_frames.append(currFrame)
                         frame_counter += 1
@@ -776,13 +780,11 @@ class CountPeople:
         print("find body location")
         #self.showContours(img,contours)
         #print(np.round(img,2))
-        pcount = len(contours)
         ret = []
         for cnt in contours:
             x,y,w,h = cv.boundingRect(cnt)
             mask = img[y:y+h,x:x+w]
             #input("press any key")
-            row_sum = []
             row_max =[]
             for row in mask:
                 row_max.append(row.max())
@@ -792,16 +794,15 @@ class CountPeople:
             col = max_row.index(max(max_row))
             row += y
             col += x
+            temperature = img[row,col]
+            max_temp = np.max(mask)
+            print("====max_temp is ====")
+            print(max_temp)
+            if temperature != max_temp:
+                xcorr,ycorr = np.where(mask == temperature)
+                row = xcorr[0]+y
+                col = ycorr[0]+x
             ret.append((row,col))
-            continue
-            for row in mask:
-                row_sum.append(row.sum())
-            max_row = row_sum.index(max(row_sum))
-            mrow = mask[max_row].tolist()
-            max_col = mrow.index(max(mrow))
-            max_row += y
-            max_col += x
-            ret.append((max_row,max_col))
         print(ret)
         #print(img[ret[0][0],ret[0][1]])
         #input("press Enter continue...")

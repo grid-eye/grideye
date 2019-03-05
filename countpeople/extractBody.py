@@ -48,7 +48,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
     respect_img=[]
     contours_rect = []
     center_temp_arr=[]
-    curr_arr = []
+    curr_arr = []#保存图片的差值(当前帧和背景的差值)
     plt_frames = []#被绘制的帧的序号
     cp.setExistPeople(False)
     for i in range(sel_frames.shape[0]):
@@ -59,9 +59,8 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         blur = cp.medianFilter(frame)
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
-        curr_arr.append(curr_diff)
         start_time = time.perf_counter()
-        ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff)
+        ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff.copy())
         end_time = time.perf_counter()
         interval = end_time - start_time
         print("=============analyse this frame contain human's time is====================")
@@ -102,8 +101,11 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         print("==============================has %d people in this frame======================= "%(cnt_count))
         if cnt_count > 0:
             contours_rect.append(rect_arr)
+            curr_arr.append(curr_diff)
             diff_ave_curr =  curr_diff
             start_time = time.perf_counter()
+            print("=======max temprature of this frame is ==============")
+            print(np.max(diff_ave_curr))
             pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
             end_time = time.perf_counter()
             interval = end_time -start_time

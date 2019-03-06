@@ -1,4 +1,5 @@
 import numpy as np
+import time
 import os
 import sys
 import matplotlib.pyplot as plt
@@ -6,8 +7,8 @@ from interpolate import imageInterpolate
 import cv2 as cv
 from otsuBinarize import otsuThreshold
 def analyseSequence(allframe,avgtemp,argarray,interpolate_method = "linear"):
-    allframe = imageInterpolate(allframe,interpolate_method)
-    avgtemp = imageInterpolate(avgtemp,interpolate_method)
+    #allframe = imageInterpolate(allframe,interpolate_method)
+    #avgtemp = imageInterpolate(avgtemp,interpolate_method)
     print(allframe.shape)
     print(avgtemp.shape)
     diff_frame = []
@@ -38,7 +39,15 @@ def analyseSequence(allframe,avgtemp,argarray,interpolate_method = "linear"):
         plt.subplot(2,2,2)
         plt.plot(bins , hists)
         gaussian = cv.GaussianBlur(currframe,(5,5),0)
-        ret,thre = otsuThreshold(gaussian , 1024,thre = 2.4)
+        gaussian -=1 
+        ret = np.where(gaussian < 0)
+        gaussian[ret] = 0
+        start = time.perf_counter()        
+        ret,thre = otsuThreshold(gaussian , 64)
+        end = time.perf_counter()
+        occupy_time = end -start
+        print("========time occupyed==============")
+        print(occupy_time)
         print("the sum of thre after otsu %d"%(thre.sum()))
         print("it conforms %% %.2f"%((thre.sum()/1024)))
         print("thresh's sum is")

@@ -37,12 +37,10 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         select_frames_dict[i] = all_frames[i]
         select_frames_list.append(all_frames[i])
     sel_frames = np.array(select_frames_list , np.float32)
-    average_temp_intepol = imageInterpolate(average_temp)
-    all_frames_intepol = imageInterpolate(sel_frames)
-    cp = CountPeople(row=32,col=32)
-    average_median = cp.medianFilter(average_temp_intepol)
-    average_median_unintel = cp.medianFilter(average_temp)
+    target_frames = sel_frames
+    cp = CountPeople(row=8,col=8)
     print("create countpeople object")
+    average_median = cp.medianFilter(average_temp)
     all_result = []
     mask_arr = []
     respect_img=[]
@@ -54,8 +52,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
     for i in range(sel_frames.shape[0]):
         print("the %dth frame in all_frames "%(frame_arr[i]))
         #frame = all_frames_intepol[i]
-        frame = all_frames_intepol[i]
-        frame_copy = frame.copy()
+        frame =  target_frames[i]
         blur = cp.medianFilter(frame)
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median

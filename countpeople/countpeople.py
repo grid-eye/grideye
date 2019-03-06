@@ -22,7 +22,7 @@ class ObjectTrack:
         self.__pos = -1
         self.__size = 0
         self.__direction = 1#进入
-        self.__compensation = 6
+        self.__compensation =2# 补偿值
     def put(self,point,img):
         self.__loc_list.append(point)
         self.__img_list.append(img)
@@ -33,7 +33,7 @@ class ObjectTrack:
         return loc,img
     def isEmpty(self):
         return self.__size == 0 
-    def hasPassDoor(self,frame_width = 32):
+    def hasPassDoor(self,frame_width = 8):
         '''
             是否已经通过
 
@@ -64,7 +64,7 @@ class Target:
 class CountPeople:
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
-    def __init__(self, pre_read_count=30, th_bgframes=100, row=32, col=32):
+    def __init__(self, pre_read_count=30, th_bgframes=100, row=8, col=8):
         # the counter of the bgframes
         self.i2c = busio.I2C(board.SCL, board.SDA)
         self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
@@ -89,7 +89,7 @@ class CountPeople:
         self.__peoplenum = 0  # 统计的人的数量
         self.__diffThresh = 2.5 #温度差阈值
         self.__otsuThresh = 3.0 # otsu 阈值
-        self.__averageDiffThresh = 0.5 # 平均温度查阈值
+        self.__averageDiffThresh = 0.3 # 平均温度查阈值
         self.__otsuResultForePropor = 0.0004
         self.__objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
         self.__neiborhoodTemperature = {}#m目标图片邻域均值
@@ -100,16 +100,19 @@ class CountPeople:
         self.__hist_amp_thresh = 20
         self.__isSingle = False
         self.otsu_threshold =0
+        self.interpolate_method='cubic'
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
         #预读取数据，让数据稳定
         for i in range(self.pre_read_count):
             for row in self.amg.pixels:
                 pass
-    def interpolate(self, points, pixels, grid_x, grid_y, inter_type='cubic'):
+    def interpolate(self, points, pixels, grid_x, grid_y, inter_type=None):
         '''
         interpolating for the pixels,default method is cubic
         '''
+        if not inter_type:
+            inter_type = self.interpolate_method
         return griddata(points, pixels, (grid_x, grid_y), method=inter_type)
     def getPeopleNum(self):
         return self.__peoplenum
@@ -457,7 +460,7 @@ class CountPeople:
                     print("====num is %d==="%(num))
                     self.average_temp = self.calAverageTemp(bg_frames)
                     #对平均温度进行插值
-                    self.average_temp_intepol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'linear')
+                    self.average_temp_intepol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'ntercubic')
                     self.average_temp_median =   self.medianFilter(self.average_temp_intepol)
                     self.average_temp_gaussian =self.gaussianFilter(self.average_temp_intepol)
                     frame_counter = 0 # reset the counter
@@ -475,7 +478,7 @@ class CountPeople:
                 #对当前帧进行内插
                 print("========================================================process============================================================")
                 currFrameIntepol = self.interpolate(
-                    self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
+                    self.points, currFrame.flatten(), self.grid_x, self.grid_y,'cubic')
                 #对当前帧进行中值滤波，也可以进行高斯滤波进行降噪，考虑到分辨率太低，二者效果区别不大
                 medianBlur = self.medianFilter(currFrameIntepol)
                 #对滤波后的当前温度和平均温度进行差值计算
@@ -551,7 +554,7 @@ class CountPeople:
            参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
         '''
         #show_frame =True
-        thre_temp = average_temp.copy()+2 #阈值温度
+        thre_temp = average_temp.copy()+1 #阈值温度
         ones = np.ones(average_temp.shape , np.float32)
         ret = (0 , None,None,None)
         area_down_thresh,thresh_up,thresh_down = self.__image_area*0.01,self.__image_area/9,self.__image_area/10
@@ -621,7 +624,7 @@ class CountPeople:
                 first_thresh_sum = sum(area_list)
                 print("=====first_thresh_sum=====")
                 print(first_thresh_sum)
-                if first_thresh_sum < 200:
+                if first_thresh_sum < 5:
                     first_thresh=False
                     single_people_flag=True
                     self.setSinglePeople(True)

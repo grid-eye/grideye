@@ -11,14 +11,15 @@ def analyseSequence(allframe,avgtemp,argarray,interpolate_method = "linear"):
     print(allframe.shape)
     print(avgtemp.shape)
     diff_frame = []
-    for i in allframe:
-        diff_frame.append(i - avgtemp)
+    for i in argarray:
+        diff_frame.append(allframe[i] - avgtemp)
     diff_frame = np.round(np.array(diff_frame),1)
-    for i in range(len(diff_frame)):
-        print("the %dth diff frame "%(argarray[i]))
+    for i in range(len(argarray)):
+        print("the %sth diff frame "%(argarray[i]))
+        seq = argarray[i]
         currframe = diff_frame[i]
         print("the maximum of the diff frame is %.2f"%(currframe.max()))
-        plt.figure(num=i+1)
+        plt.figure(num=seq)
         plt.subplot(2,2,1)
         plt.imshow(currframe)
         plt.xticks([]),plt.yticks([])
@@ -63,4 +64,5 @@ if __name__ == "__main__":
             argarray[i] = int(argarray[i])
     else:
         argarray = [i for i in range(len(allframe))]
+    print(argarray)
     analyseSequence(allframe,avgtemp , argarray)

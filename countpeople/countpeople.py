@@ -89,7 +89,7 @@ class CountPeople:
         self.__peoplenum = 0  # 统计的人的数量
         self.__diffThresh = 2.5 #温度差阈值
         self.__otsuThresh = 3.0 # otsu 阈值
-        self.__averageDiffThresh = 0.3 # 平均温度查阈值
+        self.__averageDiffThresh = 0.5 # 平均温度查阈值
         self.__otsuResultForePropor = 0.0004
         self.__objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
         self.__neiborhoodTemperature = {}#m目标图片邻域均值
@@ -439,6 +439,7 @@ class CountPeople:
             bg_frames = [] #保存用于计算背景温度的帧
             frame_with_human = []
             dir_counter = 1#目录计数器
+            true_counter = 0#人出现的帧数
             while True:
                 currFrame = []
                 for row in self.amg.pixels:
@@ -472,7 +473,7 @@ class CountPeople:
                     continue
                 #计算完背景温度的步骤
                 #对当前帧进行内插
-
+                print("========================================================process============================================================")
                 currFrameIntepol = self.interpolate(
                     self.points, currFrame.flatten(), self.grid_x, self.grid_y, 'linear')
                 #对当前帧进行中值滤波，也可以进行高斯滤波进行降噪，考虑到分辨率太低，二者效果区别不大
@@ -488,6 +489,7 @@ class CountPeople:
                             output_path += testSubDir
                         else:
                             output_path = default_path
+                        continue
                         output_path += str(dir_counter )
                         dir_counter += 1#目录计数器自行递增
                         output_path +="/"
@@ -507,9 +509,11 @@ class CountPeople:
                         bg_frames.append(currFrame)
                         frame_counter += 1
                         if self.getExistPeople():
-
                             self.__updatePeopleCount()
                             self.setExistPeople(False)
+                    else:#(False,False)
+                        true_counter += 1
+
                     continue
                 frame_with_human.append(currFrame) 
                 self.setExistPeople(True)
@@ -524,14 +528,15 @@ class CountPeople:
 
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
+            print("true_counter =%d"%(true_counter))
             # all_frames=[]
             # save all images
-            self.saveImageData(all_frames, customDir)
+            #self.saveImageData(all_frames, customDir)
             # for i in range(len(all_frames)):
             #print("shape is "+str(diff_queues[i].shape))
             #    self.saveDiffHist(diff_queues[i])
             #   self.saveImage(average_temperature ,all_frames[i],True)
-            print("save all frames")
+            #print("save all frames")
             print("exit")
             raise KeyboardInterrupt("catch keyboard interrupt")
     def showPeopleNum(self):
@@ -660,7 +665,17 @@ class CountPeople:
                             if k > max_area_k :
                                 max_area_k = k
                             else:
-                                cnts.remove(v)
+                                try:
+                                    id_arr = [id(i) for i in cnts]
+                                    id_index = id_arr.index(id(v))
+                                    cnts.pop(id_index)
+
+                                except ValueError:
+                                    print([id(item) for item in cnts])
+                                    print(v)
+                                    print(id(v))
+                                    raise ValueError()
+
                         pnum = 1
                 return (pnum,img2_copy,cnts,heirarchy),first_thresh_sum
             else:

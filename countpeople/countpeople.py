@@ -89,7 +89,7 @@ class CountPeople:
         self.__peoplenum = 0  # 统计的人的数量
         self.__diffThresh = 2.5 #温度差阈值
         self.__otsuThresh = 3.0 # otsu 阈值
-        self.__averageDiffThresh = 0.3 # 平均温度查阈值
+        self.__averageDiffThresh = 0.25 # 平均温度查阈值
         self.__otsuResultForePropor = 0.0004
         self.__objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
         self.__neiborhoodTemperature = {}#m目标图片邻域均值
@@ -97,7 +97,7 @@ class CountPeople:
         self.__isExist = False #前一帧是否存在人，人员通过感应区域后的执行统计人数步骤的开关
         self.__image_area = (self.row-1)*(self.col-1)
         self.__hist_x_thresh = 2.0
-        self.__hist_amp_thresh = 20
+        self.__hist_amp_thresh = 2
         self.__isSingle = False
         self.otsu_threshold =0
         self.interpolate_method='cubic'
@@ -321,7 +321,9 @@ class CountPeople:
         for k,v in freqMap.items():
             if k > self.__hist_x_thresh:#直方图x轴阈值
                 sums += v 
-        if sums > self.__hist_amp_thresh:#直方图振幅阈值
+        print("=========================hist amp's sum is======================")
+        print(sums)
+        if sums >= self.__hist_amp_thresh:#直方图振幅阈值
             return True
         else:
             return False
@@ -558,7 +560,7 @@ class CountPeople:
         ones = np.ones(average_temp.shape , np.float32)
         ret = (0 , None,None,None)
         area_down_thresh,thresh_up,thresh_down = self.__image_area*0.01,self.__image_area/9,self.__image_area/10
-        kernel = np.ones((3,3))
+        kernel = np.ones((1,1))
         single_people_flag=False
         first_thresh = True
         while True:

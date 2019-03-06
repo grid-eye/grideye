@@ -40,7 +40,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
     target_frames = sel_frames
     cp = CountPeople(row=8,col=8)
     print("create countpeople object")
-    average_median = cp.medianFilter(average_temp)
+    average_median = cp.gaussianFilter(average_temp)
     all_result = []
     mask_arr = []
     respect_img=[]
@@ -53,7 +53,12 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         print("the %dth frame in all_frames "%(frame_arr[i]))
         #frame = all_frames_intepol[i]
         frame =  target_frames[i]
-        blur = cp.medianFilter(frame)
+        print("before guassian filter")
+        print("================max value is %.2f=================="%(frame.max()))
+        blur =frame #cp.gaussianFilter(frame)
+        #blur=cp.medianFilter(frame)
+        print("after guassian filter")
+        print("================max value is %.2f=================="%(blur.max()))
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
         start_time = time.perf_counter()

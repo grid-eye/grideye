@@ -13,10 +13,10 @@
 2.2019-01-12-bgsecond:
 
 	1.thresh=0.30
-		frame_sum:45045
-		over_thresh_sum:2331
-		accuracy_with_human:0.05
-		accuracy_without_human:0.95
+		frame_sum:24024
+		over_thresh_sum:1469
+		accuracy_with_human:0.06
+		accuracy_without_human:0.94
 	2.thresh=0.4
 		frame_sum:24024
 		over_thresh_sum:308

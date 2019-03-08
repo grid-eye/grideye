@@ -1,12 +1,13 @@
 import numpy as np
 import time
+from countpeople import CountPeople
 import os
 import sys
 import matplotlib.pyplot as plt
 from interpolate import imageInterpolate
 import cv2 as cv
 from otsuBinarize import otsuThreshold
-def analyseSequence(allframe,avgtemp,argarray,show_frame=False ,interpolate_method = "linear"):
+def analyseSequence(allframe,avgtemp,argarray,show_frame=False ,cp=None,interpolate_method = "linear"):
     #allframe = imageInterpolate(allframe,interpolate_method)
     #avgtemp = imageInterpolate(avgtemp,interpolate_method)
     print(allframe.shape)
@@ -47,8 +48,8 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False ,interpolate_meth
             if k > 2:
                 exceed_sum += v
         print("====exceed sum is %d ===="%(exceed_sum))
-        gaussian = cv.GaussianBlur(currframe,(5,5),0)
-        gaussian -=1 
+        cp.isCurrentFrameContainHuman(img,avgtemp,currframe)
+        gaussian =currframe.copy() #cv.GaussianBlur(currframe,(5,5),0)
         ret = np.where(gaussian < 0)
         gaussian[ret] = 0
         start = time.perf_counter()        
@@ -111,6 +112,8 @@ if __name__ == "__main__":
     print(argarray)
     is_show_frame = False
     print(show_frame)
+    cp=None
     if show_frame == "y":
         is_show_frame=True
-    analyseSequence(allframe,avgtemp , argarray,show_frame=is_show_frame)
+        cp = CountPeople()
+    analyseSequence(allframe,avgtemp , argarray,show_frame=is_show_frame,cp=cp)

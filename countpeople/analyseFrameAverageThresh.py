@@ -28,28 +28,17 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False,thresh=None ,inte
         ave_arr.append(img_ave)
         curr_average = np.average(img)
         avg_average = np.average(avgtemp)
-        diff_ave = curr_average -avg_average
         #print("diff ave of curr temp and avgtemp is %.2f"%(diff_ave))
         #print("the maximum of the diff frame is %.2f"%(currframe.max()))
         '''
-        hists,bins = np.histogram(currframe.ravel() , bins=120 , range=(-6,6) )
-        histMap = {}
-        bins = bins[:-1]
-        rest = currframe.size - hists.sum() 
-        hists[-1]+=rest
-        for i in range(len(bins)):
-            histMap[bins[i]] = hists[i]
-        exceed_sum=0#溢出之和
         for k, v in  histMap.items():
             if k > 2:
                 exceed_sum += v
         print("====exceed sum is %d ===="%(exceed_sum))
-        gaussian = cv.GaussianBlur(currframe,(5,5),0)
         gaussian -=1 
         ret = np.where(gaussian < 0)
         gaussian[ret] = 0
         start = time.perf_counter()        
-        #ret,thre = otsuThreshold(gaussian , 64)
         end = time.perf_counter()
         occupy_time = end -start
         print("========time occupyed==============")
@@ -61,6 +50,15 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False,thresh=None ,inte
         #print("sum is %.2f"%(thre.sum()))
         '''
         if show_frame:
+            hists,bins = np.histogram(currframe.ravel() , bins=120 , range=(-6,6) )
+            histMap = {}
+            bins = bins[:-1]
+            rest = currframe.size - hists.sum() 
+            hists[-1]+=rest
+            ret,thre = otsuThreshold(currframe , 64)
+            for i in range(len(bins)):
+                histMap[bins[i]] = hists[i]
+            gaussian = cv.GaussianBlur(currframe,(5,5),0)
             plt.figure(num=seq)
             plt.subplot(2,2,1)
             plt.imshow(currframe)

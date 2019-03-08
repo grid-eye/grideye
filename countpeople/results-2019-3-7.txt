@@ -24,7 +24,7 @@
 		accuracy_without_human:0.99
 
 
-2.2019-01-17-bgfirst:
+3.2019-01-17-bgfirst:
 
 	1.thresh=0.3
 		frame_sum:92092
@@ -39,3 +39,15 @@
 
 
 
+3.2019-2-2-first:
+
+	1.thresh=0.3
+		frame_sum:5005
+		over_thresh_sum:569(实际上测的确实有人的数目是506)
+		accuracy_with_human:
+		accuracy_without_human:
+	2.thresh=0.4
+		frame_sum:92092
+		over_thresh_sum:273
+		accuracy_with_human:0
+		accuracy_without_human:1

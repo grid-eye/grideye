@@ -81,7 +81,7 @@ class CountPeople:
         # temp and current temp
         # 8*8 grid
         self.points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
-        self.diff_ave_otsu= 0.75#通过OTSU分类的背景和前景的差的阈值,用于判断是否有人
+        self.diff_ave_otsu= 0.5#通过OTSU分类的背景和前景的差的阈值,用于判断是否有人
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
@@ -330,23 +330,21 @@ class CountPeople:
 
     # 根据当前温度和平均温度（表示背景温度)的差值判断是否含有人类
     def judgeFrameByDiffAndBTSU(self, img_diff):
-        if img_diff.max() > self.__diffThresh:
-            ret, hist = self.otsuThreshold(img_diff.copy())
-            print("=============otsu ret is %.2f ============="%(ret))
-            hist = np.array(hist,np.uint8)
-            fg_img = img_diff[hist==1]
-            bg_img = img_diff[hist==0]
-            if len(bg_img) ==0 :
-                return False
-            fg_ave = np.average(fg_img)
-            bg_ave = np.average(bg_img)
-            diff_ave = fg_ave - bg_ave
-            if diff_ave <= self.diff_ave_otsu:
-                return False
-            else:
-                return True
-        else:
+        ret, hist = self.otsuThreshold(img_diff.copy())
+        print("=============otsu ret is %.2f ============="%(ret))
+        hist = np.array(hist,np.uint8)
+        print(hist)
+        fg_img = img_diff[hist>0]
+        bg_img = img_diff[hist==0]
+        if len(bg_img) ==0 :
             return False
+        fg_ave = np.average(fg_img)
+        bg_ave = np.average(bg_img)
+        diff_ave = fg_ave - bg_ave
+        if diff_ave >= self.diff_ave_otsu:
+            return True,hist
+        else:
+            return False,hist
     # 根据当前温度的平均值和背景温度的平均值判断当前帧是否含有人类
     def judgeFrameByAverage(self, average_temp, current_temp):
         ave_ave = np.average(average_temp)
@@ -364,16 +362,28 @@ class CountPeople:
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
         #print(img_diff)
+        max_thresh =2
         hist_result  =  self.judgeFrameByHist(img_diff) 
-        #diff_result = self.judgeFrameByDiffAndBTSU(img_diff)
+        diff_result ,hist= self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
-        sums = [hist_result , ave_result]
-        if sum(sums) >=  2:
+        flag = False
+        sel_index = np.where(hist > 0)
+        length = len(sel_index[0])
+        if length >= 7:
+            flag = True
+
+        sums = [hist_result ,diff_result,flag, ave_result]
+
+        print("==================sum is==============")
+        print(sums)
+        if sum(sums) >=  3:
             print("=================detect people ============")
             return (True,)
         elif sum(sums) >0:
-            print("case 2:=======no people with some noise=====")
-            print(sums)
+            if flag and diff_result:
+                return True,
+            elif hist_result and diff_result:
+                return True,
             return (False,False)
         else:
             print("case 3：=======no people=======")

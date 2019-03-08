@@ -1,5 +1,6 @@
 import numpy as np
 from processDiff import analyseImageData
+from countpeople import CountPeople
 import os
 import sys
 if len(sys.argv) < 2:
@@ -12,6 +13,7 @@ if os.path.exists(path) == False:
     raise ValueError("please input a valid path")
 path = path[0:len(path)-1]
 maxArr,minArr,aveArr,overThresh =[],[],[],[]
+cp = CountPeople()
 for i in range(num):
 
     realpath = path+str(i+1)
@@ -19,7 +21,7 @@ for i in range(num):
         print("this frame sequence doesn't exist")
         continue
     print(" the %dth sequence "%(i))
-    ret = analyseImageData(realpath)
+    ret = analyseImageData(realpath,cp)
     minArr.append(ret[0])
     maxArr.append(ret[1])
     aveArr.append(ret[2])
@@ -30,6 +32,11 @@ print("the minimum of the diff data is %.2f"%(np.array(minArr).min()))
 print("the average of the all diff data is %.1f"%(np.average(np.array(aveArr))))
 print("the array of the frame which is over thresh is as list:")
 print(np.array(overThresh))
+over_sum = 0
+for item in overThresh:
+    over_sum += len(item)
+print("================sum of the overThresh is===================")
+print(over_sum)
 overIndex = []
 for i in range(len(overThresh)):
     if len(overThresh[i]) > 1:

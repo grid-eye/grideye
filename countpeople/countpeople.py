@@ -362,7 +362,7 @@ class CountPeople:
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
         #print(img_diff)
-        max_thresh =2
+        
         hist_result  =  self.judgeFrameByHist(img_diff) 
         diff_result ,hist= self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)

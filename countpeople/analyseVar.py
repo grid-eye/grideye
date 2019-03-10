@@ -6,7 +6,8 @@ print("================%s shape is============"%(path))
 print(var_arr.shape)
 max_var = var_arr.max()
 min_var = var_arr.min()
-interval =[0.4,0.425,0.45, 0.475,0.5,0.525,0.55,0.575,0.6,0.625,0.65,0.675,0.7]
+interval = [0.10 ,0.125,0.15,0.175,0.2,0.225,  0.25]
+#interval =[0.4,0.425,0.45, 0.475,0.5,0.525,0.55,0.575,0.6,0.625,0.65,0.675,0.7]
 print("===================maximun of var_arr is =================")
 print(max(var_arr))
 print("====================minimum of var_arr is================")

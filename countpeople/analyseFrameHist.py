@@ -57,7 +57,7 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False ,cp=None,interpol
         end = time.perf_counter()
         occupy_time = end -start
         print("========time occupyed==============")
-        #print(occupy_time)
+        print(occupy_time)
         #print("the sum of thre after otsu %d"%(thre.sum()))
         #print("it conforms %% %.2f"%((thre.sum()/1024)))
         #print("thresh's sum is")

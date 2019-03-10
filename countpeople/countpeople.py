@@ -99,6 +99,7 @@ class CountPeople:
         self.__hist_x_thresh = 2.0
         self.__hist_amp_thresh = 2
         self.__isSingle = False
+        self.__var_thresh=0.125
         self.otsu_threshold =0
         self.interpolate_method='cubic'
     def preReadPixels(self,pre_read_count = 20):
@@ -354,6 +355,11 @@ class CountPeople:
             return True
         else:
             return False
+    def judgeFrameByDiffVar(self,diff_frame):
+        var = np.var(diff_frame)
+        if var >= self.__var_thresh:
+            return True
+        return False
     def isCurrentFrameContainHuman(self,current_temp,
             average_temperature,img_diff):
         '''
@@ -362,27 +368,15 @@ class CountPeople:
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
         #print(img_diff)
-        
+        var_result = self.judgeFrameByDiffVar(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
-        diff_result ,hist= self.judgeFrameByDiffAndBTSU(img_diff)
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
-        flag = False
-        sel_index = np.where(hist > 0)
-        length = len(sel_index[0])
-        if length >= 7:
-            flag = True
-
-        sums = [hist_result ,diff_result,flag, ave_result]
-
-        print("==================sum is==============")
+        sums = [hist_result ,var_result, ave_result]
         print(sums)
-        if sum(sums) >=  3:
-            print("=================detect people ============")
+        if sum(sums) >=  2:
             return (True,)
         elif sum(sums) >0:
-            if flag and diff_result:
-                return True,
-            elif hist_result and diff_result:
+            if var_result:
                 return True,
             return (False,False)
         else:
@@ -559,6 +553,23 @@ class CountPeople:
 
     def getExistPeople(self):
         return self.__isExist
+    def extractBodyBak(self.average_temp,curr_temp,show_frame=False,seq=None):
+        thre_temp =average_temp.copy()+0.25
+        ones = np.ones(average_temp.shape,np.float32)
+        all_area =(self.row-1)*(self.col-1)
+        while True:
+           bin_img = ones*(thre_temp >= average_temp)
+           bin_img = bin_img.astype(np.uint8)
+           img , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+           area_arr = []
+           for c in contours:
+               area_arr.append(cv.contourArea(c))
+           max_area = max(area_arr)
+           print("====================area list is===================")
+           print(area_arr)
+           if area_arr >= all_area * 0.3
+               thre_temp += 0.25
+
     def extractBody(self,average_temp , curr_temp,show_frame = False,seq=None):
         '''
            找到两人之间的间隙(如果有两人通过)
@@ -666,14 +677,11 @@ class CountPeople:
                     print("====ersion area list is====")
                     print(erosion_area_list)
                     print("===after erosing===")
-                    
                     return (erode_cnt,img2.copy,conts,heir),first_thresh_sum
-
                 for k,v in area_dict.items():
                     cnts.append(v)
                 pnum = len(ret)
                 if pnum > 1:
-                    if single_people_flag :
                         print("=======only has one people======")
                         max_area_k = -1
                         for k,v in area_dict.items():

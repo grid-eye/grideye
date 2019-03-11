@@ -553,24 +553,103 @@ class CountPeople:
 
     def getExistPeople(self):
         return self.__isExist
-    def extractBodyBak(self.average_temp,curr_temp,show_frame=False,seq=None):
+    def removeNoisePoint(self,curr_temp,corr):
+        if len(corr)== 1:
+            return corr
+        final_point = []
+        corr_set  = set(corr)
+        cp_temp_dict = {}
+        for item in corr_set:
+            cp_temp_dict[item] = curr_temp[item]
+        #cp_item_sorted = [(item,) for k in cp_temp_dict
+
+        reference_point=None
+        #for item in corr:
+
+
+    def extractBody(self , average_temp,curr_temp,show_frame=False,seq=None):
         thre_temp =average_temp.copy()+0.25
         ones = np.ones(average_temp.shape,np.float32)
-        all_area =(self.row-1)*(self.col-1)
+        all_area =self.image_size
         while True:
-           bin_img = ones*(thre_temp >= average_temp)
-           bin_img = bin_img.astype(np.uint8)
-           img , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-           area_arr = []
-           for c in contours:
-               area_arr.append(cv.contourArea(c))
-           max_area = max(area_arr)
-           print("====================area list is===================")
-           print(area_arr)
-           if area_arr >= all_area * 0.3
-               thre_temp += 0.25
+            bin_img = ones*(curr_temp>= thre_temp)
+            bin_img = bin_img.astype(np.uint8)
+            #img , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+            n , label = cv.connectedComponents(bin_img)
+            area_arr = []
+            max_size_label = 0
+            last_size = 0
+            label_dict= {}
+            for i in range(1,n):
+                sub_matrix = label[np.where(label==i)]
+                if (sub_matrix.size  > last_size):
+                    last_size = sub_matrix.size
+                    max_size_label =i
+                area_arr.append(sub_matrix.size)
+                label_dict[i] = sub_matrix.size
+            print("====================area list is===================")
+            print(area_arr)
+            area_arr.sort()
+            max_area = area_arr[-1]
+            if max_area >= all_area * 0.3:
+                thre_temp += 0.25
+                print("next step")
+            elif max_area  > all_area * 0.1:
+                if len(area_arr) >=2 :
+                    second_largest = area_arr[-2]
+                    if second_largest > all_area*0.1:
+                        label_sorted = sorted(label_dict.items() , key =lambda d:d[1])
+                        sub_label = label_sorted[-2:]
+                        key1,key2 = sub_label[0][0],sub_label[1][0]
+                        if key1 != 1 and key2 != 1: 
+                            label[np.where(label == 1)] = 0
+                        if key1 != 1:
+                            label[np.where(label ==key1)]=1
+                        if key2 != 1:
+                            label[np.where(label==key2)]=1
+                        label[np.where(label!=1)] = 0
+                        bin_img = label.astype(np.uint8)
+                        print(bin_img)
+                        img,contours,heir=cv.findContours(bin_img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                        con_area ={}
+                        cont_area_arr = []
+                        max_area = -1
+                        for c in contours:
+                            area = cv.contourArea(c)
+                            while area  in con_area:
+                                area += 0.1
+                            cont_area_arr.append(area)
+                            con_area[area] = c
+                        print(cont_area_arr)
+                        ret_conto =[]
+                        for a,c in con_area.items():
+                            if a >= 1:
+                                ret_conto.append(c)
+                        print("====return 2===")
+                        return (2,img,ret_conto,heir),0
+                    else:
+                        thre_temp+=0.25
+                else:
+                    thre_temp += 0.25
+            elif max_area  < math.ceil(all_area*0.1):
+                label_sorted = sorted(label_dict.items(), key =lambda d:d[1])
+                sub_label = label_sorted[-1]
+                print(sub_label)
+                print(label)
+                print(sub_label)
+                key = sub_label[0]
+                if key != 1:
+                    label[np.where(label ==1)] =0
+                    label[np.where(label == key)] = 1
+                label[np.where(label != 1)] = 0
+                bin_img =label.astype(np.uint8)
+                img,contours,heir=cv.findContours(bin_img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                return (1,img,contours,heir),0
+            else:
+                thre_temp += 0.25
 
-    def extractBody(self,average_temp , curr_temp,show_frame = False,seq=None):
+
+    def extractBodyBak(self,average_temp , curr_temp,show_frame = False,seq=None):
         '''
            找到两人之间的间隙(如果有两人通过)
            在背景温度的基础上增加0.25摄氏度作为阈值,低于阈值作为背景，高于阈值作为前景，观察是否能区分两个轮廓，如果不能就继续循环增加0.25

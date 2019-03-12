@@ -556,14 +556,35 @@ class CountPeople:
     def removeNoisePoint(self,curr_temp,corr):
         if len(corr)== 1:
             return corr
-        final_point = []
-        corr_set  = set(corr)
+        horizontal_thresh = 2
+        vertical_thresh = 2
         cp_temp_dict = {}
+        corr_set = set(corr)
         for item in corr_set:
             cp_temp_dict[item] = curr_temp[item]
-        #cp_item_sorted = [(item,) for k in cp_temp_dict
-
-        reference_point=None
+        cp_item_sorted =sorted(cp_temp_dict.items(),key =lambda d:d[1])
+        cp_item_sorted=set(cp_item_sorted)
+        reference_set =set()
+        removed_set=set()
+        print("====cp item sorted============")
+        print(cp_item_sorted)
+        for item in cp_item_sorted:
+            reference_point=item
+            if reference_point in reference_set or reference_point in removed_set:
+                continue
+            reference_set.add(reference_point)
+            rest_points = cp_item_sorted - reference_set - removed_set
+            for k in rest_points:
+                hori_dis = abs(reference_point[0][1] -k[0][1])
+                if hori_dis <=  horizontal_thresh :
+                    vertical_dis = abs(reference_point[0][0] - k[0][0])
+                    if vertical_dis <= vertical_thresh:
+                        removed_set.add(k)
+        final_corr = []
+        rest_set = cp_item_sorted-removed_set
+        for k,v in rest_set:
+            final_corr.append(k)
+        return final_corr
         #for item in corr:
 
 
@@ -897,7 +918,7 @@ class CountPeople:
         print("find body location")
         #self.showContours(img,contours)
         #print(np.round(img,2))
-        ret = []
+        corr = []
         for cnt in contours:
             x,y,w,h = cv.boundingRect(cnt)
             mask = img[y:y+h,x:x+w]
@@ -919,11 +940,12 @@ class CountPeople:
                 xcorr,ycorr = np.where(mask == temperature)
                 row = xcorr[0]+y
                 col = ycorr[0]+x
-            ret.append((row,col))
-        print(ret)
+            corr.append((row,col))
+        print(corr)
         #print(img[ret[0][0],ret[0][1]])
         #input("press Enter continue...")
-        return ret
+        print("================removed noise point===================")
+        return self.removeNoisePoint(img,corr)
         #for i in range(pcount):
             #cnt = contours[i]
             #moment = cv.moments(cnt)#求图像的矩
@@ -1093,14 +1115,14 @@ class CountPeople:
                     temp_sum += img[x+1][y+1]
                     temp_sum += img[x-1][y]
                     temp_sum += img[x][y+1]
-                    tmep_sum += img[x+1][y]
+                    temp_sum += img[x+1][y]
                     count = 5
                 elif y == 31:
                     temp_sum += img[x-1][y]
                     temp_sum += img[x][y-1]
                     temp_sum += img[x+1][y]
                     temp_sum += img[x-1][y-1]
-                    tmep_sum += img[x+1][y-1]
+                    temp_sum += img[x+1][y-1]
                     count = 5
                 else:
                     temp_sum += img[x-1][y]

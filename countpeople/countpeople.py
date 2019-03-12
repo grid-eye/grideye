@@ -89,7 +89,7 @@ class CountPeople:
         self.__peoplenum = 0  # 统计的人的数量
         self.__diffThresh = 2.5 #温度差阈值
         self.__otsuThresh = 3.0 # otsu 阈值
-        self.__averageDiffThresh = 0.25 # 平均温度查阈值
+        self.__averageDiffThresh = 0.4 # 平均温度查阈值
         self.__otsuResultForePropor = 0.0004
         self.__objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
         self.__neiborhoodTemperature = {}#m目标图片邻域均值
@@ -184,8 +184,8 @@ class CountPeople:
                     n frames
         '''
         total_frames = np.zeros((8, 8))
-        for aitem in range(len(all_bgframes)):
-            total_frames = total_frames+np.array(all_bgframes[aitem])
+        for i in range(len(all_bgframes)):
+            total_frames = total_frames+np.array(all_bgframes[i])
         return total_frames/len(all_bgframes)
     def setExistPeople(self,exist=False):
         self.__isExist = exist
@@ -294,20 +294,6 @@ class CountPeople:
         plt.savefig("%s/hot_image_ %d.png" % (actual_dir, self.image_id))
         self.image_id = self.image_id+1
         plt.clf()
-    def saveDiffBetweenAveAndCurr(self):
-        counter = 0
-        diff_queues.append(self.calAverageDiff(
-            average_temperature, currFrameIntepol))
-        if counter > 2000:
-            diff_array = np.array(np.round(diff_queues, 1))
-            average_diff = np.round(np.average(diff_array), 1)
-            np.savetxt('diff_between_avgtemp_currtemp.txt',
-                       diff_array, delimiter=',')
-            np.savetxt('average_diff.txt', np.array([average_diff]))
-            print('the average diff is %f' % (average_diff))
-        counter += 1
-        print('counter: %d' % (counter))
-
     def judgeFrameByHist(self, img):  # 根据直方图判断当前帧是否含有人类
         print("judge by hist")
         hist, bins = np.histogram(img.ravel(), bins=120, range=(-6, 6))
@@ -376,8 +362,6 @@ class CountPeople:
         if sum(sums) >=  2:
             return (True,)
         elif sum(sums) >0:
-            if var_result:
-                return True,
             return (False,False)
         else:
             print("case 3：=======no people=======")
@@ -400,7 +384,6 @@ class CountPeople:
         # the result of the interpolating for the grid
         average_path = customDir+"/"+"avgtemp.npy"
         print("the average path is %s" % (average_path))
-        average_temperature = np.load(average_path)
         all_frames = []
         frame_counter = 0  # a counter of frames' num
         # diff_queues saves the difference between average_temp and curr_temp
@@ -449,6 +432,7 @@ class CountPeople:
             frame_with_human = []
             dir_counter = 1#目录计数器
             true_counter = 0#人出现的帧数
+            all_frame=[]#所有帧数
             while True:
                 currFrame = []
                 for row in self.amg.pixels:
@@ -460,84 +444,89 @@ class CountPeople:
                 print("current temperature is ")
                 print(currFrame)
                 if frame_counter  ==  self.th_bgframes :#是否测完平均温度
-                    frame_counter = 0 
                     #更新计算背景的阈值
+                    frame_counter=0
                     num = len(bg_frames)
                     print("====num is %d==="%(num))
                     self.average_temp = self.calAverageTemp(bg_frames)
+
+                    ''' 
                     #对平均温度进行插值
-                    self.average_temp_intepol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'ntercubic')
+                    self.average_temp_intepol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'cubic')
                     self.average_temp_median =   self.medianFilter(self.average_temp_intepol)
                     self.average_temp_gaussian =self.gaussianFilter(self.average_temp_intepol)
-                    frame_counter = 0 # reset the counter
+                    '''
                     bg_frames = [] #清空保存的图片以节省内存
                     self.calcBg = True # has calculated the bg temperature
                     print("===finish testing bg temperature===")
                     print("===average temp is ===")
-                    print(self.average_temp_median)
+                    print(self.average_temp)
+                    continue
 
                 elif not self.calcBg: #是否计算完背景温度
                     bg_frames.append(currFrame)
                     frame_counter += 1#帧数计数器自增
                     continue
+                all_frame.append(currFrame)
                 #计算完背景温度的步骤
                 #对当前帧进行内插
                 print("========================================================process============================================================")
+                '''
                 currFrameIntepol = self.interpolate(
                     self.points, currFrame.flatten(), self.grid_x, self.grid_y,'cubic')
                 #对当前帧进行中值滤波，也可以进行高斯滤波进行降噪，考虑到分辨率太低，二者效果区别不大
                 medianBlur = self.medianFilter(currFrameIntepol)
                 #对滤波后的当前温度和平均温度进行差值计算
                 temp_diff =self.calAverageAndCurrDiff(self.average_temp_median , medianBlur)
-                ret =self.isCurrentFrameContainHuman(medianBlur,self.average_temp_median ,temp_diff )
+                '''
+                diff_temp = self.calAverageAndCurrDiff(self.average_temp,currFrame)
+                ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
                 if not ret[0]:
                     if self.getExistPeople():
-                        output_path = ""
-                        default_path = "test"
-                        if testSubDir:
-                            output_path += testSubDir
-                        else:
-                            output_path = default_path
-                        continue
-                        output_path += str(dir_counter )
-                        dir_counter += 1#目录计数器自行递增
-                        output_path +="/"
-                        if not  os.path.exists(output_path):
-                            os.mkdir(output_path)
-                        frame_output_path =output_path+ "imagedata.npy"
-                        avg_output_path = output_path +"avgtemp.npy"
-                        np.save(frame_output_path,np.array(frame_with_human))
-                        np.save(avg_output_path,np.array(self.average_temp))
-                        print("sucessfully save the image data")
-                        print("path is in "+output_path)
+                        '''
                         print("============restart calculate the bgtemp======")
                         self.calcBg=False
                         bg_frames = []#重置背景缓冲区
                         self.frame_counter =0 #重置背景帧数计数器
+                        '''
+                        self.setExistPeople(False)
+                        self.__updatePeopleCount()
                     if ret[1]:
+                        '''
                         bg_frames.append(currFrame)
                         frame_counter += 1
-                        if self.getExistPeople():
-                            self.__updatePeopleCount()
-                            self.setExistPeople(False)
+                        '''
                     else:#(False,False)
                         true_counter += 1
-
                     continue
-                frame_with_human.append(currFrame) 
                 self.setExistPeople(True)
-                #如果当前图片中含有两个人
-                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp_median , medianBlur)
-                print("当前帧数中存在的人数是%d"%(cnt_count))
+                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
+                if cnt_count ==0:
+                    continue
                 #下一步是计算轮当前帧的中心位置
-                loc = self.findBodyLocation(medianBlur,contours,[ i for i in range(self.row)])
-                self.trackPeople(medianBlur,loc)
+                loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
+                self.trackPeople(diff_temp,loc)
                 self.showPeopleNum() 
                 #sleep(0.5)
 
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
             print("true_counter =%d"%(true_counter))
+            output_path = ""
+            default_path = "test"
+            if testSubDir:
+                output_path += testSubDir
+            else:
+                output_path = default_path
+            output_path +="/"
+            if not  os.path.exists(output_path):
+                os.mkdir(output_path)
+            frame_output_path =output_path+ "imagedata.npy"
+            avg_output_path = output_path +"avgtemp.npy"
+            np.save(frame_output_path,np.array(all_frame))
+            np.save(avg_output_path,self.average_temp)
+            print("sucessfully save the image data")
+            print("path is in "+output_path)
             # all_frames=[]
             # save all images
             #self.saveImageData(all_frames, customDir)
@@ -554,14 +543,21 @@ class CountPeople:
     def getExistPeople(self):
         return self.__isExist
     def removeNoisePoint(self,curr_temp,corr):
-        if len(corr)== 1:
-            return corr
+        max_temperature_thresh=2
         horizontal_thresh = 2
         vertical_thresh = 2
         cp_temp_dict = {}
         corr_set = set(corr)
+        corr_bak=corr_set.copy()
         for item in corr_set:
-            cp_temp_dict[item] = curr_temp[item]
+            if curr_temp[item] >=  max_temperature_thresh:
+                cp_temp_dict[item] = curr_temp[item]
+            else:
+                corr_bak.remove(item)
+        print("===============cp temp dict is======")
+        print(cp_temp_dict)
+        if len(corr_bak) <= 1:
+            return list(corr_bak)
         cp_item_sorted =sorted(cp_temp_dict.items(),key =lambda d:d[1])
         cp_item_sorted=set(cp_item_sorted)
         reference_set =set()
@@ -582,6 +578,8 @@ class CountPeople:
                         removed_set.add(k)
         final_corr = []
         rest_set = cp_item_sorted-removed_set
+        print("================rest set is ======================")
+        print(rest_set)
         for k,v in rest_set:
             final_corr.append(k)
         return final_corr
@@ -598,23 +596,17 @@ class CountPeople:
             #img , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
             n , label = cv.connectedComponents(bin_img)
             area_arr = []
-            max_size_label = 0
-            last_size = 0
             label_dict= {}
             for i in range(1,n):
                 sub_matrix = label[np.where(label==i)]
-                if (sub_matrix.size  > last_size):
-                    last_size = sub_matrix.size
-                    max_size_label =i
                 area_arr.append(sub_matrix.size)
                 label_dict[i] = sub_matrix.size
-            print("====================area list is===================")
-            print(area_arr)
             area_arr.sort()
+            if not area_arr:
+                return (0,None,None,None),0
             max_area = area_arr[-1]
             if max_area >= all_area * 0.3:
                 thre_temp += 0.25
-                print("next step")
             elif max_area  > all_area * 0.1:
                 if len(area_arr) >=2 :
                     second_largest = area_arr[-2]
@@ -630,7 +622,6 @@ class CountPeople:
                             label[np.where(label==key2)]=1
                         label[np.where(label!=1)] = 0
                         bin_img = label.astype(np.uint8)
-                        print(bin_img)
                         img,contours,heir=cv.findContours(bin_img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                         con_area ={}
                         cont_area_arr = []
@@ -641,12 +632,10 @@ class CountPeople:
                                 area += 0.1
                             cont_area_arr.append(area)
                             con_area[area] = c
-                        print(cont_area_arr)
                         ret_conto =[]
                         for a,c in con_area.items():
                             if a >= 1:
                                 ret_conto.append(c)
-                        print("====return 2===")
                         return (2,img,ret_conto,heir),0
                     else:
                         thre_temp+=0.25
@@ -655,9 +644,6 @@ class CountPeople:
             elif max_area  < math.ceil(all_area*0.1):
                 label_sorted = sorted(label_dict.items(), key =lambda d:d[1])
                 sub_label = label_sorted[-1]
-                print(sub_label)
-                print(label)
-                print(sub_label)
                 key = sub_label[0]
                 if key != 1:
                     label[np.where(label ==1)] =0

@@ -81,7 +81,7 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False,thresh=None ,inte
     print("index of min value is")
     print(ave_arr.index(min_v))
     ave_array = np.array(ave_arr)
-    curr_thresh = 0.425
+    curr_thresh = 0.375
     if thresh:
         curr_thresh = thresh
     sub_ave_index = np.where(ave_array>=curr_thresh)

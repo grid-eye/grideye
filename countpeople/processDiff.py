@@ -54,11 +54,6 @@ if __name__ == "__main__":
     cp = CountPeople()
     ret = analyseImageData(path,cp=cp)
     print("the index of the frame is over thresh is as listed")
-    print(np.array(ret[3]))
-
-
-
-
-
-
-
+    overThresh = ret[3]
+    for item in overThresh:
+        print(item,end=" ")

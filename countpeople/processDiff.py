@@ -55,5 +55,6 @@ if __name__ == "__main__":
     ret = analyseImageData(path,cp=cp)
     print("the index of the frame is over thresh is as listed")
     overThresh = ret[3]
+    np.save(path+"/human_data.npy",np.array(overThresh))#保存超过阈值的帧序号
     for item in overThresh:
         print(item,end=" ")

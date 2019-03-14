@@ -42,22 +42,15 @@ def createTrainingSetAndTestSet(bg_path,fg_path):
     #showSample(fgDataSet)
     bglen = len(bgDataSet)
     allDataSet = bgDataSet + fgDataSet
-    print(type(allDataSet))
     allDataSet = np.array(allDataSet)
-    print(allDataSet.shape)
-    print(allDataSet.shape)
     normalDataSet,ranges,minVals = normDataSet(allDataSet)
     allDataSet[:,1:5] = normalDataSet
-    print(type(allDataSet))
     bgDataSet ,fgDataSet = allDataSet[0:bglen],allDataSet[bglen:]
     split_bg = int(len(bgDataSet)/2)
     split_fg = int(len(fgDataSet)/2)
-    
     trainSet = bgDataSet[0:split_bg].tolist()+fgDataSet[0:split_fg].tolist()
-    print("==============train set is===================")
     #showSample(trainSet)
     testSet = bgDataSet[split_bg:].tolist()+fgDataSet[split_fg:].tolist()
-    print("==============test set is===================")
     #showSample(testSet)
     return np.array(trainSet),np.array(testSet)
 def normDataSet(dataSet):#归一化数据集
@@ -71,12 +64,10 @@ def normDataSet(dataSet):#归一化数据集
     normalDataSet = dataSet[:,1:5] - np.tile(minVals,(n,1))
     normalDataSet = normalDataSet/np.tile(ranges,(n,1))
     return normalDataSet,ranges,minVals
-def knnClassify(trainingSet,labels , test,k=5):
+def knnClassify(trainingSet,labels , test,weight , k=5):
     m = trainingSet.shape[0]
     testExtension = np.tile(test[1:5],(m,1))
     diff_set = testExtension - trainingSet[:,1:5]
-    weight = np.array([1,0.3,0.1,1])
-    weight = np.tile(weight,(m,1))
     diff_set = diff_set * weight
     diff_set = diff_set**2
     sqDistance = diff_set.sum(axis=1)
@@ -94,23 +85,57 @@ def knnTrain(trainSet,testSet,k=5):
     trainSeq, trainSet,trainLabels = trainingSet[:,0],trainingSet[:,1:5],trainingSet[:,5]
     testSeq,testSet,testLabels = testSet[:,0],testSet[:,1:5],testSet[:,5]
     '''
+    weight_array = np.linspace(0.1,1,10)
+    weight_array = np.tile(weight_array,(4,1))
+    min_count = 1000000
+    min_tuple = (1,0.1,0.1,0.1)
+    '''
+    for f in weight_array[0][4:]:
+        for j in weight_array[1]:
+            for n in weight_array[2]:
+                for m in weight_array[3]:
+                    weight=(f,j,n,m)
+                    print(weight)
+                    weight = np.tile(weight,(trainSet.shape[0],1))
+                    errorCount = 0
+                    for i in range(testSet.shape[0]):
+                        actual_label =testSet[i][5]
+                        votedLabel = knnClassify(trainSet,trainSet[:,5],testSet[i],weight,k)
+                        if votedLabel != actual_label:
+                            errorCount += 1
+                    dataSize = testSet.shape[0]
+                    if errorCount < min_count:
+                        min_count = errorCount
+                        min_tuple = weight
+                    print(errorCount / testSet.shape[0])
+                    print(errorCount)
+                    return
+    '''
+    weight=(1.0,0.1,0.1,0.1)
+    print(weight)
+    weight = np.tile(weight,(trainSet.shape[0],1))
     errorCount = 0
     for i in range(testSet.shape[0]):
         actual_label =testSet[i][5]
-        votedLabel = knnClassify(trainSet,trainSet[:,5],testSet[i],k)
+        votedLabel = knnClassify(trainSet,trainSet[:,5],testSet[i],weight,k)
         if votedLabel != actual_label:
             errorCount += 1
     dataSize = testSet.shape[0]
-    print("============error count is %d================"%(errorCount))
-    correct_count = dataSize - errorCount
-    print("============correct count is %d================"%(correct_count))
-    print("============error accuracy is %.3f============="%(errorCount/dataSize))
-    print("=============correct accuracy is %.3f============="%(correct_count/dataSize))
+    if errorCount < min_count:
+        min_count = errorCount
+        min_tuple = weight
+    print(errorCount / testSet.shape[0])
+    print(errorCount)
+    print(min_tuple)
+    print(min_count)
 if __name__ == "__main__":
     bg_path = sys.argv[1]
     fg_path = sys.argv[2]
     trainSet,testSet = createTrainingSetAndTestSet(bg_path,fg_path)
-    knnTrain(trainSet,testSet,17)
+    ws = [3,5,7,9 ,11,13,15,17,19]
+    for i in ws:
+        print("===================%d=================="%(i))
+        knnTrain(trainSet,testSet,i)
 
 
 

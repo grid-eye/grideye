@@ -11,6 +11,8 @@ import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 from otsuBinarize import otsuThreshold
+from knn import createSampleSet,knnClassify
+
 
 class ObjectTrack:
     '''
@@ -23,6 +25,10 @@ class ObjectTrack:
         self.__size = 0
         self.__direction = 1#进入
         self.__compensation =2# 补偿值
+        self.__max_age = 24
+        self.__max_interval = 3
+        self.__age_counter = 0
+        self.__interval_counter = 0
     def put(self,point,img):
         self.__loc_list.append(point)
         self.__img_list.append(img)
@@ -31,8 +37,21 @@ class ObjectTrack:
         loc = self.__loc_list[self.__size -1]
         img = self.__img_list[self.__size-1]
         return loc,img
+    def getAge(self):
+        return self.__age_counter
+    def getInterval(self):
+        return self.__interval_counter
     def isEmpty(self):
         return self.__size == 0 
+    def isAgeOverflow(self):
+        return self.__age_counter >= self.__max_age
+    def isIntervalOverflow(self):
+        return self.__interval_counter >= self.__max_interval
+    def incrementAge(self):#年龄自增
+        self.__age_counter += 1
+    def incrementInterval(self):
+        self.__interval_counter += 1
+
     def hasPassDoor(self,frame_width = 8):
         '''
             是否已经通过
@@ -72,7 +91,7 @@ class CountPeople:
         self.bgframe_cnt = 0
         self.all_bgframes = []  # save all frames which sensor read
         self.pre_read_count = pre_read_count
-        self.th_bgframes = th_bgframes
+        self.th_bgframes = 3#th_bgframes
         self.row = row  # image's row
         self.col = col  # image's col
         self.image_size = row * col
@@ -100,14 +119,25 @@ class CountPeople:
         self.__hist_amp_thresh = 2
         self.__isSingle = False
         self.__var_thresh=0.125
+        self.__k = 7
         self.otsu_threshold =0
         self.interpolate_method='cubic'
+        self.bg_path="test/2019-3-12-second-1"
+        self.fg_path = "test/2019-3-12-second-4"
+        self.createTrainSample(self.bg_path,self.fg_path)
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
         #预读取数据，让数据稳定
         for i in range(self.pre_read_count):
             for row in self.amg.pixels:
                 pass
+    def createTrainSample(self,bg_path,fg_path):
+        if hasattr(self,"knnSampleSet"):
+            return 
+        bg_sample,fg_sample = createSampleSet(bg_path,fg_path)
+        sampleSet =np.append(bg_sample,fg_sample,axis=0)
+        self.knnSampleSet = sampleSet
+        return sampleSet
     def interpolate(self, points, pixels, grid_x, grid_y, inter_type=None):
         '''
         interpolating for the pixels,default method is cubic
@@ -346,6 +376,22 @@ class CountPeople:
         if var >= self.__var_thresh:
             return True
         return False
+    def calculateImgFeature(self,diff_frame):
+        var =np.var(np.ravel(diff_frame.ravel()))
+        return (None,var,None)
+    def knnJudgeFrameContainHuman(self,current_temp,avgtemp,diff_frame):
+        feature_vector = self.calculateImgFeature(diff_frame)
+        trainSet =self.knnSampleSet[:,1]
+        trainLabels = self.knnSampleSet[:,2]
+        category , voteCount= knnClassify(trainSet,trainLabels,feature_vector,(1,),self.__k)
+        if category == 1:
+            return True,
+        else:
+            if voteCount > self.__k*2/3:
+                return False,False
+            return False,True
+
+
     def isCurrentFrameContainHuman(self,current_temp,
             average_temperature,img_diff):
         '''
@@ -354,6 +400,7 @@ class CountPeople:
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
         #print(img_diff)
+        return self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff)
         var_result = self.judgeFrameByDiffVar(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
@@ -425,12 +472,14 @@ class CountPeople:
             print("start running the application")
             time.sleep(2)
             self.preReadPixels()
+            print("read sample data ")
+            bg_path = "test/2019-3-12-second-1"
+            fg_path = "test/2019-3-12-second-4"
+            self.createTrainSample(bg_path,fg_path)
             self.calcBg = False #传感器是否计算完背景温度
             frame_counter = 0 #帧数计数器
             seq_counter = 0 
             bg_frames = [] #保存用于计算背景温度的帧
-            frame_with_human = []
-            dir_counter = 1#目录计数器
             true_counter = 0#人出现的帧数
             all_frame=[]#所有帧数
             while True:
@@ -462,7 +511,6 @@ class CountPeople:
                     print("===average temp is ===")
                     print(self.average_temp)
                     continue
-
                 elif not self.calcBg: #是否计算完背景温度
                     bg_frames.append(currFrame)
                     frame_counter += 1#帧数计数器自增
@@ -482,6 +530,8 @@ class CountPeople:
                 diff_temp = self.calAverageAndCurrDiff(self.average_temp,currFrame)
                 ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
                 if not ret[0]:
+                    self.updateObjectTrackDictAgeAndInterval()
+                    self.countPeopleNum()
                     if self.getExistPeople():
                         '''
                         print("============restart calculate the bgtemp======")
@@ -490,7 +540,6 @@ class CountPeople:
                         self.frame_counter =0 #重置背景帧数计数器
                         '''
                         self.setExistPeople(False)
-                        self.__updatePeopleCount()
                     if ret[1]:
                         '''
                         bg_frames.append(currFrame)
@@ -502,10 +551,14 @@ class CountPeople:
                 self.setExistPeople(True)
                 (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
                 if cnt_count ==0:
+                    self.updateObjectTrackDictAgeAndInterval()
+                    self.countPeopleNum()
                     continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
                 self.trackPeople(diff_temp,loc)
+                self.updateObjectTrackDictAge()
+                self.countPeopleNum()
                 self.showPeopleNum() 
                 #sleep(0.5)
 
@@ -1213,13 +1266,31 @@ class CountPeople:
                     v.showContent()
                     self.__objectTrackDict[obj]= v
         if len(final_obj_rest) > 0 :#证明有些人已经通过监控区域
+            otd = self.__objectTrackDict
+            for k in final_obj_rest:
+                otd[k].incrementInterval()
             self.updateSpecifiedTarget(final_obj_rest)
     def nearlyCloseToEdge(self,point):#近似作为边界
         if point[1]+5 >= self.row-1 or point[1]-5 <= 0:
             return True
         return False
+    def updateObjectTrackDictAgeAndInterval(self):
+        otd = self.__objectTrackDict
+        for k,v in otd.items():
+            v.incrementAge()
+            v.incrementInterval()
+    def updateObjectTrackDictAge(self):
+        for k,v in self.__objectTrackDict.items():
+            v.incrementAge()
+    def updateObjectTrackDictInterval(self):
+        for k,v in self.__objectTrackDict.items():
+            v.incrementInterval()
+    def countPeopleNum(self):
+        otd = self.__objectTrackDict
+        self.updateSpecifiedTarget(otd.keys())
 
     def updateSpecifiedTarget(self,key):#某个目标突然消失，表示通过监控区域
+        removed_set =[]
         for k in key:
             track = self.__objectTrackDict[k]
             if track.hasPassDoor(self.col):
@@ -1230,8 +1301,10 @@ class CountPeople:
                 del self.__objectTrackDict[k]
             else:
                 print("no pass door")
-                del self.__objectTrackDict[k]
-
+                if track.isAgeOverflow() or track.isIntervalOverflow():
+                    removed_set.append(k)
+        for k in removed_set:
+            del self.__objectTrackDict[k]
     def belongToEdge(self,point):
         if point[1] == 0 or point[1] == self.col-1:
             return True
@@ -1259,24 +1332,6 @@ class CountPeople:
         '''
         更新运动帧，更新目标的位置
         '''
-    def updatePeopleCount(self):
-        self.__updatePeopleCount()
-    def __updatePeopleCount(self):
-        '''
-        更新检测的人数
-        '''
-        karr = []
-        for k,v in self.__objectTrackDict.items():
-            if v.hasPassDoor():
-                if v.getDirection() > 0:
-                    self.__peoplenum+=1
-                else:
-                    self.__peoplenum-=1
-                karr.append(k)
-        for k in karr:
-            del self.__objectTrackDict[k]
-            #del self.__objectImgDict[k]
-            #del self.__neiborhoodTemperature[k]
     def trackPeople(self,img , loc):
         '''
         loc:对象当前位置数组

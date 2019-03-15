@@ -58,3 +58,4 @@ if __name__ == "__main__":
     np.save(path+"/human_data.npy",np.array(overThresh))#保存超过阈值的帧序号
     for item in overThresh:
         print(item,end=" ")
+    print()

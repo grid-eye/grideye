@@ -68,8 +68,9 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         print("=============analyse this frame contain human's time is====================")
         print(interval)
         if not ret[0]:
+            cp.updateObjectTrackDictAgeAndInterval()
+            cp.countPeopleNum()
             if cp.getExistPeople():
-                cp.updatePeopleCount()
                 cp.setExistPeople(False)
             else:
                 print("===no people===")
@@ -126,7 +127,10 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
             interval = end_time - start_time
             print("===============analyse track people's time==================")
             print(interval)
-    cp.updatePeopleCount()
+            cp.updateObjectTrackDictAge()
+        else:
+            cp.updateObjectTrackDictAgeAndInterval()
+    cp.countPeopleNum()
     result = cp.getPeopleNum()
     print("there are %d people in the room"%(result))
     mask_arr = np.array(mask_arr)

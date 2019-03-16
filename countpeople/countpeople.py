@@ -25,7 +25,7 @@ class ObjectTrack:
         self.__size = 0
         self.__direction = 1#进入
         self.__compensation =2# 补偿值
-        self.__max_age = 24
+        self.__max_age = 100
         self.__max_interval = 3
         self.__age_counter = 0
         self.__interval_counter = 0
@@ -66,7 +66,10 @@ class ObjectTrack:
     def getDirection(self):
         return self.__direction
     def showContent(self):
-        print(self.__loc_list)
+        print(self.__loc_list,end=",interval is ")
+        print(self.__interval_counter,end=",age is")
+        print(self.__age_counter,end="")
+
 class Target:
     '''
     运动目标
@@ -91,7 +94,7 @@ class CountPeople:
         self.bgframe_cnt = 0
         self.all_bgframes = []  # save all frames which sensor read
         self.pre_read_count = pre_read_count
-        self.th_bgframes = 3#th_bgframes
+        self.th_bgframes = th_bgframes
         self.row = row  # image's row
         self.col = col  # image's col
         self.image_size = row * col
@@ -106,6 +109,7 @@ class CountPeople:
         #i discard the first and the second frame
         self.__diff_individual_tempera= 0.3 #单人进出时的中心温度阈值
         self.__peoplenum = 0  # 统计的人的数量
+        self.__entrance_exit_events = 0
         self.__diffThresh = 2.5 #温度差阈值
         self.__otsuThresh = 3.0 # otsu 阈值
         self.__averageDiffThresh = 0.4 # 平均温度查阈值
@@ -114,6 +118,7 @@ class CountPeople:
         self.__neiborhoodTemperature = {}#m目标图片邻域均值
         self.__neibor_diff_thresh = 1
         self.__isExist = False #前一帧是否存在人，人员通过感应区域后的执行统计人数步骤的开关
+        self.__entry_exit_events=0
         self.__image_area = (self.row-1)*(self.col-1)
         self.__hist_x_thresh = 2.0
         self.__hist_amp_thresh = 2
@@ -147,6 +152,8 @@ class CountPeople:
         return griddata(points, pixels, (grid_x, grid_y), method=inter_type)
     def getPeopleNum(self):
         return self.__peoplenum
+    def getEntranceExitEvents(self):
+        return self.__entrance_exit_events
     def displayImage_bg_curr(self, average_temperature, currFrameIntepol):
         '''
         '''
@@ -473,9 +480,7 @@ class CountPeople:
             time.sleep(2)
             self.preReadPixels()
             print("read sample data ")
-            bg_path = "test/2019-3-12-second-1"
-            fg_path = "test/2019-3-12-second-4"
-            self.createTrainSample(bg_path,fg_path)
+            self.createTrainSample(self.bg_path,self.fg_path)
             self.calcBg = False #传感器是否计算完背景温度
             frame_counter = 0 #帧数计数器
             seq_counter = 0 
@@ -532,6 +537,7 @@ class CountPeople:
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
+                    self.showPeopleNum()
                     if self.getExistPeople():
                         '''
                         print("============restart calculate the bgtemp======")
@@ -540,7 +546,7 @@ class CountPeople:
                         self.frame_counter =0 #重置背景帧数计数器
                         '''
                         self.setExistPeople(False)
-                    if ret[1]:
+                    if ret[1]:#加入背景帧的标志
                         '''
                         bg_frames.append(currFrame)
                         frame_counter += 1
@@ -553,11 +559,12 @@ class CountPeople:
                 if cnt_count ==0:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
+                    self.showPeopleNum()
                     continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
-                self.trackPeople(diff_temp,loc)
-                self.updateObjectTrackDictAge()
+                self.trackPeople(diff_temp,loc)#检测人体运动轨迹
+                self.updateObjectTrackDictAge()#增加目标年龄
                 self.countPeopleNum()
                 self.showPeopleNum() 
                 #sleep(0.5)
@@ -1265,13 +1272,15 @@ class CountPeople:
                     print("new one entering the visual field")
                     v.showContent()
                     self.__objectTrackDict[obj]= v
-        if len(final_obj_rest) > 0 :#证明有些人已经通过监控区域
+                else:
+                    print("discard the point (%d,%d)"%(point[0],point[1]))
+        if len(final_obj_rest) > 0 :#证明有些人可能已经通过监控区域，或者由于误差没在这个帧出现
             otd = self.__objectTrackDict
             for k in final_obj_rest:
                 otd[k].incrementInterval()
             self.updateSpecifiedTarget(final_obj_rest)
     def nearlyCloseToEdge(self,point):#近似作为边界
-        if point[1]+5 >= self.row-1 or point[1]-5 <= 0:
+        if point[1]+2 >= self.row-1 or point[1]-2<= 0:
             return True
         return False
     def updateObjectTrackDictAgeAndInterval(self):
@@ -1294,11 +1303,12 @@ class CountPeople:
         for k in key:
             track = self.__objectTrackDict[k]
             if track.hasPassDoor(self.col):
+                self.__entrance_exit_events += 1
                 if track.getDirection() == 1:
                     self.__peoplenum += 1
                 else:
                     self.__peoplenum -= 1
-                del self.__objectTrackDict[k]
+                removed_set.append(k)
             else:
                 print("no pass door")
                 if track.isAgeOverflow() or track.isIntervalOverflow():
@@ -1323,11 +1333,11 @@ class CountPeople:
 
     def showTargetFeature(self):
         print("====show target feature===")
-        num = len(self.__objectTrackDict)
 
         for k,v in self.__objectTrackDict.items():
             print(k,end=",")
             v.showContent()
+        print("")
     def __updateTrackStack(self,corr,classId):
         '''
         更新运动帧，更新目标的位置
@@ -1338,7 +1348,6 @@ class CountPeople:
         img:图片
         '''
         self.__classifyObject(img,loc)
-        #print("=========================people num is %d ==================="%(self.__peoplenum))
 if __name__ == "__main__":
     if len(sys.argv) > 1 :
         if sys.argv[1] == "start":

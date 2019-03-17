@@ -12,77 +12,8 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 from otsuBinarize import otsuThreshold
 from knn import createSampleSet,knnClassify
-
-
-class ObjectTrack:
-    '''
-    目标轨迹类,保存每个目标的在每一帧的位置
-    '''
-    def __init__(self):
-        self.__loc_list = [] #运动轨迹队列
-        self.__img_list = [] #运动所在的帧的数据，和上面的轨迹一一对应
-        self.__pos = -1
-        self.__size = 0
-        self.__direction = 1#进入
-        self.__compensation =2# 补偿值
-        self.__max_age = 100
-        self.__max_interval = 3
-        self.__age_counter = 0
-        self.__interval_counter = 0
-    def put(self,point,img):
-        self.__loc_list.append(point)
-        self.__img_list.append(img)
-        self.__size += 1
-    def get(self):
-        loc = self.__loc_list[self.__size -1]
-        img = self.__img_list[self.__size-1]
-        return loc,img
-    def getAge(self):
-        return self.__age_counter
-    def getInterval(self):
-        return self.__interval_counter
-    def isEmpty(self):
-        return self.__size == 0 
-    def isAgeOverflow(self):
-        return self.__age_counter >= self.__max_age
-    def isIntervalOverflow(self):
-        return self.__interval_counter >= self.__max_interval
-    def incrementAge(self):#年龄自增
-        self.__age_counter += 1
-    def incrementInterval(self):
-        self.__interval_counter += 1
-
-    def hasPassDoor(self,frame_width = 8):
-        '''
-            是否已经通过
-
-        '''
-        xs,xend = self.__loc_list[0] ,self.__loc_list[self.__size-1]
-        if xend[1] < xs[1] :
-            self.__direction = 0 
-        s =frame_width -1 
-        dis =abs( xend[1] - xs[1])+self.__compensation
-        return dis >= s
-    def getDirection(self):
-        return self.__direction
-    def showContent(self):
-        print(self.__loc_list,end=",interval is ")
-        print(self.__interval_counter,end=",age is")
-        print(self.__age_counter,end="")
-
-class Target:
-    '''
-    运动目标
-    '''
-    __center_temperature = 0 #邻域平均温度
-    def __init__(self ,center_temperature= 0 ):
-        self.__center_temperature = center_temperature
-    def getNeiborhoddTemp(self):
-        return self.__center_temperature
-    def setNeiborhoodTemp(self , neiborhood):
-        self.__center_temperature = neiborhood
-    def showContent(self):
-        print(self.__center_temperature)
+from objecttrack import ObjectTrack
+from target import Target
 class CountPeople:
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
@@ -603,6 +534,8 @@ class CountPeople:
     def getExistPeople(self):
         return self.__isExist
     def removeNoisePoint(self,curr_temp,corr):
+        if len(corr)==1:
+            return corr
         max_temperature_thresh=2
         horizontal_thresh = 2
         vertical_thresh = 2
@@ -1192,7 +1125,6 @@ class CountPeople:
         #空间距离
         print("=====all corr is=====")
         print(corr)
-        self.showTargetFeature()
         obj_num = len(self.__objectTrackDict)#原来的目标数目
         updated_obj_set = set()#已经更新轨迹的目标集合 
         removed_point_set = set()#已经确认隶属的点的集合

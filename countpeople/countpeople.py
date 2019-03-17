@@ -1192,6 +1192,7 @@ class CountPeople:
         #空间距离
         print("=====all corr is=====")
         print(corr)
+        self.showTargetFeature()
         obj_num = len(self.__objectTrackDict)#原来的目标数目
         updated_obj_set = set()#已经更新轨迹的目标集合 
         removed_point_set = set()#已经确认隶属的点的集合
@@ -1205,8 +1206,10 @@ class CountPeople:
                    if diff <=self.__diff_individual_tempera:
                        v.put(corr[0],img)
                        return 
+        obj_set =set()
         for cp in corr:
             for k,v in self.__objectTrackDict.items():
+                obj_set.add(k)
                 last_place ,last_frame = v.get()
                 #euclidean_distance = math.sqrt(math.pow((cp[0] - last_place[0]),2)+math.pow((cp[1] - last_place[1]),2))
                 #print("euclidean distance is %.2f"%(euclidean_distance))
@@ -1218,19 +1221,27 @@ class CountPeople:
                 #ave = self.__neiborhoodTemp(img , cp)
                 #heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[1] - last_place[1])
-                vertical_dis = abs(cp[1] - last_place[1])
+                vertical_dis = abs(cp[0] - last_place[0])
                 if vertical_dis < self.row * 5/ 12  and horizontal_dis < self.col/3 :
-                    if  k not in updated_obj_set and cp not in removed_point_set:#防止重复更新某些目标的点
+                    if  k not in updated_obj_set and cp not in removed_point_set:#防止重复更新某些目标的点a
+                        '''
                         if not self.belongToEdge(cp) and not self.belongToEdge(last_place):
+
                             if diff_temp > 1.2 and not self.isSinglePeople:
                                 continue#非边缘目标的中心的点温度之间的差距不能大于1.2
+                        '''
                         self.__objectTrackDict[k].put(cp,img)
                         #self.__neiborhoodTemperature[k] = (ave+self.__neiborhoodTemperature[k])/2
                         updated_obj_set.add(k)
                         removed_point_set.add(cp)
         obj_length = len(updated_obj_set)
-        obj_set = set(self.__objectTrackDict.keys())
         obj_rest = obj_set - updated_obj_set#剩余的未被更新轨迹的对象
+        print("obj set is")
+        print(obj_set)
+        print("updated obj set is")
+        print(updated_obj_set)
+        print("obj rest is")
+        print(obj_rest)
         point_rest = set(corr)-removed_point_set#剩余的点
         print("====obj rest is ====")
         print(obj_rest)
@@ -1302,16 +1313,13 @@ class CountPeople:
         removed_set =[]
         for k in key:
             track = self.__objectTrackDict[k]
-            if track.hasPassDoor(self.col):
-                self.__entrance_exit_events += 1
-                if track.getDirection() == 1:
-                    self.__peoplenum += 1
-                else:
-                    self.__peoplenum -= 1
-                removed_set.append(k)
-            else:
-                print("no pass door")
-                if track.isAgeOverflow() or track.isIntervalOverflow():
+            if track.isIntervalOverflow() or track.isAgeOverflow():
+                if track.hasPassDoor(self.col):
+                    self.__entrance_exit_events += 1
+                    if track.getDirection() == 1:
+                        self.__peoplenum += 1
+                    else:
+                        self.__peoplenum -= 1
                     removed_set.append(k)
         for k in removed_set:
             del self.__objectTrackDict[k]
@@ -1319,8 +1327,6 @@ class CountPeople:
         if point[1] == 0 or point[1] == self.col-1:
             return True
         return False
-    def showFeature(self):
-        pass
     def __classifyObject(self,img, corr):
 
         '''

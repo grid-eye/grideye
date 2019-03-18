@@ -17,7 +17,7 @@ from target import Target
 class CountPeople:
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
-    def __init__(self, pre_read_count=30, th_bgframes=100, row=8, col=8):
+    def __init__(self, pre_read_count=30, th_bgframes=128, row=8, col=8):
         # the counter of the bgframes
         self.i2c = busio.I2C(board.SCL, board.SDA)
         self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
@@ -55,6 +55,7 @@ class CountPeople:
         self.__hist_amp_thresh = 2
         self.__isSingle = False
         self.__var_thresh=0.125
+        self.__max_bg_counter = 4096#计算背景所用的最大帧数
         self.__k = 7
         self.otsu_threshold =0
         self.interpolate_method='cubic'
@@ -393,8 +394,114 @@ class CountPeople:
             # save all images
             self.saveImageData(all_frames, customDir)
             print("save all frames")
+    def start(self,testSubDir=None):
+        '''
+            main functiona
+            和process方法不同的是此方法有自动更新背景温度的功能
 
-    def process(self,  frame_interval=400,testSubDir=None):
+            循环读取传感器数据，计算出背景温度后，读取的下一帧时，对帧进行插值处理，并进行相应的滤波处理（为了降噪），然后进一步
+            噪声检测，通过计算图像直方图分布，计算背景温度差值并用大津二值法对差值图像进行二值化，下一步是计算帧的平均温度和背景温度的
+            平均温度的差值，通过三者结合可以得出当前帧是否含有人类，如果存在人类那么可以进行下一步提取目标，找到目标位置，跟踪目标
+            ，如果不存在就可以认为这个帧是背景温度，也可以丢弃这个帧(如果这个帧噪声很多，可能是其他人员路过监控区域边缘被检测到），
+            这是为了减少噪声的影响，
+            参数：frame_interval
+            表示开始读取的数据帧数作为计算背景温度的数据，无人经过一段时间(1000帧之后)需要重新计算背景温度帧
+        '''
+        try:
+            print("start running the application")
+            time.sleep(2)
+            self.preReadPixels()
+            print("read sample data ")
+            self.createTrainSample(self.bg_path,self.fg_path)
+            self.calcBg = False #传感器是否计算完背景温度
+            frame_counter = 0 #背景帧数计数器
+            seq_counter = 0 
+            bg_frames = [] #保存用于计算背景温度的帧
+            all_frame=[]#所有帧数
+            while True:
+                currFrame = []
+                for row in self.amg.pixels:
+                    # Pad to 1 decimal place
+                    currFrame.append(row)
+                currFrame = np.array(currFrame)
+                seq_counter += 1
+                print("the %dth frame of the bgtemperature "%(seq_counter))
+                print("current temperature is ")
+                print(currFrame)
+                if frame_counter  ==  self.th_bgframes :#是否测完平均温度
+                    #更新计算背景的阈值
+                    frame_counter=0
+                    if self.th_bgframes <= self.__max_bg_counter:
+                        self.th_bgframes = self.th_bgframes * 2
+                    num = len(bg_frames)
+                    print("====num is %d==="%(num))
+                    self.average_temp = self.calAverageTemp(bg_frames)
+                    bg_frames = [] #清空保存的图片以节省内存
+                    self.calcBg = True # has calculated the bg temperature
+                    print("===finish testing bg temperature===")
+                    print("===average temp is ===")
+                    print(self.average_temp)
+                    continue
+                elif not self.calcBg: #是否计算完背景温度
+                    bg_frames.append(currFrame)
+                    frame_counter += 1#帧数计数器自增
+                    continue
+                all_frame.append(currFrame)
+                #计算完背景温度的步骤
+                print("========================================================process============================================================")
+                diff_temp = self.calAverageAndCurrDiff(self.average_temp,currFrame)
+                ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
+                if not ret[0]:
+                    self.updateObjectTrackDictAgeAndInterval()
+                    self.countPeopleNum()
+                    self.showPeopleNum()
+                    if self.getExistPeople():
+                        self.setExistPeople(False)
+                    if ret[1]:#加入背景帧的标志
+                        bg_frames.append(currFrame)
+                        frame_counter += 1
+                    continue
+                self.setExistPeople(True)
+                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
+                if cnt_count ==0:
+                    self.updateObjectTrackDictAgeAndInterval()
+                    self.countPeopleNum()
+                    self.showPeopleNum()
+                    continue
+                #下一步是计算轮当前帧的中心位置
+                loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
+                self.trackPeople(diff_temp,loc)#检测人体运动轨迹
+                self.updateObjectTrackDictAge()#增加目标年龄
+                self.countPeopleNum()
+                self.showPeopleNum() 
+        except KeyboardInterrupt:
+            print("catch keyboard interrupt")
+            output_path = ""
+            default_path = "test"
+            if testSubDir:
+                output_path += testSubDir
+            else:
+                output_path = default_path
+            output_path +="/"
+            if not  os.path.exists(output_path):
+                os.mkdir(output_path)
+            frame_output_path =output_path+ "imagedata.npy"
+            avg_output_path = output_path +"avgtemp.npy"
+            np.save(frame_output_path,np.array(all_frame))
+            np.save(avg_output_path,self.average_temp)
+            print("sucessfully save the image data")
+            print("path is in "+output_path)
+            # all_frames=[]
+            # save all images
+            #self.saveImageData(all_frames, customDir)
+            # for i in range(len(all_frames)):
+            #print("shape is "+str(diff_queues[i].shape))
+            #    self.saveDiffHist(diff_queues[i])
+            #   self.saveImage(average_temperature ,all_frames[i],True)
+            #print("save all frames")
+            print("exit")
+            raise KeyboardInterrupt("catch keyboard interrupt")
+    def process(self,testSubDir=None):
         '''
             main function
 
@@ -416,7 +523,6 @@ class CountPeople:
             frame_counter = 0 #帧数计数器
             seq_counter = 0 
             bg_frames = [] #保存用于计算背景温度的帧
-            true_counter = 0#人出现的帧数
             all_frame=[]#所有帧数
             while True:
                 currFrame = []
@@ -482,8 +588,6 @@ class CountPeople:
                         bg_frames.append(currFrame)
                         frame_counter += 1
                         '''
-                    else:#(False,False)
-                        true_counter += 1
                     continue
                 self.setExistPeople(True)
                 (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
@@ -502,7 +606,6 @@ class CountPeople:
 
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
-            print("true_counter =%d"%(true_counter))
             output_path = ""
             default_path = "test"
             if testSubDir:
@@ -530,12 +633,12 @@ class CountPeople:
             raise KeyboardInterrupt("catch keyboard interrupt")
     def showPeopleNum(self):
         print("=================current people num is %d ==============="%(self.__peoplenum))
+    def showEntranceExitNum(self):
+        print("=================current entrance num is %d =================="%(self.__entrance_exit_events))
 
     def getExistPeople(self):
         return self.__isExist
     def removeNoisePoint(self,curr_temp,corr):
-        if len(corr)==1:
-            return corr
         max_temperature_thresh=2
         horizontal_thresh = 2
         vertical_thresh = 2
@@ -578,7 +681,7 @@ class CountPeople:
         return final_corr
         #for item in corr:
 
-
+    
     def extractBody(self , average_temp,curr_temp,show_frame=False,seq=None):
         thre_temp =average_temp.copy()+0.25
         ones = np.ones(average_temp.shape,np.float32)
@@ -932,46 +1035,7 @@ class CountPeople:
             #cy = int(moment['m01']/moment['m00'])
             #ret.append((cx,cy))
                 #break
-        '''
-        imgs = img.copy()
-        for i in range(pcount):
-            res = self.findMaxLocation(imgs)
-            imgs[res[0],res[1]] = 0
-            ret.append(res)
-        print("==================found the place of the center of temperature=================")
-        print(ret)
-        return ret
-        img_after_otsu = img*self.otsu_th_mask
-        print("otsu ")
-        print(self.otsu_th_mask)
-        print(img_after_otsu)
-        for row in img_after_otsu:
-            row_max.append(row.sum())
-        #row_max_copy = row_max.copy()
-        print(np.round(row_max,2))
-        #找到最行的索引
-        max_row_index =row_max.index(max(row_max))
-        rowlist = img[max_row_index].tolist()
-        max_col_index =rowlist.index(max(rowlist))
-        print(max_col_index)
-        #time.sleep(0.5)
-        print("max_col_index's list is ")
-        ret = [(max_row_index,max_col_index)]
-        print("ret")
-        print(ret)
-        #time.sleep(2)
-        #max_row 是最大值的下标
-        if pcount > 1:
-            row_max[max_row_index]= 0 
-            max_row_index =[ row_max.index(max(row_max))]
-            rowlist = img[max_row_index].tolist()
-            max_col_index =rowlist.index(max(rowlist))
-            ret.append((max_row_index,max_col_index))
-        #self.paintHist(xcorr , row_max_copy, titles="row max hist",x_label = "row",y_label="row sum(。C)")
-        return ret
-        pass
 
-        '''
     def showContours(self,img,contours):
         print("====================now paint the contours of the image========")
         img2 = np.array(img.copy(),np.uint8)
@@ -1290,11 +1354,10 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 :
         if sys.argv[1] == "start":
             cp = CountPeople()
-            interval = 400
             outputSubDir=None
             if len(sys.argv) > 2:
                 outputSubDir =  sys.argv[2]
-            cp.process(interval , outputSubDir)
+            cp.start( outputSubDir)
         elif sys.argc[1] == "collect":
             if len(sys.argv)>2:
                 subdir =""

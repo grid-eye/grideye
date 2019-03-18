@@ -394,7 +394,7 @@ class CountPeople:
             # save all images
             self.saveImageData(all_frames, customDir)
             print("save all frames")
-    def start(self,testSubDir=None):
+    def start(self,testSubDir=None,show_frame=False):
         '''
             main functiona
             和process方法不同的是此方法有自动更新背景温度的功能
@@ -410,6 +410,8 @@ class CountPeople:
         try:
             print("start running the application")
             time.sleep(2)
+            if show_frame:
+                cv.namedWindow("image",cv.WINDOW_NORMAL)
             self.preReadPixels()
             print("read sample data ")
             self.createTrainSample(self.bg_path,self.fg_path)
@@ -437,11 +439,12 @@ class CountPeople:
                     print("====num is %d==="%(num))
                     self.average_temp = self.calAverageTemp(bg_frames)
                     bg_frames = [] #清空保存的图片以节省内存
-                    self.calcBg = True # has calculated the bg temperature
                     print("===finish testing bg temperature===")
                     print("===average temp is ===")
                     print(self.average_temp)
-                    continue
+                    if not self.calcBg: 
+                        self.calcBg = True # has calculated the bg temperature
+                        continue
                 elif not self.calcBg: #是否计算完背景温度
                     bg_frames.append(currFrame)
                     frame_counter += 1#帧数计数器自增
@@ -450,11 +453,19 @@ class CountPeople:
                 #计算完背景温度的步骤
                 print("========================================================process============================================================")
                 diff_temp = self.calAverageAndCurrDiff(self.average_temp,currFrame)
+                if show_frame:
+                    plot_img = np.round(diff_temp)
+                    plot_img = plot_img.astype(np.uint8)
+                    plot_img[np.where(plot_img > 1.5)] = 255
+                    plot_img[np.where(plot_img <= 1.5)] = 0
+                    img_resize = cv.resize(plot_img,(32,32),interpolation=cv.INTER_CUBIC)
+                    cv.imshow("image",img_resize)
+                    cv.waitKey(5)
                 ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
-                    self.showCurrentState
+                    self.showCurrentState()
                     if self.getExistPeople():
                         self.setExistPeople(False)
                     if ret[1]:#加入背景帧的标志
@@ -466,14 +477,14 @@ class CountPeople:
                 if cnt_count ==0:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
-                    self.showCurrentState
+                    self.showCurrentState()
                     continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
                 self.trackPeople(diff_temp,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄
                 self.countPeopleNum()
-                self.showCurrentState
+                self.showCurrentState()
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
             output_path = ""
@@ -548,11 +559,12 @@ class CountPeople:
                     self.average_temp_gaussian =self.gaussianFilter(self.average_temp_intepol)
                     '''
                     bg_frames = [] #清空保存的图片以节省内存
-                    self.calcBg = True # has calculated the bg temperature
                     print("===finish testing bg temperature===")
                     print("===average temp is ===")
                     print(self.average_temp)
-                    continue
+                    if not  self.calcBg:
+                        self.calcBg = True # has calculated the bg temperature
+                        continue
                 elif not self.calcBg: #是否计算完背景温度
                     bg_frames.append(currFrame)
                     frame_counter += 1#帧数计数器自增
@@ -1343,10 +1355,6 @@ class CountPeople:
             print(k,end=",")
             v.showContent()
         print("")
-    def __updateTrackStack(self,corr,classId):
-        '''
-        更新运动帧，更新目标的位置
-        '''
     def trackPeople(self,img , loc):
         '''
         loc:对象当前位置数组
@@ -1360,7 +1368,11 @@ if __name__ == "__main__":
             outputSubDir=None
             if len(sys.argv) > 2:
                 outputSubDir =  sys.argv[2]
-            cp.start( outputSubDir)
+            show_frame= False
+            if len(sys.argv) > 3:
+                if sys.argv[3] == "show":
+                    show_frame=True
+            cp.start( outputSubDir,show_frame=True)
         elif sys.argc[1] == "collect":
             if len(sys.argv)>2:
                 subdir =""

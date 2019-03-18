@@ -454,7 +454,7 @@ class CountPeople:
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
-                    self.showPeopleNum()
+                    self.showCurrentState
                     if self.getExistPeople():
                         self.setExistPeople(False)
                     if ret[1]:#加入背景帧的标志
@@ -466,14 +466,14 @@ class CountPeople:
                 if cnt_count ==0:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
-                    self.showPeopleNum()
+                    self.showCurrentState
                     continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
                 self.trackPeople(diff_temp,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄
                 self.countPeopleNum()
-                self.showPeopleNum() 
+                self.showCurrentState
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
             output_path = ""
@@ -574,7 +574,7 @@ class CountPeople:
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
-                    self.showPeopleNum()
+                    self.showCurrentState()
                     if self.getExistPeople():
                         '''
                         print("============restart calculate the bgtemp======")
@@ -594,14 +594,14 @@ class CountPeople:
                 if cnt_count ==0:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
-                    self.showPeopleNum()
+                    self.showCurrentState()
                     continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
                 self.trackPeople(diff_temp,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄
                 self.countPeopleNum()
-                self.showPeopleNum() 
+                self.showCurrentState()
                 #sleep(0.5)
 
         except KeyboardInterrupt:
@@ -631,9 +631,12 @@ class CountPeople:
             #print("save all frames")
             print("exit")
             raise KeyboardInterrupt("catch keyboard interrupt")
+    def showCurrentState(self):
+        self.showPeopleNum()
+        self.showEntranceExitEvents()
     def showPeopleNum(self):
         print("=================current people num is %d ==============="%(self.__peoplenum))
-    def showEntranceExitNum(self):
+    def showEntranceExitEvents(self):
         print("=================current entrance num is %d =================="%(self.__entrance_exit_events))
 
     def getExistPeople(self):

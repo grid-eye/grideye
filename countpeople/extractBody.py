@@ -63,11 +63,9 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         if not ret[0]:
             cp.updateObjectTrackDictAgeAndInterval()
             cp.countPeopleNum()
-            cp.showPeopleNum()
+            cp.showCurrentState()
             if cp.getExistPeople():
                 cp.setExistPeople(False)
-            else:
-                print("===no people===")
             continue
         cp.setExistPeople(True)
         print("capture the body contours")
@@ -80,10 +78,9 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         area_ret.append(area)
         if cnt_count == 0:
             print("current frame has no people")
-            #print(len(contours))
-            #raise ValueError("no people")
             cp.updateObjectTrackDictAgeAndInterval()
             cp.countPeopleNum()
+            cp.showCurrentState()
             continue
         plt_frames.append(seq)
         rect_arr = []
@@ -91,53 +88,42 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
             x,y,w,d = cv.boundingRect(cont)
             rect_arr.append((x,y,w,d))
         all_result.append(cnt_count)
-        #print("==============================has %d people in this frame======================= "%(cnt_count))
-        if cnt_count > 0:
-            contours_rect.append(rect_arr)
-            curr_arr.append(curr_diff)
-            diff_ave_curr =  curr_diff
-            start_time = time.perf_counter()
-            #print("=======max temperature of this frame is ==============")
-            #print(np.max(diff_ave_curr))
-            pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
-            end_time = time.perf_counter()
-            interval = end_time -start_time
-            #print("===============analyse findBodyLocation's tiem ================")
-            #print(interval)
-            mask = np.zeros((cp.row,cp.col),np.uint8)
-            for item in pos:
-                mask[item[0],item[1]] = 1
-           # cp.trackPeople(img2,pos)
-            mask_arr.append(mask)
-            respect_img.append(blur)
-            center_temp_arr.append(pos)
-            start_time = time.perf_counter()
-            cp.trackPeople(blur,pos)
-            end_time = time.perf_counter()
-            interval = end_time - start_time
-            #print("===============analyse track people's time==================")
-            #print(interval)
-            cp.updateObjectTrackDictAge()
-        else:
-            cp.updateObjectTrackDictAgeAndInterval()
+        contours_rect.append(rect_arr)
+        curr_arr.append(curr_diff)
+        diff_ave_curr =  curr_diff
+        start_time = time.perf_counter()
+        pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
+        end_time = time.perf_counter()
+        interval = end_time -start_time
+        mask = np.zeros((cp.row,cp.col),np.uint8)
+        for item in pos:
+            mask[item[0],item[1]] = 1
+        mask_arr.append(mask)
+        respect_img.append(blur)
+        center_temp_arr.append(pos)
+        start_time = time.perf_counter()
+        cp.trackPeople(blur,pos)
+        end_time = time.perf_counter()
+        interval = end_time - start_time
+        cp.updateObjectTrackDictAge()
         cp.countPeopleNum()
+        cp.showCurrentState()
     result = cp.getPeopleNum()
     print("there are %d people in the room"%(result))
     mask_arr = np.array(mask_arr)
     respect_img =np.array(respect_img)
     print("====print the loc of all center points===")
+    last_seq = 0
+    interval = 40
     artificial_count = 0
-    continous = 0
     for i in  range(len(center_temp_arr)):
         img = curr_arr[i]
         seq = plt_frames[i]
         print(seq,end=",")
         if center_temp_arr[i]:
-            continous += 1
-        else:
-            if continous > 5:
+            if seq > last_seq +interval:
+                last_seq = seq
                 artificial_count += 1
-            continous = 0
         for pos in center_temp_arr[i]:
             print(pos,end="===>")
             print(round(img[pos[0],pos[1]],2) ,end=",")
@@ -148,7 +134,6 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
     for i in center_temp_arr:
         for pos in i:
             pos_arr.append(pos)
-    print(pos_arr)
     print("=================entrance exit event is================")
     print(cp.getEntranceExitEvents())
     print("=================artificial count is ===================")

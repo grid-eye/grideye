@@ -10,7 +10,7 @@ class ObjectTrack:
         self.__direction = 1#进入
         self.__compensation =2# 补偿值
         self.__max_age = 100
-        self.__max_interval = 3
+        self.__max_interval = 2
         self.__age_counter = 0
         self.__interval_counter = 0
     def put(self,point,img):

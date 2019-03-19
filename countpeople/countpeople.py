@@ -38,7 +38,7 @@ class CountPeople:
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
-        self.__diff_individual_tempera= 0.3 #单人进出时的中心温度阈值
+        self.__diff_individual_tempera= 0.5 #单人进出时的中心温度阈值
         self.__peoplenum = 0  # 统计的人的数量
         self.__entrance_exit_events = 0
         self.__diffThresh = 2.5 #温度差阈值
@@ -459,7 +459,7 @@ class CountPeople:
                     plot_img[np.where(plot_img <= 1.5)] = 0
                     img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
                     cv.imshow("image",img_resize)
-                    cv.waitKey(5)
+                    cv.waitKey(1)
                 ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
@@ -513,7 +513,7 @@ class CountPeople:
             #print("save all frames")
             print("exit")
             raise KeyboardInterrupt("catch keyboard interrupt")
-    def process(self,testSubDir=None):
+    def process(self,testSubDir=None,show_frame=False):
         '''
             main function
 
@@ -552,18 +552,13 @@ class CountPeople:
                     num = len(bg_frames)
                     print("====num is %d==="%(num))
                     self.average_temp = self.calAverageTemp(bg_frames)
-
-                    ''' 
-                    #对平均温度进行插值
-                    self.average_temp_intepol =  self.interpolate(self.points,self.average_temp.flatten(),self.grid_x,self.grid_y,'cubic')
-                    self.average_temp_median =   self.medianFilter(self.average_temp_intepol)
-                    self.average_temp_gaussian =self.gaussianFilter(self.average_temp_intepol)
-                    '''
                     bg_frames = [] #清空保存的图片以节省内存
                     print("===finish testing bg temperature===")
                     print("===average temp is ===")
                     print(self.average_temp)
                     if not  self.calcBg:
+                        if show_frame:
+                            cv.namedWindow("image",cv.WINDOW_NORMAL)
                         self.calcBg = True # has calculated the bg temperature
                         continue
                 elif not self.calcBg: #是否计算完背景温度
@@ -571,18 +566,16 @@ class CountPeople:
                     frame_counter += 1#帧数计数器自增
                     continue
                 all_frame.append(currFrame)
-                #计算完背景温度的步骤
-                #对当前帧进行内插
                 print("========================================================process============================================================")
-                '''
-                currFrameIntepol = self.interpolate(
-                    self.points, currFrame.flatten(), self.grid_x, self.grid_y,'cubic')
-                #对当前帧进行中值滤波，也可以进行高斯滤波进行降噪，考虑到分辨率太低，二者效果区别不大
-                medianBlur = self.medianFilter(currFrameIntepol)
-                #对滤波后的当前温度和平均温度进行差值计算
-                temp_diff =self.calAverageAndCurrDiff(self.average_temp_median , medianBlur)
-                '''
                 diff_temp = self.calAverageAndCurrDiff(self.average_temp,currFrame)
+                if show_frame:
+                    plot_img = np.round(diff_temp)
+                    plot_img = plot_img.astype(np.uint8)
+                    plot_img[np.where(plot_img > 1.5)] = 255
+                    plot_img[np.where(plot_img <= 1.5)] = 0
+                    img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
+                    cv.imshow("image",img_resize)
+                    cv.waitKey(1)
                 ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
@@ -619,6 +612,8 @@ class CountPeople:
 
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
+            if show_frame:
+                cv.destroyAllWindows()
             output_path = ""
             default_path = "test"
             if testSubDir:
@@ -634,16 +629,6 @@ class CountPeople:
             np.save(avg_output_path,self.average_temp)
             print("sucessfully save the image data")
             print("path is in "+output_path)
-            # all_frames=[]
-            # save all images
-            #self.saveImageData(all_frames, customDir)
-            # for i in range(len(all_frames)):
-            #print("shape is "+str(diff_queues[i].shape))
-            #    self.saveDiffHist(diff_queues[i])
-            #   self.saveImage(average_temperature ,all_frames[i],True)
-            #print("save all frames")
-            print("exit")
-            raise KeyboardInterrupt("catch keyboard interrupt")
     def showCurrentState(self):
         self.showPeopleNum()
         self.showEntranceExitEvents()
@@ -1057,7 +1042,7 @@ class CountPeople:
         img2 = np.array(img.copy(),np.uint8)
         cv.drawContours(img2,contours ,-1 ,(0,255,0),1)
         cv.imshow("contours",img2)
-        cv.waitKey(0)
+        cv.waitKey(1)
         #time.sleep(10)
         cv.destroyAllWindows()
     def paintHist(self,xcorr,y,titles= "title",x_label="xlabel",y_label="ylabel",fig_nums = [100]):
@@ -1210,12 +1195,14 @@ class CountPeople:
         removed_point_set = set()#已经确认隶属的点的集合
         if len(self.__objectTrackDict) == 1:
            if len(corr) == 1:
+               max_dis = self.row 
                for k, v in self.__objectTrackDict.items():
                    last_place,last_frame = v.get()
                    last_tempera = last_frame[last_place[0],last_place[1]]
                    curr_tempera = img[corr[0][0],corr[0][1]]
                    diff = curr_tempera - last_tempera
-                   if diff <=self.__diff_individual_tempera:
+                   x_dis = abs(last_place[1] - corr[0][1])
+                   if diff <=self.__diff_individual_tempera  and x_dis < max_dis:
                        v.put(corr[0],img)
                        return 
         obj_set =set()
@@ -1246,28 +1233,15 @@ class CountPeople:
                         #self.__neiborhoodTemperature[k] = (ave+self.__neiborhoodTemperature[k])/2
                         updated_obj_set.add(k)
                         removed_point_set.add(cp)
+        point_rest = set(corr) - removed_point_set
         obj_length = len(updated_obj_set)
         obj_rest = obj_set - updated_obj_set#剩余的未被更新轨迹的对象
-        print("obj set is")
-        print(obj_set)
-        print("updated obj set is")
-        print(updated_obj_set)
-        print("obj rest is")
-        print(obj_rest)
-        point_rest = set(corr)-removed_point_set#剩余的点
-        print("====obj rest is ====")
-        print(obj_rest)
-        print("====point rest is ===")
-        print(point_rest)
         final_point_rest= point_rest.copy()#最终剩余的点，表示新进入的目标，位于视野边缘
         final_obj_rest = obj_rest.copy()#最终剩余的目标，表示该目标消失，通过了监控区域
-        print(obj_rest)
-        print(final_obj_rest)
         if obj_length < obj_num:#是否还有目标尚未匹配
             for point in point_rest :
                 for obj in obj_rest :
                     if obj not in final_obj_rest or point not in final_point_rest :#如果目标已经更新了轨迹
-                        print("==================not in final_obj_rest=================")
                         continue
                     v = self.__objectTrackDict[obj]
                     prev_point , prev_img = v.get()
@@ -1277,15 +1251,10 @@ class CountPeople:
                     if hozi_dis < (self.col *5/12) and verti_dis < self.row *5/12:
                         if not self.belongToEdge(prev_point) and not self.belongToEdge(point):#中心点不在边缘
                             if diff_temp > 1.6:
-                                print("===diff_temp > 1.5 ====",diff_temp)
                                 continue#放松限制条件（由于传感器误差和计算误差）
                         self.__objectTrackDict[obj].put(point,img)
                         final_point_rest.remove(point)
                         final_obj_rest.remove(obj)
-                    else:
-                        print("=============================second match fail==============================")
-        print("===final point_rest====")
-        print(final_point_rest)
         if len(final_point_rest)> 0:#是否有新的人进入监控视野
             for point in final_point_rest:
                 if self.nearlyCloseToEdge(point):
@@ -1318,8 +1287,8 @@ class CountPeople:
         for k,v in self.__objectTrackDict.items():
             v.incrementInterval()
     def countPeopleNum(self):
-        otd = self.__objectTrackDict
-        self.updateSpecifiedTarget(otd.keys())
+        keys  = self.__objectTrackDict.keys()
+        self.updateSpecifiedTarget(keys)
 
     def updateSpecifiedTarget(self,key):#某个目标突然消失，表示通过监控区域
         removed_set =[]
@@ -1364,7 +1333,7 @@ class CountPeople:
         self.__classifyObject(img,loc)
 if __name__ == "__main__":
     if len(sys.argv) > 1 :
-        if sys.argv[1] == "start":
+        if sys.argv[1] == "start" or sys.argv[1]=="process":
             cp = CountPeople()
             outputSubDir=None
             if len(sys.argv) > 2:
@@ -1373,7 +1342,10 @@ if __name__ == "__main__":
             if len(sys.argv) > 3:
                 if sys.argv[3] == "show":
                     show_frame=True
-            cp.start( outputSubDir,show_frame=True)
+            if sys.argv[1] == "start":
+                cp.start( outputSubDir,show_frame=show_frame)
+            else:
+                cp.process(outputSubDir,show_frame=show_frame)
         elif sys.argc[1] == "collect":
             if len(sys.argv)>2:
                 subdir =""

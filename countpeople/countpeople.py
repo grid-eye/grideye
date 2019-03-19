@@ -409,9 +409,6 @@ class CountPeople:
         '''
         try:
             print("start running the application")
-            time.sleep(2)
-            if show_frame:
-                cv.namedWindow("image",cv.WINDOW_NORMAL)
             self.preReadPixels()
             print("read sample data ")
             self.createTrainSample(self.bg_path,self.fg_path)
@@ -443,6 +440,8 @@ class CountPeople:
                     print("===average temp is ===")
                     print(self.average_temp)
                     if not self.calcBg: 
+                        if show_frame:
+                            cv.namedWindow("image",cv.WINDOW_NORMAL)
                         self.calcBg = True # has calculated the bg temperature
                         continue
                 elif not self.calcBg: #是否计算完背景温度
@@ -458,7 +457,7 @@ class CountPeople:
                     plot_img = plot_img.astype(np.uint8)
                     plot_img[np.where(plot_img > 1.5)] = 255
                     plot_img[np.where(plot_img <= 1.5)] = 0
-                    img_resize = cv.resize(plot_img,(32,32),interpolation=cv.INTER_CUBIC)
+                    img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
                     cv.imshow("image",img_resize)
                     cv.waitKey(5)
                 ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
@@ -486,6 +485,8 @@ class CountPeople:
                 self.countPeopleNum()
                 self.showCurrentState()
         except KeyboardInterrupt:
+            if show_frame:
+                cv.destroyAllWindows()
             print("catch keyboard interrupt")
             output_path = ""
             default_path = "test"
@@ -1331,7 +1332,7 @@ class CountPeople:
                         self.__peoplenum += 1
                     else:
                         self.__peoplenum -= 1
-                    removed_set.append(k)
+                removed_set.append(k)
         for k in removed_set:
             del self.__objectTrackDict[k]
     def belongToEdge(self,point):

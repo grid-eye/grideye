@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import sys
-from extractBody import analyseFrameSequence
+from simulateCount import analyseFrameSequence
 path = sys.argv[1]
 d_num = []
 if len(sys.argv) >= 3:

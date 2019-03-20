@@ -687,7 +687,6 @@ class CountPeople:
         while True:
             bin_img = ones*(curr_temp>= thre_temp)
             bin_img = bin_img.astype(np.uint8)
-            #img , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
             n , label = cv.connectedComponents(bin_img)
             area_arr = []
             label_dict= {}
@@ -702,14 +701,14 @@ class CountPeople:
             if max_area >= all_area * 0.3:
                 thre_temp += 0.25
             elif max_area  > all_area * 0.1:
-                if len(area_arr) == 1:
+                if len(area_arr) == 1 or max_area > all_area*0.2:
                     thre_temp += 0.25
                     continue
                 select_area = []
                 label_sorted = sorted(label_dict.items() , key =lambda d:d[1])
-                for label,size in label_sorted:
+                for l,size in label_sorted:
                     if size  > all_area*0.1:
-                        select_area.append(label,size)
+                        select_area.append((l,size))
                 key_arr =np.array(select_area)[:,0]
                 special = 64
                 for i in key_arr:
@@ -718,7 +717,7 @@ class CountPeople:
                 label[np.where(label == special)] = 1
                 bin_img = label.astype(np.uint8)
                 img,contours,heir=cv.findContours(bin_img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                return (len(contours),img,contours,heir)
+                return (len(contours),img,contours,heir),0
             elif max_area  < math.ceil(all_area*0.1):
                 label_sorted = sorted(label_dict.items(), key =lambda d:d[1])
                 sub_label = label_sorted[-1]

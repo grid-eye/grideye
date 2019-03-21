@@ -38,6 +38,8 @@ class CountPeople:
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
+        self.__x_thresh =2
+        self.__y_thresh =2
         self.__diff_individual_tempera= 0.5 #单人进出时的中心温度阈值
         self.__peoplenum = 0  # 统计的人的数量
         self.__entrance_exit_events = 0
@@ -680,16 +682,19 @@ class CountPeople:
         for k,v in rest_set:
             final_corr.append(k)
         return final_corr
-    def __findContours(self,label,label_dict,bin_img,all_area):
-        select_area = []
-        label_sorted = sorted(label_dict.items() , key =lambda d:d[1])
-        for l,size in label_sorted:
-            if size  > all_area*0.1:
-                select_area.append((l,size))
-        print(select_area)
-        if not select_area:
-            return (0,None,None,None)
-        key_arr =np.array(select_area)[:,0]
+    def __splitContours(self,label,contours):
+        refindContours = False
+        row_index = int(self.row/2)-1
+        for cnt in contours:
+            x,y,w,h = cv.boundingRect(cnt)
+            print(x,y,w,h)
+            if h >= self.row-2:
+                label[row_index,x:x+w] = 0
+                label[row_index+1,x:x+w]=0
+                refindContours = True
+            return refindContours
+    def __findContours(self,label,label_dict,all_area):
+        key_arr = list(label_dict.keys())
         special = 64
         for i in key_arr:
             label[np.where(label == i)]= special
@@ -697,71 +702,80 @@ class CountPeople:
         label[np.where(label == special)] = 1
         label = label.astype(np.uint8)
         img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-        row_index = int(self.row/2) -1
-        reFindContours = False
         print("print the x,y,w,h")
-        for cnt in contours:
-            x,y,w,h = cv.boundingRect(cnt)
-            print(x,y,w,h)
-            if h >= self.row-2:
-                label[row_index,x:x+w] = 0
-                label[row_index+1,x:x+w]=0
-                reFindContours = True
+        reFindContours = self.__splitContours(label,contours)
+        #plt.imshow(label)
+        #plt.show()
         if reFindContours:
             img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            print("contours' num is %d "%(len(contours)))
         return (len(contours),img,contours,heir)
 
     def extractBody(self,average_temp,curr_temp,show_frame=False,seq=None):
-        thre_temp =average_temp.copy()+0.75
+        thre_temp =average_temp.copy()+1.5
         ones = np.ones(average_temp.shape,np.float32)
         all_area =self.image_size
-        show_frame = False
         iter_count = 0
-        max_iter = 10
+        max_iter = 2
         while True:
             bin_img = ones*(curr_temp>= thre_temp)
             bin_img = bin_img.astype(np.uint8)
             n , label = cv.connectedComponents(bin_img)
             iter_count += 1
             print("=====================iter count is %d ==============="%(iter_count))
-            if show_frame :
-                plt.imshow(label)
-                plt.show()
             area_arr = []
             label_dict= {}
             for i in range(1,n):
                 sub_matrix = label[np.where(label==i)]
                 area_arr.append(sub_matrix.size)
                 label_dict[i] = sub_matrix.size
-            area_arr.sort()
+            sorted_label_dict = sorted(label_dict.items(),key=lambda d:d[1],reverse=True)
+            max_label_tuple = sorted_label_dict[0]
+            second_label_tuple=None
+            if len(sorted_label_dict) >1:
+                second_label_tuple = sorted_label_dict[1]
             if not area_arr:
                 return (0,None,None,None),0
-            max_area = area_arr[-1]
+            max_area = area_arr[0]
+            if iter_count  > max_iter :
+                print("max_size is %d "%(max_area))
+                if show_frame :
+                    plt.imshow(label)
+                    plt.show()
             if iter_count == max_iter:#超过最大的迭代次数
                 print("======over max iter============")
-                return self.__findContours(label,label_dict,bin_img,all_area),0
+                if max_area > self.image_size * 1/3:
+                    newlabel = np.zeros((self.row,self.col))
+                    newlabel = np.array(newlabel,np.uint8)
+                    newlabel[np.where(label == max_label_tuple[0])] =1
+                    sublabel = newlabel
+                    if second_label_tuple:
+                        if second_label_tuple[1] > self.image_size*1/3:
+                            sublabel[np.where(label ==second_label_tuple[0])]=1
+                    print(type(sublabel))
+                    print(sublabel)
+                    img,contours,heir=cv.findContours(sublabel,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                    self.__splitContours(label,contours)
+                return self.__findContours(label,label_dict,all_area),0
             elif max_area >= all_area * 0.3:
                 thre_temp += 0.25
             elif max_area  > all_area * 0.1:
                 if len(area_arr) == 1 or max_area > all_area*0.2:
                     thre_temp += 0.25
                     continue
-                return self.__findContours(label,label_dict,bin_img,all_area),0
+                return self.__findContours(label,label_dict,all_area),0
             elif max_area  < math.ceil(all_area*0.1):
-                label_sorted = sorted(label_dict.items(), key =lambda d:d[1])
-                sub_label = label_sorted[-1]
+                sub_label = sorted_label_dict[0]
                 key = sub_label[0]
                 if key != 1:
                     label[np.where(label ==1)] =0
                     label[np.where(label == key)] = 1
                 label[np.where(label != 1)] = 0
-                bin_img =label.astype(np.uint8)
-                img,contours,heir=cv.findContours(bin_img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                label=label.astype(np.uint8)
+                img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 return (1,img,contours,heir),0
             else:
                 thre_temp += 0.25
-
-
     def extractBodyBak(self , average_temp,curr_temp,show_frame=False,seq=None):
         thre_temp =average_temp.copy()+0.25
         ones = np.ones(average_temp.shape,np.float32)
@@ -1274,14 +1288,15 @@ class CountPeople:
         removed_point_set = set()#已经确认隶属的点的集合
         if len(self.__objectTrackDict) == 1:
            if len(corr) == 1:
-               max_dis = self.row 
+               max_dis = self.row-3
                for k, v in self.__objectTrackDict.items():
                    last_place,last_frame = v.get()
                    last_tempera = last_frame[last_place[0],last_place[1]]
                    curr_tempera = img[corr[0][0],corr[0][1]]
                    diff = curr_tempera - last_tempera
                    x_dis = abs(last_place[1] - corr[0][1])
-                   if diff <=self.__diff_individual_tempera  and x_dis < max_dis:
+                   y_dis = abs(last_place[0] - corr[0][0])
+                   if x_dis < max_dis:
                        v.put(corr[0],img)
                        return 
         obj_set =set()
@@ -1300,7 +1315,7 @@ class CountPeople:
                 #heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[0] - last_place[0])
-                if vertical_dis < self.row * 5/ 12  and horizontal_dis < self.col/3 :
+                if vertical_dis <= self.__x_thresh  and horizontal_dis <= self.__y_thresh :
                     if  k not in updated_obj_set and cp not in removed_point_set:#防止重复更新某些目标的点a
                         '''
                         if not self.belongToEdge(cp) and not self.belongToEdge(last_place):

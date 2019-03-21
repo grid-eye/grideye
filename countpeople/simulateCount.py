@@ -29,7 +29,7 @@ def showImage(original , newImage,contours_arr,plt_frames):
             plotImage(omg, img,rect,seq)
     else:
         plotImage(original,newImage,contours_arr,plt_frames)
-def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
+def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show_extract_frame=False):
     select_frames_dict = {}
     select_frames_list = []
     area_ret= []#返回的结果，表示人经过监控区域经过初步阈值处理后的面积，用于判断经过的人数
@@ -70,7 +70,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False):
         cp.setExistPeople(True)
         print("capture the body contours")
         start_time = time.perf_counter()
-        (cnt_count , img2,contours , hierarchy),area = cp.extractBody(average_median , blur)
+        (cnt_count , img2,contours , hierarchy),area = cp.extractBody(average_median , blur,show_extract_frame)
         end_time = time.perf_counter()
         interval = end_time - start_time
         #print("=====================extractBody's time is====================")
@@ -153,8 +153,12 @@ if __name__ == "__main__":
     all_frames = np.load(path+"/imagedata.npy")
     average_temp = np.load(path+"/avgtemp.npy")
     print("==============loaded people =====================")
+    show_img = False
     if len(sys.argv ) > 2:
         frame_arr =[int(i) for i in  sys.argv[2:] ]
+        y = input("show image ?y or n:\n")
+        if y == "y":
+            show_img=True
     else:
         frame_arr = [i for i in range(len(all_frames))]
-    analyseFrameSequence(frame_arr,all_frames,average_temp,True)
+    analyseFrameSequence(frame_arr,all_frames,average_temp,True,show_img)

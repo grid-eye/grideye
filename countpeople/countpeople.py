@@ -160,13 +160,6 @@ class CountPeople:
         return total_frames/len(all_bgframes)
     def setExistPeople(self,exist=False):
         self.__isExist = exist
-    def detectionNoise(self):
-        '''
-            func:remove noise from image
-            args:none
-            return :2-d array
-        '''
-        pass
     def medianFilter(self, img):
         img = self.makeImgCompatibleForCv(img)
         median = cv.medianBlur(img, 5)
@@ -657,8 +650,8 @@ class CountPeople:
         print(cp_temp_dict)
         if len(corr_bak) <= 1:
             return list(corr_bak)
-        cp_item_sorted =sorted(cp_temp_dict.items(),key =lambda d:d[1])
-        cp_item_sorted=set(cp_item_sorted)
+        cp_item_sorted =sorted(cp_temp_dict.items(),key =lambda d:d[1],reverse=True)
+        cp_set = set(cp_item_sorted)
         reference_set =set()
         removed_set=set()
         print("====cp item sorted============")
@@ -668,7 +661,7 @@ class CountPeople:
             if reference_point in reference_set or reference_point in removed_set:
                 continue
             reference_set.add(reference_point)
-            rest_points = cp_item_sorted - reference_set - removed_set
+            rest_points = cp_set - reference_set - removed_set
             for k in rest_points:
                 hori_dis = abs(reference_point[0][1] -k[0][1])
                 if hori_dis <=  horizontal_thresh :
@@ -676,7 +669,7 @@ class CountPeople:
                     if vertical_dis <= vertical_thresh:
                         removed_set.add(k)
         final_corr = []
-        rest_set = cp_item_sorted-removed_set
+        rest_set = cp_set-removed_set
         print("================rest set is ======================")
         print(rest_set)
         for k,v in rest_set:
@@ -703,12 +696,14 @@ class CountPeople:
         label = label.astype(np.uint8)
         img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         print("print the x,y,w,h")
+        '''
         reFindContours = self.__splitContours(label,contours)
         #plt.imshow(label)
         #plt.show()
         if reFindContours:
             img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
             print("contours' num is %d "%(len(contours)))
+        '''
         return (len(contours),img,contours,heir)
 
     def extractBody(self,average_temp,curr_temp,show_frame=False,seq=None):
@@ -717,6 +712,7 @@ class CountPeople:
         all_area =self.image_size
         iter_count = 0
         max_iter = 2
+        single_dog = False
         while True:
             bin_img = ones*(curr_temp>= thre_temp)
             bin_img = bin_img.astype(np.uint8)
@@ -729,22 +725,26 @@ class CountPeople:
                 sub_matrix = label[np.where(label==i)]
                 area_arr.append(sub_matrix.size)
                 label_dict[i] = sub_matrix.size
+            if not area_arr:
+                return (0,None,None,None),0
             sorted_label_dict = sorted(label_dict.items(),key=lambda d:d[1],reverse=True)
             max_label_tuple = sorted_label_dict[0]
             second_label_tuple=None
             if len(sorted_label_dict) >1:
                 second_label_tuple = sorted_label_dict[1]
-            if not area_arr:
-                return (0,None,None,None),0
             max_area = area_arr[0]
-            if iter_count  > max_iter :
+            if iter_count  > 0:
                 print("max_size is %d "%(max_area))
                 if show_frame :
                     plt.imshow(label)
                     plt.show()
             if iter_count == max_iter:#超过最大的迭代次数
                 print("======over max iter============")
+                sum_area = sum(area_arr)
+                if sum_area <= self.image_size/4:
+                    single_dog = True
                 if max_area > self.image_size * 1/3:
+                    print("=====over 1 people======")
                     newlabel = np.zeros((self.row,self.col))
                     newlabel = np.array(newlabel,np.uint8)
                     newlabel[np.where(label == max_label_tuple[0])] =1
@@ -752,17 +752,18 @@ class CountPeople:
                     if second_label_tuple:
                         if second_label_tuple[1] > self.image_size*1/3:
                             sublabel[np.where(label ==second_label_tuple[0])]=1
-                    print(type(sublabel))
-                    print(sublabel)
                     img,contours,heir=cv.findContours(sublabel,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                     self.__splitContours(label,contours)
-                return self.__findContours(label,label_dict,all_area),0
+                    return self.__findContours(label,label_dict,all_area),0
             elif max_area >= all_area * 0.3:
                 thre_temp += 0.25
             elif max_area  > all_area * 0.1:
-                if len(area_arr) == 1 or max_area > all_area*0.2:
+                if not single_dog and max_area > all_area*0.15:#尽可能减少高温区域的面积
                     thre_temp += 0.25
                     continue
+                if single_dog:
+                    label[np.where(label!=single_dog)]=0
+                    label[np.where(label ==single_dog)]=1
                 return self.__findContours(label,label_dict,all_area),0
             elif max_area  < math.ceil(all_area*0.1):
                 sub_label = sorted_label_dict[0]
@@ -980,78 +981,6 @@ class CountPeople:
             else:
                 thre_temp += 0.25
                 continue
-            '''
-            if cont_cnt  >= 1:
-                cnt1 = cv.contourArea(contours[0])
-                print("cnt1 = %.2f"%(cnt1))
-            
-            if len(contours) > 2:
-                thre_temp += 0.25
-                continue
-        
-            if cont_cnt  > 1:
-                #存在两个轮廓以上
-                print("cont_cnt > 1")
-                area_arr = []
-                for c in contours:
-                    area_arr.append(cv.contourArea(c))
-                if all(area_arr) > area_down_thresh and ( all(area_arr) < area_1_14 or all(area_arr) < area_1_15):
-                    img2_copy = img2.copy()
-                    #cv.drawContours(img2,contours,-1,(0,255,0),2)
-                    img2 = np.array(img2,np.float32)
-                    if show_frame:
-                        self.showExtractProcessImage(curr_temp,thresh ,img2)
-                    return (len(contours),img2_copy,contours,heirarchy)
-            
-            if cnt1 >  area_1_3:
-                #如果区域面积大于图片1/3，则可能有两个人出现在图片上
-                #增大阈值
-                thre_temp += 0.25
-            
-            if cnt1 < area_1_14 :
-                noMoreOne = False
-                #这个条件是去除一些噪音所造成的误差
-                if cont_cnt > 1:
-                    area_arr = []
-                    area_dict={cnt1:contours[0]}
-                    for i in range(len(contours)):
-                        area = cv.contourArea(contours[i])
-                        while True:
-                            if area  not in area_dict:
-                                area_dict[area] = contours[i]
-                                break
-                            area += 0.1
-                        area_arr.append(area)
-                    area_arr.sort()
-                    print("=====area arr is====")
-                    print(area_arr)
-                    max_area = area_arr[-1]
-                    area_arr = area_arr[0:-1]
-                    if all(area_arr) <= 3:
-                        noMoreOne=True
-                    contours=[area_dict[max_area]]
-                    cnt1 = max_area
-
-                if  cnt1 < area_1_14 and (cont_cnt ==1 or noMoreOne):
-                    img2_copy = img2.copy()
-                    #img_ret = cv.drawContours(img2,contours,-1,(0,255,0),1)
-                    print("has one people return !!!!!")
-                    img2 = np.array(img2,np.float32)
-                    rect = np.zeros(img2.shape,np.uint8)
-                    rect = cv.cvtColor(rect , cv.COLOR_GRAY2BGR)
-                    x,y,w,h = cv.boundingRect(contours[0])
-                    cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
-                    print(rect.sum())
-                    if show_frame:
-                        self.showExtractProcessImage(curr_temp,thresh ,rect)
-                    return (1,img2_copy,contours,heirarchy)
-                else:
-                    thre_temp+=0.25
-            else:
-                #不断提高阈值                    
-                thre_temp += 0.25
-        return ret
-        '''
     def showExtractProcessImage(self,origin,thresh ,images_contours):
         #输出提取人体过程的图片
         print("=================the contours of the image==============")

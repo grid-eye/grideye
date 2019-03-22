@@ -33,9 +33,6 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False ,cp=None,interpol
         ave_arr.append(img_ave)
         curr_average = np.average(img)
         avg_average = np.average(avgtemp)
-        diff_ave = curr_average -avg_average
-        #print("diff ave of curr temp and avgtemp is %.2f"%(diff_ave))
-        #print("the maximum of the diff frame is %.2f"%(currframe.max()))
         hists,bins = np.histogram(currframe.ravel() , bins=120 , range=(-6,6) )
         histMap = {}
         bins = bins[:-1]
@@ -48,7 +45,7 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False ,cp=None,interpol
             if k > 2:
                 exceed_sum += v
         print("====exceed sum is %d ===="%(exceed_sum))
-        cp.isCurrentFrameContainHuman(img,avgtemp,currframe)
+        cp.knnJudgeFrameContainHuman(img,avgtemp,currframe)
         gaussian =currframe.copy() #cv.GaussianBlur(currframe,(5,5),0)
         ret = np.where(gaussian < 0)
         gaussian[ret] = 0
@@ -112,8 +109,7 @@ if __name__ == "__main__":
     print(argarray)
     is_show_frame = False
     print(show_frame)
-    cp=None
+    cp = CountPeople()
     if show_frame == "y":
         is_show_frame=True
-        cp = CountPeople()
     analyseSequence(allframe,avgtemp , argarray,show_frame=is_show_frame,cp=cp)

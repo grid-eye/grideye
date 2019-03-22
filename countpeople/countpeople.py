@@ -19,8 +19,9 @@ class CountPeople:
 
     def __init__(self, pre_read_count=30, th_bgframes=128, row=8, col=8):
         # the counter of the bgframes
-        self.i2c = busio.I2C(board.SCL, board.SDA)
-        self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
+        if __name__ == "__main__":
+            self.i2c = busio.I2C(board.SCL, board.SDA)
+            self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
         self.grid_x, self.grid_y = np.mgrid[0:7:32j, 0:7:32j]
         self.bgframe_cnt = 0
         self.all_bgframes = []  # save all frames which sensor read
@@ -732,7 +733,7 @@ class CountPeople:
             second_label_tuple=None
             if len(sorted_label_dict) >1:
                 second_label_tuple = sorted_label_dict[1]
-            max_area = area_arr[0]
+            max_area = max_label_tuple[1]
             if iter_count  > 0:
                 print("max_size is %d "%(max_area))
                 if show_frame :
@@ -741,9 +742,15 @@ class CountPeople:
             if iter_count == max_iter:#超过最大的迭代次数
                 print("======over max iter============")
                 sum_area = sum(area_arr)
-                if sum_area <= self.image_size/4:
+                if sum_area <= self.image_size/8:
                     single_dog = True
-                if max_area > self.image_size * 1/3:
+                temp = np.zeros((self.row,self.col)).astype(np.uint8)
+                temp[np.where(label == max_label_tuple[0])] = 1
+                temp_img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                x0,y0,w0,h0 = cv.boundingRect(contours[0])
+                ratio = h0/w0
+                proportion = ratio > 1.4
+                if (max_area > self.image_size * 5/16 or  h0 >= self.row-2) and proportion:
                     print("=====over 1 people======")
                     newlabel = np.zeros((self.row,self.col))
                     newlabel = np.array(newlabel,np.uint8)
@@ -754,6 +761,7 @@ class CountPeople:
                             sublabel[np.where(label ==second_label_tuple[0])]=1
                     img,contours,heir=cv.findContours(sublabel,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                     self.__splitContours(label,contours)
+                    print("==================case 1===========")
                     return self.__findContours(label,label_dict,all_area),0
             elif max_area >= all_area * 0.3:
                 thre_temp += 0.25
@@ -764,6 +772,7 @@ class CountPeople:
                 if single_dog:
                     label[np.where(label!=single_dog)]=0
                     label[np.where(label ==single_dog)]=1
+                print("==================case 2===========")
                 return self.__findContours(label,label_dict,all_area),0
             elif max_area  < math.ceil(all_area*0.1):
                 sub_label = sorted_label_dict[0]
@@ -774,6 +783,7 @@ class CountPeople:
                 label[np.where(label != 1)] = 0
                 label=label.astype(np.uint8)
                 img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                print("==================case 1===========")
                 return (1,img,contours,heir),0
             else:
                 thre_temp += 0.25

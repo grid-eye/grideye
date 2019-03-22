@@ -13,12 +13,23 @@ class ObjectTrack:
         self.__max_interval = 3
         self.__age_counter = 0
         self.__interval_counter = 0
-        self.__row = 2
-        self.__col = 2
+        self.__row = 8
+        self.__col = 8
+        self.__last_vote = -1
     def put(self,point,img):
         self.__loc_list.append(point)
         self.__img_list.append(img)
         self.__size += 1
+        self.__updateWalkTrend(point)
+    def getLastTrend(self):
+        return self.__last_vote
+    def __updateWalkTrend(self,point):
+        if self.__size == 1:
+            print("=====================update walk trend===================")
+            self.__last_vote = self.__getEntranceDirection(point)
+            print(self.__last_vote)
+        else:
+            self.__last_vote = self.__getWalkTrend()
     def get(self):
         loc = self.__loc_list[self.__size -1]
         img = self.__img_list[self.__size-1]
@@ -37,61 +48,59 @@ class ObjectTrack:
         self.__age_counter += 1
     def incrementInterval(self):
         self.__interval_counter += 1
-    def getEntranceDirection(self,point):
-        xcorr = point[0][1]
+    def __getEntranceDirection(self,point):
+        xcorr = point[1]
         if xcorr == 0 or xcorr == 1 :
             return 1
         if  xcorr ==self.__col-1 or xcorr == self.__col-2:
-            return -1
-        return 0
+            return 0
+        print("return 1")
+        return -1
     def __edgePointVote(self,point_arr):
         vote = {0:0,1:0}
         for item in point_arr:
             direction = self.getEntranceDirection(item)
             if direction == 1:
                 vote[1] += 1
-            elif direction == -1:
+            elif direction == 0:
                 vote[0] += 1
         if not hasattr(self,"last_vote"):
-            if vote[1] >=3 :
-                self._last_vote = 1
+            if vote[1] > vote[0] :
+                self.last_vote = 1
                 return 1,vote
-            if vote[0] >= 3:
+            elif vote[0] > vote[1] :
                 self.last_vote = 0 
                 return 0,vote
         else:
-            if vote[1] >=3 or vote[0] >= 3:
+            if vote[1] > 0  or vote[0] > 0 :
                 return self.last_vote,vote
         return -1,vote
-    def getVote(self,point_arr):
+    def __getVote(self,point_arr):
         vote ={0:0,1:0}
-        res,vote = self.__edgePointVote(point_arr)
-        if res!=-1:
-            return res
         p0 = point_arr[0]
         for p in point_arr[1:]:
-            vector = p[0][1]-p0[0][1]
+            vector = p[1]-p0[1]
             p0 = p
-            if vector >0 :
+            if vector > 0 :
                 vote[1] += 1
-            else:
+            elif vector < 0:
                 vote[0] += 1
+            else:
+                vote[self.__last_vote] += 1
         if vote[0] > vote[1]:
-            self.__last_vote =0
+            self.__last_vote = 0
             return 0
-        else:
+        elif vote[0] < vote[1]:
             self.__last_vote = 1
             return 1
-    def getSportTrend(self):#得到当前运动趋势
+        else:
+            return self.__last_vote
+    def __getWalkTrend(self):#得到当前运动趋势
+        length = 4
         if self.__size < 4:
-            res,vote = self.__edgePointVote(self.__loc_list[0:self.__size])
-            if res != -1:
-                return res
-            if vote[0] > vote[1]:
-                return 0
-            else:
-                return 1
-        return self.getVote(self.__loc_list[-4:]
+            length = self.__size
+        length = -length
+        return self.__getVote(self.__loc_list[length:])
     def hasPassDoor(self,frame_width = 8):
         '''
             是否已经通过

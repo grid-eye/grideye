@@ -1205,6 +1205,13 @@ class CountPeople:
             print("has only 2 choice :4 or 8")
         neibor = temp_sum / count
         return neibor
+    def __inLineWithCurrentSportTrend(self,direction,cp,last_place):
+        if direction == 1:#分析运动趋势，如果方向为正，当前坐标一般大于前一个坐标
+            if cp[1] < last_place[1]:
+                return False
+        elif cp[1] > last_place[1]:
+            return False
+        return True
     def __extractFeature(self,img,corr):
         '''
         为当前帧提取目标特征
@@ -1233,27 +1240,18 @@ class CountPeople:
             for k,v in self.__objectTrackDict.items():
                 obj_set.add(k)
                 last_place ,last_frame = v.get()
-                #euclidean_distance = math.sqrt(math.pow((cp[0] - last_place[0]),2)+math.pow((cp[1] - last_place[1]),2))
-                #print("euclidean distance is %.2f"%(euclidean_distance))
                 #温度差不会超过某个阈值
                 previous_img = last_frame
                 previous_cnt = previous_img[last_place[0],last_place[1]]#前一帧的中心温度
                 diff_temp = abs(img[cp[0],cp[1]] - previous_cnt)#当前中心温度和前一帧数的中心温度差
-                #中心温度邻域均值
-                #ave = self.__neiborhoodTemp(img , cp)
-                #heibor_diff = abs(ave - self.__neiborhoodTemperature[k])
                 horizontal_dis =abs(cp[1] - last_place[1])
                 vertical_dis = abs(cp[0] - last_place[0])
                 if vertical_dis <= self.__x_thresh  and horizontal_dis <= self.__y_thresh :
                     if  k not in updated_obj_set and cp not in removed_point_set:#防止重复更新某些目标的点a
-                        '''
-                        if not self.belongToEdge(cp) and not self.belongToEdge(last_place):
-
-                            if diff_temp > 1.2 and not self.isSinglePeople:
-                                continue#非边缘目标的中心的点温度之间的差距不能大于1.2
-                        '''
+                        direction = v.getLastTrend()
+                        if not self.__inLineWithCurrentSportTrend(direction,cp,last_place):
+                            continue
                         self.__objectTrackDict[k].put(cp,img)
-                        #self.__neiborhoodTemperature[k] = (ave+self.__neiborhoodTemperature[k])/2
                         updated_obj_set.add(k)
                         removed_point_set.add(cp)
         point_rest = set(corr) - removed_point_set
@@ -1272,9 +1270,10 @@ class CountPeople:
                     hozi_dis = abs(prev_point[1]-point[1])
                     verti_dis = abs(prev_point[0]-point[0])
                     if hozi_dis < (self.col *5/12) and verti_dis < self.row *5/12:
-                        if not self.belongToEdge(prev_point) and not self.belongToEdge(point):#中心点不在边缘
-                            if diff_temp > 1.6:
-                                continue#放松限制条件（由于传感器误差和计算误差）
+                        if hozi_dis > 1 :
+                            direction = v.getLastTrend()#得到本目标的运动趋向
+                            if not self.__inLineWithCurrentSportTrend(direction,point,last_place):#分析运动趋势
+                                continue
                         self.__objectTrackDict[obj].put(point,img)
                         final_point_rest.remove(point)
                         final_obj_rest.remove(obj)

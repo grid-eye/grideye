@@ -686,7 +686,7 @@ class CountPeople:
                 label[row_index,x:x+w] = 0
                 label[row_index+1,x:x+w]=0
                 refindContours = True
-            return refindContours
+        return refindContours
     def __findContours(self,label,label_dict,all_area):
         key_arr = list(label_dict.keys())
         special = 64
@@ -697,16 +697,20 @@ class CountPeople:
         label = label.astype(np.uint8)
         img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         print("print the x,y,w,h")
-        '''
-        reFindContours = self.__splitContours(label,contours)
-        #plt.imshow(label)
-        #plt.show()
-        if reFindContours:
-            img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-            print("contours' num is %d "%(len(contours)))
-        '''
         return (len(contours),img,contours,heir)
-
+    def getActualHeightWidth(self,cnt,label):
+        x,y,w,h = cv.boundingRect(cnt)
+        max_width = 0
+        print("====================get Actual height=========================")
+        print(x,y,w,h)
+        print(label)
+        for j in range(y,y+h):
+            row  = label[j][x:x+w]
+            index = np.where(row !=0 )
+            size = len(index[0])
+            if size > max_width:
+                max_width = size
+        return h,max_width
     def extractBody(self,average_temp,curr_temp,show_frame=False,seq=None):
         thre_temp =average_temp.copy()+1.5
         ones = np.ones(average_temp.shape,np.float32)
@@ -739,42 +743,55 @@ class CountPeople:
                 if show_frame :
                     plt.imshow(label)
                     plt.show()
-            if iter_count == max_iter:#超过最大的迭代次数
+            if iter_count >= max_iter:#超过最大的迭代次数
                 print("======over max iter============")
                 sum_area = sum(area_arr)
-                if sum_area <= self.image_size/8:
-                    single_dog = True
+                if iter_count==max_iter :
+                    if sum_area <= self.image_size/8:
+                        single_dog = True
+                    min_item = sorted_label_dict[-1]
+                    if min_item[1] == 1:
+                        sorted_label_dict.remove(min_item)
+                        del label_dict[min_item[0]]#去掉大小为1的连通分量
                 temp = np.zeros((self.row,self.col)).astype(np.uint8)
                 temp[np.where(label == max_label_tuple[0])] = 1
                 temp_img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                x0,y0,w0,h0 = cv.boundingRect(contours[0])
+                h0,w0 = self.getActualHeightWidth(contours[0],label)
                 ratio = h0/w0
-                proportion = ratio > 1.4
-                if (max_area > self.image_size * 5/16 or  h0 >= self.row-2) and proportion:
+                area = w0*h0
+                proportion = ratio >= 1.6
+                if  w0 >= self.col-3 or max_area >= self.image_size*0.45:
+                    thre_temp +=0.25
+                    continue
+                if proportion and h0 >= self.row -3:
                     print("=====over 1 people======")
                     newlabel = np.zeros((self.row,self.col))
                     newlabel = np.array(newlabel,np.uint8)
-                    newlabel[np.where(label == max_label_tuple[0])] =1
                     sublabel = newlabel
+                    sum_label = temp
+                    actual_cnts = [contours[0]]
                     if second_label_tuple:
-                        if second_label_tuple[1] > self.image_size*1/3:
-                            sublabel[np.where(label ==second_label_tuple[0])]=1
-                    img,contours,heir=cv.findContours(sublabel,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                    self.__splitContours(label,contours)
+                        sublabel[np.where(label ==second_label_tuple[0])]=1
+                    img,conts,heir=cv.findContours(sublabel,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                    h0,w0 = self.getActualHeightWidth(conts[0],label)
+                    ratio = h0/w0
+                    proportion = ratio >= 1.6
+                    if proportion and h0 > self.row-3:
+                        sum_label = temp +sublabel
+                        actual_cnts.append(conts[0])
+                    print(n)
+                    self.__splitContours(label,actual_cnts)
+                    print("after split contours")
+                    print(label)
                     print("==================case 1===========")
                     return self.__findContours(label,label_dict,all_area),0
-            elif max_area >= all_area * 0.3:
-                thre_temp += 0.25
-            elif max_area  > all_area * 0.1:
-                if not single_dog and max_area > all_area*0.15:#尽可能减少高温区域的面积
-                    thre_temp += 0.25
-                    continue
-                if single_dog:
+            if max_area  > all_area * 0.1:#多个人的情况
+                if single_dog or  max_area <= all_area*0.15:#尽可能减少高温区域的面积
                     label[np.where(label!=single_dog)]=0
                     label[np.where(label ==single_dog)]=1
-                print("==================case 2===========")
-                return self.__findContours(label,label_dict,all_area),0
-            elif max_area  < math.ceil(all_area*0.1):
+                    print("==================case 2===========")
+                    return self.__findContours(label,label_dict,all_area),0
+            elif max_area  < math.ceil(all_area*0.1):#一个人的情况
                 sub_label = sorted_label_dict[0]
                 key = sub_label[0]
                 if key != 1:
@@ -785,8 +802,7 @@ class CountPeople:
                 img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
                 print("==================case 1===========")
                 return (1,img,contours,heir),0
-            else:
-                thre_temp += 0.25
+            thre_temp += 0.25
     def extractBodyBak(self , average_temp,curr_temp,show_frame=False,seq=None):
         thre_temp =average_temp.copy()+0.25
         ones = np.ones(average_temp.shape,np.float32)
@@ -1304,7 +1320,7 @@ class CountPeople:
                 otd[k].incrementInterval()
             self.updateSpecifiedTarget(final_obj_rest)
     def nearlyCloseToEdge(self,point):#近似作为边界
-        if point[1]+2 >= self.row-1 or point[1]-2<= 0:
+        if point[1]>= self.row-2 or point[1]-1<= 0:
             return True
         return False
     def updateObjectTrackDictAgeAndInterval(self):

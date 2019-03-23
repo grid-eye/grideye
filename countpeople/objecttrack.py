@@ -50,9 +50,9 @@ class ObjectTrack:
         self.__interval_counter += 1
     def __getEntranceDirection(self,point):
         xcorr = point[1]
-        if xcorr == 0 or xcorr == 1 :
+        if xcorr <= 1 :
             return 1
-        if  xcorr ==self.__col-1 or xcorr == self.__col-2:
+        if  xcorr >= self.__col-2:
             return 0
         print("return 1")
         return -1

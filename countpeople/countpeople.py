@@ -710,7 +710,14 @@ class CountPeople:
             size = len(index[0])
             if size > max_width:
                 max_width = size
+        print(h,max_width)
         return h,max_width
+    def __hasTwoPeople(self,h0,w0,ratio,area):
+        if ratio >= 2 and h0 >= (self.row -1):
+            return True
+        elif ratio >= 1.5 and area >= (self.row-2)*(self.col-4):
+            return True
+        return False
     def extractBody(self,average_temp,curr_temp,show_frame=False,seq=None):
         thre_temp =average_temp.copy()+1.5
         ones = np.ones(average_temp.shape,np.float32)
@@ -723,7 +730,6 @@ class CountPeople:
             bin_img = bin_img.astype(np.uint8)
             n , label = cv.connectedComponents(bin_img)
             iter_count += 1
-            print("=====================iter count is %d ==============="%(iter_count))
             area_arr = []
             label_dict= {}
             for i in range(1,n):
@@ -744,7 +750,6 @@ class CountPeople:
                     plt.imshow(label)
                     plt.show()
             if iter_count >= max_iter:#超过最大的迭代次数
-                print("======over max iter============")
                 sum_area = sum(area_arr)
                 if iter_count==max_iter :
                     if sum_area <= self.image_size/8:
@@ -759,32 +764,26 @@ class CountPeople:
                 h0,w0 = self.getActualHeightWidth(contours[0],label)
                 ratio = h0/w0
                 area = w0*h0
-                proportion = ratio >= 1.6
-                if  w0 >= self.col-3 or max_area >= self.image_size*0.45:
+                if  w0 >= self.col-3 or max_area >= self.image_size*0.45 or n > 4:
                     thre_temp +=0.25
                     continue
-                if proportion and h0 >= self.row -3:
-                    print("=====over 1 people======")
+                proportion = self.__hasTwoPeople(h0,w0,ratio,area)
+                if proportion:
                     newlabel = np.zeros((self.row,self.col))
                     newlabel = np.array(newlabel,np.uint8)
                     sublabel = newlabel
-                    sum_label = temp
                     actual_cnts = [contours[0]]
                     if second_label_tuple:
                         sublabel[np.where(label ==second_label_tuple[0])]=1
-                    img,conts,heir=cv.findContours(sublabel,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                    h0,w0 = self.getActualHeightWidth(conts[0],label)
-                    ratio = h0/w0
-                    proportion = ratio >= 1.6
-                    if proportion and h0 > self.row-3:
-                        sum_label = temp +sublabel
-                        actual_cnts.append(conts[0])
-                    print(n)
+                        img,conts,heir=cv.findContours(sublabel,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                        h0,w0 = self.getActualHeightWidth(conts[0],label)
+                        ratio = h0/w0
+                        area = h0*w0
+                        proportion =self.__hasTwoPeople(h0,w0,ratio,area)
+                        if proportion:
+                            actual_cnts.append(conts[0])
                     self.__splitContours(label,actual_cnts)
-                    print("after split contours")
-                    print(label)
-                    print("==================case 1===========")
-                    return self.__findContours(label,label_dict,all_area),0
+                return self.__findContours(label,label_dict,all_area),0
             if max_area  > all_area * 0.1:#多个人的情况
                 if single_dog or  max_area <= all_area*0.15:#尽可能减少高温区域的面积
                     label[np.where(label!=single_dog)]=0

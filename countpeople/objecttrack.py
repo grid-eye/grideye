@@ -48,6 +48,8 @@ class ObjectTrack:
         self.__age_counter += 1
     def incrementInterval(self):
         self.__interval_counter += 1
+    def clearInterval(self):
+        self.__interval_counter =0
     def __getEntranceDirection(self,point):
         xcorr = point[1]
         if xcorr <= 1 :

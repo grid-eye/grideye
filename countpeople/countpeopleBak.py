@@ -740,9 +740,6 @@ class CountPeople:
                 return (0,None,None,None),0
             sorted_label_dict = sorted(label_dict.items(),key=lambda d:d[1],reverse=True)
             max_label_tuple = sorted_label_dict[0]
-            second_label_tuple=None
-            if len(sorted_label_dict) >1:
-                second_label_tuple = sorted_label_dict[1]
             max_area = max_label_tuple[1]
             if iter_count  > 0:
                 print("max_size is %d "%(max_area))
@@ -751,43 +748,36 @@ class CountPeople:
                     plt.show()
             if iter_count >= max_iter:#超过最大的迭代次数
                 print("==========over iter====================")
+                isReturn = True
                 for l ,size in sorted_label_dict:
                     if size <= self.col-3 and size > 2:
                         contours_cache[np.where(label==l)] = 1
-                sum_area = sum(area_arr)
-                if iter_count==max_iter :
-                    if sum_area <= self.image_size/8:
-                        single_dog = True
-                    min_item = sorted_label_dict[-1]
-                    if min_item[1] == 1:
-                        sorted_label_dict.remove(min_item)
-                        del label_dict[min_item[0]]#去掉大小为1的连通分量
-                temp = np.zeros((self.row,self.col)).astype(np.uint8)
-                temp[np.where(label == max_label_tuple[0])] = 1
-                temp_img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                h0,w0 = self.getActualHeightWidth(contours[0],label)
-                ratio = h0/w0
-                area = w0*h0
-                if  w0 >= self.col-3 or max_area >= self.image_size*0.45 or n > 4:
-                    thre_temp +=0.25
-                    continue
-                proportion = self.__hasTwoPeople(h0,w0,ratio,area)
-                if proportion:
-                    print("proportion is true")
-                    newlabel = np.zeros((self.row,self.col))
-                    newlabel = np.array(newlabel,np.uint8)
-                    sublabel = newlabel
-                    actual_cnts = [contours[0]]
-                    if second_label_tuple:
-                        sublabel[np.where(label ==second_label_tuple[0])]=1
-                        img,conts,heir=cv.findContours(sublabel,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                        h0,w0 = self.getActualHeightWidth(conts[0],label)
-                        ratio = h0/w0
-                        area = h0*w0
-                        proportion =self.__hasTwoPeople(h0,w0,ratio,area)
-                        if proportion:
-                            actual_cnts.append(conts[0])
-                    self.__splitContours(label,actual_cnts)
+                    sum_area = sum(area_arr)
+                    if iter_count==max_iter :
+                        if sum_area <= self.image_size/8:
+                            single_dog = True
+                        min_item = sorted_label_dict[-1]
+                        if min_item[1] == 1:
+                            sorted_label_dict.remove(min_item)
+                            del label_dict[min_item[0]]#去掉大小为1的连通分量
+                    temp = np.zeros((self.row,self.col)).astype(np.uint8)
+                    temp[np.where(label ==l)] = 1
+                    temp_img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                    h0,w0 = self.getActualHeightWidth(contours[0],label)
+                    ratio = h0/w0
+                    area = w0*h0
+                    if  w0 >= self.col-3 or max_area >= self.image_size*0.45 or n > 4:
+                        thre_temp +=0.25
+                        isReturn = False
+                        break
+                    proportion = self.__hasTwoPeople(h0,w0,ratio,area)
+                    if proportion:
+                        print("proportion is true")
+                        self.__splitContours(label,contours)
+                    else:
+                        if size >= 3 and size <= self.row:
+                            contours_cache [np.where(label == l)]=1#这是为了保存之前提取的轮廓
+                if isReturn:
                     label[np.where(contours_cache==1)]=1
                     return self.__findContours(label,label_dict,all_area),0
             if max_area  > all_area * 0.1:#多个人的情况

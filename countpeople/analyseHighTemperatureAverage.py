@@ -45,7 +45,7 @@ def analyseHighTemperatureAverage(frame_arr,all_frames,average_temp,imagesize = 
     return np.array(high_temperature_ave_arr)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 1:
+    if len(sys.argv)  <2 :
         raise ValueError("please specify a valid path and frame array")
     path = sys.argv[1]
     all_frames = np.load(path+"/imagedata.npy")

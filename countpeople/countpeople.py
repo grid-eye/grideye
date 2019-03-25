@@ -722,7 +722,7 @@ class CountPeople:
         print(h,max_width)
         return h,max_width
     def __hasTwoPeople(self,h0,w0,ratio,area):
-        if ratio > 1.6 and area >=(self.row-1)*(self.col-4):
+        if ratio >= 1.5 and area >=(self.row-2)*(self.col-4):
             return True
         if ratio >= 2:
             if  h0 >= (self.row -1):
@@ -774,6 +774,16 @@ class CountPeople:
                 if show_frame :
                     plt.imshow(label)
                     plt.show()
+            print(n,max_area)
+            if n == 2 and (max_area <= self.image_size/4):
+                label = label.astype(np.uint8)
+                temp_img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                print("=======one people case =======")
+                h0,w0 = self.getActualHeightWidth(contours[0],label)
+                print("h0,w0")
+                print(h0,w0)
+                if h0 <= self.row/2:
+                        return self.__getFinalContours(label,contours_cache)
             if iter_count >= max_iter:#超过最大的迭代次数
                 print("==========over iter====================")
                 isReturn = False
@@ -785,6 +795,7 @@ class CountPeople:
                     if min_item[1] == 1:
                         sorted_label_dict.remove(min_item)
                         del label_dict[min_item[0]]#去掉大小为1的连通分量
+                        curr_temp[np.where(label==min_item[0])]=0
                 for l ,size in sorted_label_dict:
                     if n > 4:
                         thre_temp += 0.25
@@ -859,6 +870,9 @@ class CountPeople:
             if max_area  > all_area * 0.1:#多个人的情况
                 if single_dog or  max_area <= all_area*0.15:#尽可能减少高温区域的面积
                     print("==================case 2===========")
+                    min_label = sorted_label_dict[-1]
+                    if min_label[1]==1 and iter_count <= max_iter:
+                        label[np.where(label==min_label[0])]=0
                     return self.__getFinalContours(label,contours_cache)
             elif max_area  < math.ceil(all_area*0.1):#
                 print("=========================case 3=================")

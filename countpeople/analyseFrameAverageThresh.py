@@ -18,7 +18,7 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False,thresh=None ,inte
     diff_frame = np.round(np.array(diff_frame),1)
     for i in range(len(argarray)):
         print("the %sth diff frame "%(argarray[i]))
-
+        print(allframe[argarray[i]])
         seq = argarray[i]
         currframe = diff_frame[i]
         img = curr_frame[i]

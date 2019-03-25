@@ -114,7 +114,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
     respect_img =np.array(respect_img)
     print("====print the loc of all center points===")
     last_seq = 0
-    interval = 40
+    interval = 20
     artificial_count = 0
     for i in  range(len(center_temp_arr)):
         img = curr_arr[i]
@@ -122,8 +122,9 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
         print(seq,end=",")
         if center_temp_arr[i]:
             if seq > last_seq +interval:
-                last_seq = seq
                 artificial_count += 1
+                print("=============artificial count is %d==============="%(artificial_count))
+            last_seq = seq
         for pos in center_temp_arr[i]:
             print(pos,end="===>")
             print(round(img[pos[0],pos[1]],2) ,end=",")

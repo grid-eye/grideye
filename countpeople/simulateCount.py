@@ -19,7 +19,7 @@ def plotImage(original ,img,rect , frame_seq):
         cv.rectangle(rect_img,(r[0],r[1]),(r[0]+r[2],r[1]+r[3]),(0,255,0),1)
     ax3.imshow(rect_img)
     ax3.set_xticks([]),ax3.set_yticks([])
-def showImage(original , newImage,contours_arr,plt_frames):
+def showImage(original , newImage,contours_arr,plt_frames,path=None):
     if len(newImage.shape) == 3:
         for i in range(len(newImage)):
             img = newImage[i]
@@ -30,6 +30,7 @@ def showImage(original , newImage,contours_arr,plt_frames):
     else:
         plotImage(original,newImage,contours_arr,plt_frames)
 def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show_extract_frame=False):
+    human_data = []
     select_frames_dict = {}
     select_frames_list = []
     area_ret= []#返回的结果，表示人经过监控区域经过初步阈值处理后的面积，用于判断经过的人数
@@ -108,20 +109,26 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
         cp.updateObjectTrackDictAge()
         cp.countPeopleNum()
         cp.showCurrentState()
-    result = cp.getPeopleNum()
     mask_arr = np.array(mask_arr)
     respect_img =np.array(respect_img)
     last_seq = 0
     interval = 20
     artificial_count = -1
+    error_frame = []
     for i in  range(len(center_temp_arr)):
         img = curr_arr[i]
         seq = plt_frames[i]
+        human_data.append(all_frames[seq])
         print(seq,end=",")
         if center_temp_arr[i]:
             if seq > last_seq +interval:
                 artificial_count += 1
                 print("=============artificial count is %d==============="%(artificial_count))
+            else:
+                if seq > last_seq +4 and seq <= last_seq +7:
+                    error_frame.append(seq)
+                    for j in range(last_seq+1,seq):
+                        human_data.append(all_frames[j])
             last_seq = seq
         for pos in center_temp_arr[i]:
             print(pos,end="===>")
@@ -144,7 +151,13 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
         print(plt_frames)
         showImage(respect_img,mask_arr ,contours_rect,plt_frames)
         plt.show()
+    print("error seq is ")
+    print(error_frame)
+    human_data = np.array(human_data)
+    np.save(path+"/human_data.npy",human_data)
+    print("sucessfully save human_data in "+path+"/human_data.npy")
     return area_ret,cp.getPeopleNum()
+
 if __name__ == "__main__":
     if len(sys.argv) < 1:
         raise ValueError("please specify a valid path and frame array")

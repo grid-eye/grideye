@@ -31,7 +31,7 @@ average = np.load(path+"/avgtemp.npy")
 if len(sys.argv) >2 :
     selframe = [int(i) for i in sys.argv[2:]]
 else:
-    selframe = [for i in range(allframe.shape[0])]
+    selframe = [i for i in range(allframe.shape[0])]
 print("allframe's dtype is "+str(allframe.dtype))
 print("average's dtype is "+str(average.dtype))
 #allframe = imageInterpolate(selframe )
@@ -48,6 +48,9 @@ print(diffdata.shape)
 result =[]
 for i in range(len(diffdata)):
     print('%dth frames pic'%(selframe[i]))
+    print(allframe[selframe[i]])
+    print("diff frame is")
+    print(diffdata)
     if diffdata[i].max() < 2.:
         continue
     ret = calcOtsuThresh(diffdata[i],i,True)
@@ -56,7 +59,8 @@ for i in range(len(diffdata)):
 print("sucessfully process all frame")
 result = np.array(result)
 print(result)
-print("the max thresh of the result is %.2f"%(result.max()))
-print("the minimum thresh of the result is %.2f"%(result.min()))
+if result:
+    print("the max thresh of the result is %.2f"%(result.max()))
+    print("the minimum thresh of the result is %.2f"%(result.min()))
 
 

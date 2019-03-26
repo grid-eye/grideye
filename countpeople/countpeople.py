@@ -776,8 +776,6 @@ class CountPeople:
         label[np.where(contours_cache==1)]=1
         label = label.astype(np.uint8)
         n,label = cv.connectedComponents(label,connectivity=4)
-        print("============final label is========")
-        print(label)
         return self.__findContours(label,[i for i in range(1,n)]),0
 
     def extractBody(self,average_temp,curr_temp,show_frame=False,seq=None):
@@ -794,8 +792,6 @@ class CountPeople:
             bin_img = bin_img.astype(np.uint8)
             label=np.zeros((self.row,self.col))
             n , label = cv.connectedComponents(bin_img,label,connectivity=4 )
-            print("label is ")
-            print(label)
             iter_count += 1
             area_arr = []
             label_dict= {}
@@ -813,7 +809,6 @@ class CountPeople:
                 if show_frame :
                     plt.imshow(label)
                     plt.show()
-            print(n,max_area)
             if n == 2 and (max_area <= self.image_size/4):
                 label = label.astype(np.uint8)
                 temp_img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)

@@ -109,13 +109,11 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
         cp.countPeopleNum()
         cp.showCurrentState()
     result = cp.getPeopleNum()
-    print("there are %d people in the room"%(result))
     mask_arr = np.array(mask_arr)
     respect_img =np.array(respect_img)
-    print("====print the loc of all center points===")
     last_seq = 0
     interval = 20
-    artificial_count = 0
+    artificial_count = -1
     for i in  range(len(center_temp_arr)):
         img = curr_arr[i]
         seq = plt_frames[i]
@@ -140,7 +138,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
     print("=================artificial count is ===================")
     print(artificial_count)
     y = "n"
-    if show_frame == True:
+    if show_frame == True and len(plt_frames)<=10:
         y = input("plot the img?yes:y,no:enter")
     if y == "y":
         print(plt_frames)

@@ -61,9 +61,12 @@ class CountPeople:
         self.__max_bg_counter = 4096#计算背景所用的最大帧数
         self.__k = 7
         self.otsu_threshold =0
+        self.isDoorHigh=False
         self.interpolate_method='cubic'
         self.bg_path="test/2019-3-12-second-1"
-        self.fg_path = "test/2019-3-12-second-4"
+        self.fg_path_0 = "test/2019-3-12-second-4"
+        self.fg_path_1 = "test/2019-3-26-3"
+        self.fg_path=[self.fg_path_0,self.fg_path_1]
         self.createTrainSample(self.bg_path,self.fg_path)
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
@@ -314,11 +317,16 @@ class CountPeople:
     def calculateImgFeature(self,diff_frame):
         var =np.var(np.ravel(diff_frame.ravel()))
         return (None,var,None)
-    def knnJudgeFrameContainHuman(self,current_temp,avgtemp,diff_frame):
+    def knnJudgeFrameContainHuman(self,current_temp,avgtemp,diff_frame,showVoteCount=False):
         feature_vector = self.calculateImgFeature(diff_frame)
         trainSet =self.knnSampleSet[:,1]
         trainLabels = self.knnSampleSet[:,2]
-        category , voteCount= knnClassify(trainSet,trainLabels,feature_vector,(1,),self.__k)
+        sorted_label= knnClassify(trainSet,trainLabels,feature_vector,(1,),self.__k)
+        category , voteCount=sorted_label[0]
+        if showVoteCount:
+            print(sorted_label)
+            print(category)
+            print("===========current vote count is %d========="%(voteCount))
         if category == 1:
             return True,
         else:
@@ -328,14 +336,14 @@ class CountPeople:
 
 
     def isCurrentFrameContainHuman(self,current_temp,
-            average_temperature,img_diff):
+            average_temperature,img_diff,show_vote=False):
         '''
             判断当前帧是否含有人类
             ret : (bool,bool) ret[0] True:含有人类，ret[0] False:没有人类，表示属于背景
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
         #print(img_diff)
-        return self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff)
+        return self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
         var_result = self.judgeFrameByDiffVar(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
@@ -685,7 +693,7 @@ class CountPeople:
         corr_set = set(corr)
         corr_bak=corr_set.copy()
         for item in corr_set:
-            if curr_temp[item] >=  max_temperature_thresh:
+            if curr_temp[item] >=  max_temperature_thresh or self.isDoorHigh:
                 cp_temp_dict[item] = curr_temp[item]
             else:
                 corr_bak.remove(item)
@@ -780,8 +788,15 @@ class CountPeople:
 
     def extractBody(self,average_temp,curr_temp,show_frame=False,seq=None):
         # issue version
-        thre_temp =average_temp.copy()+2
+        thre_temp =average_temp.copy()+1
         ones = np.ones(average_temp.shape,np.float32)
+        diff_test =ones*( curr_temp > thre_temp)
+        if diff_test.sum() >= self.image_size/4:
+            thre_temp += 1
+        else:
+            self.isDoorHigh=True
+        diff = curr_temp - average_temp
+        print(diff)
         all_area =self.image_size
         iter_count = 0
         max_iter = 2
@@ -872,7 +887,7 @@ class CountPeople:
             thre_temp += 0.25
     def extractBodyTest(self,average_temp,curr_temp,show_frame=False,seq=None):
         #"test version"
-        thre_temp =average_temp.copy()+2
+        thre_temp =average_temp.copy()+1
         ones = np.ones(average_temp.shape,np.float32)
         all_area =self.image_size
         iter_count = 0

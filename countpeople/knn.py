@@ -37,18 +37,27 @@ def showSample(dataSet):
     for item in dataSet:
         print(item)
 
-def createSampleSet(bg_path,fg_path):
-    bgframe = np.load(bg_path+"/imagedata.npy")
+def createSampleSet(bg_path,fg_paths):
     bgframe = np.load(bg_path+"/imagedata.npy")
     avgtemp_bg = np.load(bg_path+"/avgtemp.npy")
-    fgframe = np.load(fg_path+"/imagedata.npy")
-    avgtemp_fg = np.load(fg_path+"/avgtemp.npy")
-    human_frame = np.load(fg_path+"/human_data.npy")
-    select_index = [i for i in range(int(bgframe.shape[0]/3))]
+    select_index = [i for i in range(int(bgframe.shape[0]/5))]
     bgDataSet = calculateFeature(bgframe, avgtemp_bg, select_index, 0)
     # showSample(bgDataSet)
-    fgDataSet = calculateFeature(fgframe, avgtemp_fg, human_frame, 1)
-    # showSample(fgDataSet)
+    fgDataSet =np.zeros((0,0))
+    for i in range(len(fg_paths)):
+        fg_path = fg_paths[i]
+        fgframe = np.load(fg_path+"/imagedata.npy")
+        avgtemp_fg = np.load(fg_path+"/avgtemp.npy")
+        human_frame = np.load(fg_path+"/human_data.npy")
+        half = int(human_frame.shape[0]/2)
+        if human_frame.shape[0] == 0:
+            continue
+        fgData = calculateFeature(fgframe, avgtemp_fg, human_frame[0:half], 1)
+        if fgDataSet.shape[0]>0:
+            fgDataSet = np.append(fgDataSet,fgData,axis=0)
+        else:
+            fgDataSet = fgData
+    fgDataSet = np.array(fgDataSet)
     return bgDataSet,fgDataSet
 
 def createTrainingSetAndTestSet(bg_path, fg_path):
@@ -63,9 +72,9 @@ def createTrainingSetAndTestSet(bg_path, fg_path):
     bgDataSet, fgDataSet = allDataSet[0:bglen], allDataSet[bglen:]
     split_bg = int(len(bgDataSet)/2)
     split_fg = int(len(fgDataSet)/2)
-    trainSet = np.append(bgDataSet[0:split_bg]+fgDataSet[0:split_fg],axis=0)
+    trainSet = np.append(bgDataSet[0:split_bg],fgDataSet[0:split_fg],axis=0)
     # showSample(trainSet)
-    testSet =np.append( bgDataSet[split_bg:]+fgDataSet[split_fg:],axis=0)
+    testSet =np.append( bgDataSet[split_bg:],fgDataSet[split_fg:],axis=0)
     # showSample(testSet)
     return trainSet, testSet
 
@@ -92,8 +101,8 @@ def knnClassify(trainingSet, labels, test, weight, k=5):
         trainIndex = sortedDistanceIndex[i]
         voteLabel = labels[trainIndex]
         classCount[voteLabel] = classCount.get(voteLabel, 0)+1
-    sortedClassCount = sorted(classCount.items(), key=lambda d: d[1])
-    return sortedClassCount[0][0],sortedClassCount[0][1]
+    sortedClassCount = sorted(classCount.items(), key=lambda d: d[1],reverse=True)
+    return sortedClassCount
 
 
 def train(testSet, trainSet, weight, k):

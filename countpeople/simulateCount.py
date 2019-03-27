@@ -48,6 +48,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
     center_temp_arr=[]
     curr_arr = []#保存图片的差值(当前帧和背景的差值)
     plt_frames = []#被绘制的帧的序号
+    error_frame_dict={}
     cp.setExistPeople(False)
     for i in range(sel_frames.shape[0]):
         print("the %dth frame in all_frames "%(frame_arr[i]))
@@ -56,7 +57,11 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
         start_time = time.perf_counter()
-        ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff.copy())
+        show_vote = False
+        seq = frame_arr[i]
+        if (seq <= 1495  and seq >=1491)or (seq >= 2443 and seq <=2447)or(seq >=3447 and seq <=3452):
+            show_vote=True
+        ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff.copy(),show_vote)
         end_time = time.perf_counter()
         interval = end_time - start_time
         #print("=============analyse this frame contain human's time is====================")
@@ -118,23 +123,27 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
     for i in  range(len(center_temp_arr)):
         img = curr_arr[i]
         seq = plt_frames[i]
-        human_data.append(all_frames[seq])
+        human_data.append(seq)
         print(seq,end=",")
         if center_temp_arr[i]:
             if seq > last_seq +interval:
                 artificial_count += 1
                 print("=============artificial count is %d==============="%(artificial_count))
             else:
-                if seq > last_seq +4 and seq <= last_seq +7:
+                if seq > last_seq +4 and seq <= last_seq +8:
                     error_frame.append(seq)
                     for j in range(last_seq+1,seq):
-                        human_data.append(all_frames[j])
+                        print("============add %d in frame ============= "%(j))
+                        print(all_frames[j])
+                        human_data.insert(0,j)
             last_seq = seq
         for pos in center_temp_arr[i]:
             print(pos,end="===>")
             print(round(img[pos[0],pos[1]],2) ,end=",")
         print()
     print()
+    print("center temp arr len is %d "%(len(center_temp_arr)))
+    print("human data len is %d"%(len(human_data)))
     print("===================calculate the distance===================================")
     pos_arr = []
     for i in center_temp_arr:
@@ -154,8 +163,8 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
     print("error seq is ")
     print(error_frame)
     human_data = np.array(human_data)
-    np.save(path+"/human_data.npy",human_data)
-    print("sucessfully save human_data in "+path+"/human_data.npy")
+    np.save(path+"/human_data_simu.npy",human_data)
+    print("sucessfully save human_data in "+path+"/human_data_simu.npy")
     return area_ret,cp.getPeopleNum()
 
 if __name__ == "__main__":

@@ -482,57 +482,9 @@ class CountPeople:
                         frame_counter += 1
                     continue
                 self.setExistPeople(True)
-                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
-                if cnt_count ==0:
-                    self.updateObjectTrackDictAgeAndInterval()
-                    self.countPeopleNum()
-                    self.showCurrentState()
-                    continue
+                (cnt_count,image ,contours,hierarchy),area =self.extractBodyCollect(self.average_temp, currFrame)
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
-                '''
-                print("==========over iter====================")
-                for l ,size in sorted_label_dict:
-                    if size <= self.col-3 and size > 2:
-                        contours_cache[np.where(label==l)] = 1
-                sum_area = sum(area_arr)
-                if iter_count==max_iter :
-                    if sum_area <= self.image_size/8:
-                        single_dog = True
-                    min_item = sorted_label_dict[-1]
-                    if min_item[1] == 1:
-                        sorted_label_dict.remove(min_item)
-                        del label_dict[min_item[0]]#去掉大小为1的连通分量
-                temp = np.zeros((self.row,self.col)).astype(np.uint8)
-                temp[np.where(label == max_label_tuple[0])] = 1
-                temp_img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                h0,w0 = self.getActualHeightWidth(contours[0],label)
-                ratio = h0/w0
-                area = w0*h0
-                if  w0 >= self.col-3 or max_area >= self.image_size*0.45 or n > 4:
-                    thre_temp +=0.25
-                    continue
-                proportion = self.__hasTwoPeople(h0,w0,ratio,area)
-                if proportion:
-                    print("proportion is true")
-                    newlabel = np.zeros((self.row,self.col))
-                    newlabel = np.array(newlabel,np.uint8)
-                    sublabel = newlabel
-                    actual_cnts = [contours[0]]
-                    if second_label_tuple:
-                        sublabel[np.where(label ==second_label_tuple[0])]=1
-                        img,conts,heir=cv.findContours(sublabel,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                        h0,w0 = self.getActualHeightWidth(conts[0],label)
-                        ratio = h0/w0
-                        area = h0*w0
-                        proportion =self.__hasTwoPeople(h0,w0,ratio,area)
-                        if proportion:
-                            actual_cnts.append(conts[0])
-                    self.__splitContours(label,actual_cnts)
-                    label[np.where(contours_cache==1)]=1
-                    return self.__findContours(label,label_dict,all_area),0
-                '''
-            if max_area  > all_area * 0.1:#多个人的情况
                 self.trackPeople(diff_temp,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄
                 self.countPeopleNum()
@@ -648,7 +600,8 @@ class CountPeople:
                         '''
                     continue
                 self.setExistPeople(True)
-                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
+                print("extractbody")
+                (cnt_count,image ,contours,hierarchy),area =self.extractBodyCollect(self.average_temp, currFrame)
                 if cnt_count ==0:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
@@ -774,7 +727,6 @@ class CountPeople:
             size = len(index[0])
             if size > max_width:
                 max_width = size
-        print(h,max_width)
         return h,max_width
     def __hasTwoPeople(self,h0,w0,ratio,area):
         if ratio >= 1.5 and area >=(self.row-2)*(self.col-4):
@@ -894,6 +846,97 @@ class CountPeople:
                 print(label)
                 return self.__getFinalContours(label,contours_cache)
             thre_temp += 0.25
+    def extractBodyCollect(self,average_temp,curr_temp,show_frame=False,seq=None):
+        # issue version
+        thre_temp =average_temp.copy()+1
+        ones = np.ones(average_temp.shape,np.float32)
+        diff_test =ones*( curr_temp > thre_temp)
+        if diff_test.sum() >= self.image_size/4:
+            thre_temp += 1
+        else:
+            self.isDoorHigh=True
+        iter_count = 0
+        max_iter = 2
+        single_dog = False
+        all_area = self.image_size
+        contours_cache = np.zeros((self.row,self.col),np.uint8)
+        while True:
+            bin_img = ones*(curr_temp>= thre_temp)
+            bin_img = bin_img.astype(np.uint8)
+            label=np.zeros((self.row,self.col))
+            n , label = cv.connectedComponents(bin_img,label,connectivity=4 )
+            iter_count += 1
+            area_arr = []
+            label_dict= {}
+            for i in range(1,n):
+                sub_matrix = label[np.where(label==i)]
+                area_arr.append(sub_matrix.size)
+                label_dict[i] = sub_matrix.size
+            if not area_arr:
+                return (0,None,None,None),0
+            sorted_label_dict = sorted(label_dict.items(),key=lambda d:d[1],reverse=True)
+            max_label_tuple = sorted_label_dict[0]
+            max_area = max_label_tuple[1]
+            if iter_count  > 0:
+                #print("max_size is %d "%(max_area))
+                if show_frame :
+                    plt.imshow(label)
+                    plt.show()
+            if n == 2 and (max_area <= self.image_size/4):
+                label = label.astype(np.uint8)
+                temp_img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                #print("=======one people case =======")
+                h0,w0 = self.getActualHeightWidth(contours[0],label)
+                #print("h0,w0")
+                #print(h0,w0)
+                if h0 <= self.row/2:
+                        return self.__getFinalContours(label,contours_cache)
+            if iter_count >= max_iter:#超过最大的迭代次数
+                isReturn = False
+                sum_area = sum(area_arr)
+                if iter_count==max_iter :
+                    if sum_area <= self.image_size/8:
+                        single_dog = True
+                    min_item = sorted_label_dict[-1]
+                    if min_item[1] == 1:
+                        sorted_label_dict.remove(min_item)
+                        del label_dict[min_item[0]]#去掉大小为1的连通分量
+                        curr_temp[np.where(label==min_item[0])]=0
+                for l ,size in sorted_label_dict:
+                    if n > 4:
+                        thre_temp += 0.25
+                        break
+                    if size <= self.col-3 and size > 2:
+                        contours_cache[np.where(label==l)] = 1
+                    temp = np.zeros((self.row,self.col)).astype(np.uint8)
+                    temp[np.where(label ==l)] = 1
+                    temp_img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                    if not contours:
+                        break
+                    h0,w0 = self.getActualHeightWidth(contours[0],label)
+                    ratio = h0/w0
+                    area = w0*h0
+                    if  w0 > self.col-4 or max_area >= self.image_size*0.45:
+                        thre_temp +=0.25
+                        break
+                    proportion = self.__hasTwoPeople(h0,w0,ratio,area)
+                    if proportion:
+                        #print("proportion is true")
+                        isReturn=True
+                        self.__splitContours(label,contours)
+                    else:
+                        if size >= 3 and size <= self.row:
+                            contours_cache [np.where(label == l)]=1#这是为了保存之前提取的轮廓
+                if isReturn:
+                    return self.__getFinalContours(label,contours_cache)
+                if single_dog or  max_area < all_area/8:#尽可能减少高温区域的面积
+                    min_label = sorted_label_dict[-1]
+                    if min_label[1]==1 and iter_count <= max_iter:
+                        label[np.where(label==min_label[0])]=0
+                    return self.__getFinalContours(label,contours_cache)
+            elif max_area  < math.ceil(all_area*0.1):#
+                return self.__getFinalContours(label,contours_cache)
+            thre_temp += 0.25
     def extractBodyBak(self , average_temp,curr_temp,show_frame=False,seq=None):
         thre_temp =average_temp.copy()+0.25
         ones = np.ones(average_temp.shape,np.float32)
@@ -962,142 +1005,6 @@ class CountPeople:
                 return (1,img,contours,heir),0
             else:
                 thre_temp += 0.25
-
-
-    def extractBodyBak(self,average_temp , curr_temp,show_frame = False,seq=None):
-        '''
-           找到两人之间的间隙(如果有两人通过)
-           在背景温度的基础上增加0.25摄氏度作为阈值,低于阈值作为背景，高于阈值作为前景，观察是否能区分两个轮廓，如果不能就继续循环增加0.25
-           参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
-        '''
-        #show_frame =True
-        thre_temp = average_temp.copy()+1 #阈值温度
-        ones = np.ones(average_temp.shape , np.float32)
-        ret = (0 , None,None,None)
-        area_down_thresh,thresh_up,thresh_down = self.__image_area*0.01,self.__image_area/9,self.__image_area/10
-        kernel = np.ones((1,1))
-        single_people_flag=False
-        first_thresh = True
-        while True:
-            '''
-            print("current threshold is ")
-            print(thre_temp)
-            print("current temperature is")
-            print(curr_temp)
-            '''
-            #show_frame=True
-            '''
-            print("===curr_temp's sum is===")
-            print(curr_temp.sum())
-            print("===thre_temp's sum is ===")
-            print(thre_temp.sum())
-            print("===ones sum is===")
-            print(ones.sum())
-            '''
-            #diff = curr_temp - thre_temp
-            #diff[diff<0] = 0
-            # 对图片进行ostu二值化
-            ##th,bin_img = self.otsuThreshold(diff)
-            '''
-            print("after otsu binarize===")
-            '''
-            #plt.imshow(bin_img)
-            #plt.show()
-            bin_img = ones * (curr_temp >= thre_temp)
-            '''
-            bsum = binary.sum()
-            proportion = round(bsum / self.image_size,2)
-            print("binary_sum is %d"%(bsum))
-            print("the propotion is %.2f"%(proportion))
-            thresh = np.round(binary)
-            thresh = np.array(thresh , np.uint8)
-            #print("after binarize :")
-            #print(thresh)
-            '''
-            bin_img = np.array(bin_img,np.uint8)
-            #thresh = cv.erode(bin_img,kernel,iterations=1)#进行形态学侵蚀
-            img2 , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-            cont_cnt = len(contours)
-            if show_frame:
-                img2 = np.array(img2,np.float32)
-                rect = np.zeros(img2.shape,np.uint8)
-                rect = cv.cvtColor(rect , cv.COLOR_GRAY2BGR)
-                x,y,w,h = cv.boundingRect(contours[0])
-                cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
-                self.showExtractProcessImage(curr_temp,img2 ,rect)
-            if cont_cnt == 0:
-                return (0,None,None,None),0
-            #print("has %d people"%(cont_cnt))
-            #求轮廓的面积
-            area_dict = {}
-            area_list = []
-            for c in contours:
-                area = cv.contourArea(c)
-                while area  in area_dict:
-                    area += 0.1
-                area_dict[area] = c
-                area_list.append(area)
-            if first_thresh:
-                first_thresh_sum = sum(area_list)
-                print("=====first_thresh_sum=====")
-                print(first_thresh_sum)
-                if first_thresh_sum < 5:
-                    first_thresh=False
-                    single_people_flag=True
-                    self.setSinglePeople(True)
-            print("===========area list is =========")
-            print(area_list)
-            bool_arr_down = np.array(area_list) < thresh_down
-            bool_arr_up = np.array(area_list) < thresh_up
-            if all( bool_arr_down) or all(bool_arr_up) :
-                print(area_list)
-                ret = []
-                for a in area_list:
-                    if a > area_down_thresh:
-                        ret.append(a)
-                    else:
-                        del area_dict[a]
-                img2_copy = img2.copy()
-                #cv.drawContours(img2,contours,-1,(0,255,0),2)
-                cnts = []
-                origin_num = len(ret)#原来的轮廓的数目
-                erosion = cv.erode(bin_img,kernel,iterations=1)#进行侵蚀
-                img2 , conts , heir = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-                erode_cnt = len(conts)#侵蚀后的轮廓数目
-                if erode_cnt != origin_num and not single_people_flag:
-                    erosion_area_list=[]
-                    for c in conts:
-                        erosion_area_list.append(cv.contourArea(c))
-                    print("====ersion area list is====")
-                    print(erosion_area_list)
-                    print("===after erosing===")
-                    return (erode_cnt,img2.copy,conts,heir),first_thresh_sum
-                for k,v in area_dict.items():
-                    cnts.append(v)
-                pnum = len(ret)
-                if pnum > 1:
-                        print("=======only has one people======")
-                        max_area_k = -1
-                        for k,v in area_dict.items():
-                            if k > max_area_k :
-                                max_area_k = k
-                            else:
-                                try:
-                                    id_arr = [id(i) for i in cnts]
-                                    id_index = id_arr.index(id(v))
-                                    cnts.pop(id_index)
-
-                                except ValueError:
-                                    print([id(item) for item in cnts])
-                                    print(v)
-                                    print(id(v))
-                                    raise ValueError()
-
-                        pnum = 1
-                return (pnum,img2_copy,cnts,heirarchy),first_thresh_sum
-            else:
-                thre_temp += 0.25
-                continue
     def showExtractProcessImage(self,origin,thresh ,images_contours):
         #输出提取人体过程的图片
         print("=================the contours of the image==============")

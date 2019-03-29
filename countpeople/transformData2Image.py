@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import cv2 as cv
 import os
 import sys
+from interpolate import imageInterpolate
 
 if len(sys.argv) > 2:
     path = sys.argv[1]
@@ -11,14 +12,15 @@ else:
     raise ValueError("please input the image's data's path and output dir")
 if not os.path.exists(path):
     raise ValueError("please input a valid path")
+
 def compatibleForCv(image):
-    cv.imwrite("temp.png",image)
-    return cv.imread("temp.png",0)
+    return image.astype(np.uint8)
 def convertData2Image(imageData,image_id,filter_process=False):
     if filter_process == True:
         plt.subplot(221)
     else:
         plt.subplot(211)
+    imageData = imageInterpolate(imageData,"cubic")
     plt.imshow(imageData)
     plt.xticks([])
     plt.yticks([])
@@ -44,12 +46,16 @@ def convertData2Image(imageData,image_id,filter_process=False):
         plt.xticks([])
         plt.yticks([])
     plt.tight_layout()
-    plt.savefig("image_%d"%(image_id))
+    plt.savefig("%s/image_%d"%(output,image_id))
     plt.clf()
 imagedata = np.load(path)
 print("load data sucessfully!")
+if len(sys.argv) > 3:
+    sel_frame = [ int(s) for s in sys.argv[3:]]
+else:
+    sel_frame = [i for i  in range(imagedata.shape[0])]
 print(imagedata.shape)
-for i in range(len(imagedata)):
+for i in sel_frame:
     print('%dth frames pic'%(i))
     convertData2Image(imagedata[i],i,True)
 print("save sucessfully")

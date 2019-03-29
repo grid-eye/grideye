@@ -64,6 +64,7 @@ class CountPeople:
         self.__k = 7
         self.otsu_threshold =0
         self.isDoorHigh=False
+        self.door_high_max_temp=1.5
         self.interpolate_method='cubic'
         self.bg_path="test/2019-3-12-second-1"
         self.fg_path_0 = "test/2019-3-12-second-4"
@@ -637,6 +638,12 @@ class CountPeople:
     def showCurrentState(self):
         self.showPeopleNum()
         self.showEntranceExitEvents()
+        self.showEnterNum()
+        self.showExitNum()
+    def showEnterNum(self):
+        print("======================current enter num is %d================"%(self.__enter))
+    def showExitNum(self):
+        print("======================exit num is %d================"%(self.__exit))
     def showPeopleNum(self):
         print("=================current people num is %d ==============="%(self.__peoplenum))
     def showEntranceExitEvents(self):
@@ -652,7 +659,8 @@ class CountPeople:
         corr_set = set(corr)
         corr_bak=corr_set.copy()
         for item in corr_set:
-            if curr_temp[item] >=  max_temperature_thresh or self.isDoorHigh:
+            local_max_temp = curr_temp[item]
+            if local_max_temp  >=  max_temperature_thresh or(self.isDoorHigh and local_max_temp > self.door_high_max_temp):
                 cp_temp_dict[item] = curr_temp[item]
             else:
                 corr_bak.remove(item)
@@ -1392,7 +1400,7 @@ if __name__ == "__main__":
                 cp.start( outputSubDir,show_frame=show_frame)
             else:
                 cp.process(outputSubDir,show_frame=show_frame)
-        elif sys.argc[1] == "collect":
+        elif sys.argv[1] == "collect":
             if len(sys.argv)>2:
                 subdir =""
                 if sys.argv[2] == "delay":
@@ -1400,9 +1408,9 @@ if __name__ == "__main__":
                     time.sleep(10)
                     # sys.argv[2] represents the custom  dir of  the image saved    
                     if len(sys.argv) > 3:
-                        subdir = sys.argv[2]
+                        subdir = sys.argv[3]
                 else:
-                    subdir = sys.argv[1]
+                    subdir = sys.argv[2]
                 current_dir = os.path.abspath(os.path.dirname(__file__))
                 adjust_dir = current_dir
                 if current_dir.endswith("grideye"):
@@ -1410,9 +1418,7 @@ if __name__ == "__main__":
                 packageDir = adjust_dir
                 actual_dir = adjust_dir
                 path_arg = ""
-                if len(sys.argv) > 3:
-                    actual_dir = actual_dir + "/"+subdir
-                    path_arg = subdir+"/"
+                actual_dir = actual_dir + "/"+subdir
                 # sleep 10 s
                 print("the actual_dir is %s" % (actual_dir))
 
@@ -1423,6 +1429,6 @@ if __name__ == "__main__":
                 # 这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
                 countp.setPackageDir(packageDir)
                 try:
-                    countp.acquireImageData()
+                    countp.acquireImageData(customDir=actual_dir)
                 except KeyboardInterrupt("keyboard interrupt"):
                     print("exit")

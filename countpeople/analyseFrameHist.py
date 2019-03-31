@@ -110,6 +110,6 @@ if __name__ == "__main__":
     is_show_frame = False
     print(show_frame)
     cp = CountPeople()
-    if show_frame == "y":
+    if show_frame == "show_frame":
         is_show_frame=True
     analyseSequence(allframe,avgtemp , argarray,show_frame=is_show_frame,cp=cp)

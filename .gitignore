@@ -7,4 +7,5 @@ imagedata/
 *temp/
 *.npy
 *test/
+.py.sw.*
 

@@ -660,7 +660,7 @@ class CountPeople:
         corr_bak=corr_set.copy()
         for item in corr_set:
             local_max_temp = curr_temp[item]
-            if local_max_temp  >=  max_temperature_thresh or(self.isDoorHigh and local_max_temp > self.door_high_max_temp):
+            if local_max_temp  >=  max_temperature_thresh or self.isDoorHigh:
                 cp_temp_dict[item] = curr_temp[item]
             else:
                 corr_bak.remove(item)

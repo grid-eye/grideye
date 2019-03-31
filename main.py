@@ -5,7 +5,7 @@ from countpeople.calAveBgTemperature import readBgTemperature
 """
 这个文件是自动收集n次m帧数据
 """
-n ,m = 20,2000
+n ,m = 20,1000
 if len(sys.argv) >3 :
         try:
             currDir = sys.argv[1]

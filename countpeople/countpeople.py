@@ -17,9 +17,9 @@ from target import Target
 class CountPeople:
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
-    def __init__(self, pre_read_count=30, th_bgframes=128, row=8, col=8):
+    def __init__(self, pre_read_count=30, th_bgframes=128, row=8, col=8,load_amg = False):
         # the counter of the bgframes
-        if __name__ == "__main__":
+        if __name__ == "__main__" or load_amg:
             self.i2c = busio.I2C(board.SCL, board.SDA)
             self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
         self.grid_x, self.grid_y = np.mgrid[0:7:32j, 0:7:32j]
@@ -77,6 +77,22 @@ class CountPeople:
         for i in range(self.pre_read_count):
             for row in self.amg.pixels:
                 pass
+
+    def preReadBgTemperature(self,bg_number=400,output_dir ="temp"):
+        output_dir = self.ensurePathValid(output_dir)
+        counter = 0 
+        all_frame = []
+        while counter < bg_number:
+            curr_frame = []
+            for row in self.amg.pixels:
+                curr_frame.append(row)
+            all_Frame.append(cframe)
+            counter += 1
+        self.average_temp = self.calAverageTemp(all_frame)
+        np.save(output_dir+"/avgtemp.npy",self.average_temp)
+    def readAndSaveBgAndBodyTemperature(self,bg_number=400,body_number = 1000, output_dir="temp"):
+        self.preReadBgTemperature(bg_number,output_dir)
+        self.acquireImageData(body_number , output_dir)
     def createTrainSample(self,bg_path,fg_path):
         if hasattr(self,"knnSampleSet"):
             return 
@@ -364,11 +380,7 @@ class CountPeople:
             print("case 3：=======no people=======")
             print(sums)
             return (False,True)
-
-    def acquireImageData(self,frame_count = 2000,customDir = None):
-        '''
-            这个方法是为了获得图像数据，数据保存在customDir中
-        '''
+    def ensurePathValid(self,customDir):
         if customDir:
             if not os.path.exists(customDir):
                 os.mkdir(customDir)
@@ -377,6 +389,13 @@ class CountPeople:
             customDir = "imagetemp"
             if not os.path.exists(customDir):
                 os.mkdir(customDir)
+        return customDir
+
+    def acquireImageData(self,frame_count =1000 ,customDir = None):
+        '''
+            这个方法是为了获得图像数据，数据保存在customDir中
+        '''
+        customDir = self.ensurePathValid(customDir)
         # load the avetemp.py stores the average temperature
         # the result of the interpolating for the grid
         average_path = customDir+"/"+"avgtemp.npy"
@@ -385,7 +404,7 @@ class CountPeople:
         frame_counter = 0  # a counter of frames' num
         # diff_queues saves the difference between average_temp and curr_temp
         try:
-            while True:
+            while frame_counter < frame_count:
                 currFrame = []
                 for row in self.amg.pixels:
                     # Pad to 1 decimal place
@@ -396,9 +415,7 @@ class CountPeople:
                 all_frames.append(currFrame)
                 frame_counter += 1
                 print("the %dth frame" % (frame_counter))
-                if frame_counter > frame_count:
-                    self.saveImageData(all_frames, customDir)
-                    break
+            self.saveImageData(all_frames, customDir)
 
         except KeyboardInterrupt:
             print("catch keyboard interrupt")

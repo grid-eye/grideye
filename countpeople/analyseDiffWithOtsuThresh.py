@@ -59,8 +59,5 @@ for i in range(len(diffdata)):
 print("sucessfully process all frame")
 result = np.array(result)
 print(result)
-if result:
-    print("the max thresh of the result is %.2f"%(result.max()))
-    print("the minimum thresh of the result is %.2f"%(result.min()))
 
 

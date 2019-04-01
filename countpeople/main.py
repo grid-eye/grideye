@@ -1,7 +1,6 @@
 import os
 import sys
 from countpeople import CountPeople as CP
-from calAveBgTemperature import readBgTemperature 
 """
 这个文件是自动收集n次m帧数据
 """
@@ -26,7 +25,7 @@ else:
         else:
             raise ValueError("please specified a valid output dir for the imagedata")
 
-cp = CP()
+cp = CP(load_amg=True)
 cp.preReadPixels()
 counter = 0
 curr = os.path.abspath(os.path.dirname(__file__))
@@ -41,9 +40,8 @@ while counter < n:
     bgtempdir =bgactual+str(counter)
     cudr = currDir+str(counter)
     imagedir = imageactual+str(counter)
-    readBgTemperature(400,bgtempdir)
     try:
-        cp.acquireImageData(m,imagedir)
+        cp.readAndSaveBgAndBodyTemperature(400,m,imagedir)
     except KeyboardInterrupt:
         print("catch a keyboardinterrupt ,break the while")
         break

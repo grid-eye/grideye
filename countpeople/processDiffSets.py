@@ -19,6 +19,7 @@ frame_sums = 0
 end = 0
 if len(sys.argv) > 3:
     end = int(sys.argv[3])
+print("==============end = %d =========="%(end))
 avgtemp = None
 loadAvg = False
 for i in range(num):

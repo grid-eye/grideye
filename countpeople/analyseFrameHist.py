@@ -31,8 +31,6 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False ,cp=None,interpol
         img_ave = np.average(currframe)
         print("==============diff_currframe average is %.2f ====================="%(img_ave))
         ave_arr.append(img_ave)
-        curr_average = np.average(img)
-        avg_average = np.average(avgtemp)
         hists,bins = np.histogram(currframe.ravel() , bins=120 , range=(-6,6) )
         histMap = {}
         bins = bins[:-1]

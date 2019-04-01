@@ -9,7 +9,7 @@ def analyseImageData(imagedata,avgtemp,cp=None, interpolate_method="linear",end=
     #imagedata = imageInterpolate(imagedata,interpolate_method)
     #avgtemp = imageInterpolate(avgtemp,interpolate_method)
     diff_queues = []
-    if end == -1:
+    if end <= 0  :
         end = len(imagedata)
     for i in range(end):
         diff_queues.append(imagedata[i] - avgtemp)
@@ -58,7 +58,10 @@ if __name__ == "__main__":
     cp = CountPeople()
     allframe = np.load(path+"/imagedata.npy")
     avgtemp  = np.load(path+"/avgtemp.npy")
-    ret = analyseImageData(allframe,avgtemp,cp=cp)
+    end = -1
+    if len(sys.argv) > 2:
+        end = int(sys.argv[2])
+    ret = analyseImageData(allframe,avgtemp,cp=cp,end = end)
     print("the index of the frame is over thresh is as listed")
     overThresh = ret[3]
     np.save(path+"/human_data.npy",np.array(overThresh))#保存超过阈值的帧序号

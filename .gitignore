@@ -1,12 +1,8 @@
-images/
 imagedata/
 *.png
 *.jpeg
 *.jpg
 *.tiff
 *temp/
-*.npy
 *test/
 .py.sw.*
-test/
-

@@ -2,7 +2,7 @@ import numpy as np
 import cv2 as cv
 import time
 import busio
-import board
+#import board
 import adafruit_amg88xx
 import math
 import scipy
@@ -722,13 +722,16 @@ class CountPeople:
                 label[row_index+1,x:x+w]=0
                 refindContours = True
         return refindContours
+    def findContours(self,img):
+        contours,heir=cv.findContours(img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        return img,contours,heir
     def __findContours(self,label,key_arr):
         temp = np.zeros((self.row,self.col),np.uint8)
         cnts = []
         for l in key_arr:
             temp[np.where(label == l)] =1
             temp[np.where(label!=l)]=0
-            img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            img ,contours,heir=self.findContours(temp)
             cnts.append(contours[0])
         return (len(key_arr),label,cnts,heir)
     def __findContoursBak(self,label,label_dict,all_area):
@@ -739,7 +742,7 @@ class CountPeople:
         label[np.where(label != special)] = 0
         label[np.where(label == special)] = 1
         label = label.astype(np.uint8)
-        img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        img,contours,heir=self.findContours(label)
         print("print the x,y,w,h")
         print(len(contours))
         return (len(contours),img,contours,heir)
@@ -812,7 +815,7 @@ class CountPeople:
                     plt.show()
             if n == 2 and (max_area <= self.image_size/4):
                 label = label.astype(np.uint8)
-                temp_img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                label , contours,heir=self.findContours(label)
                 #print("=======one people case =======")
                 h0,w0 = self.getActualHeightWidth(contours[0],label)
                 #print("h0,w0")
@@ -839,7 +842,7 @@ class CountPeople:
                         contours_cache[np.where(label==l)] = 1
                     temp = np.zeros((self.row,self.col)).astype(np.uint8)
                     temp[np.where(label ==l)] = 1
-                    temp_img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                    temp , contours,heir=self.findContours(temp)
                     if not contours:
                         break
                     h0,w0 = self.getActualHeightWidth(contours[0],label)
@@ -909,7 +912,7 @@ class CountPeople:
                     plt.show()
             if n == 2 and (max_area <= self.image_size/4):
                 label = label.astype(np.uint8)
-                temp_img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                label,contours,heir=cv.findContours(label)
                 #print("=======one people case =======")
                 h0,w0 = self.getActualHeightWidth(contours[0],label)
                 #print("h0,w0")
@@ -935,7 +938,7 @@ class CountPeople:
                         contours_cache[np.where(label==l)] = 1
                     temp = np.zeros((self.row,self.col)).astype(np.uint8)
                     temp[np.where(label ==l)] = 1
-                    temp_img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                    img ,contours,heir=cv.findContours(temp)
                     if not contours:
                         break
                     h0,w0 = self.getActualHeightWidth(contours[0],label)
@@ -998,7 +1001,7 @@ class CountPeople:
                             label[np.where(label==key2)]=1
                         label[np.where(label!=1)] = 0
                         bin_img = label.astype(np.uint8)
-                        img,contours,heir=cv.findContours(bin_img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                        bin_img ,contours,heir=self.findContours(bin_img)
                         con_area ={}
                         cont_area_arr = []
                         max_area = -1
@@ -1026,7 +1029,7 @@ class CountPeople:
                     label[np.where(label == key)] = 1
                 label[np.where(label != 1)] = 0
                 bin_img =label.astype(np.uint8)
-                img,contours,heir=cv.findContours(bin_img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                bin_img ,contours,heir=cv.findContours(bin_img)
                 return (1,img,contours,heir),0
             else:
                 thre_temp += 0.25

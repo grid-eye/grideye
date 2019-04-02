@@ -4,5 +4,4 @@ imagedata/
 *.jpg
 *.tiff
 *temp/
-*test/
 .py.sw.*

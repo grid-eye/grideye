@@ -7,8 +7,6 @@ from interpolate import imageInterpolate
 import cv2 as cv
 from otsuBinarize import otsuThreshold
 def analyseSequence(allframe,avgtemp,argarray,show_frame=False,thresh=None ,interpolate_method = "linear"):
-    #allframe = imageInterpolate(allframe,interpolate_method)
-    #avgtemp = imageInterpolate(avgtemp,interpolate_method)
     diff_frame = []
     curr_frame =[]
     ave_arr =[]
@@ -21,50 +19,28 @@ def analyseSequence(allframe,avgtemp,argarray,show_frame=False,thresh=None ,inte
         print(allframe[argarray[i]])
         seq = argarray[i]
         currframe = diff_frame[i]
-        img = curr_frame[i]
-        exceed_frame = np.where(currframe<0)
-        currframe[exceed_frame] = 0
         img_ave = np.average(currframe)
         ave_arr.append(img_ave)
-        curr_average = np.average(img)
-        avg_average = np.average(avgtemp)
-        #print("diff ave of curr temp and avgtemp is %.2f"%(diff_ave))
-        #print("the maximum of the diff frame is %.2f"%(currframe.max()))
-        '''
-        for k, v in  histMap.items():
-            if k > 2:
-                exceed_sum += v
-        print("====exceed sum is %d ===="%(exceed_sum))
-        gaussian -=1 
-        ret = np.where(gaussian < 0)
-        gaussian[ret] = 0
-        start = time.perf_counter()        
-        end = time.perf_counter()
-        occupy_time = end -start
-        print("========time occupyed==============")
-        #print(occupy_time)
-        #print("the sum of thre after otsu %d"%(thre.sum()))
-        #print("it conforms %% %.2f"%((thre.sum()/1024)))
-        #print("thresh's sum is")
-        #print(thre.sum())
-        #print("sum is %.2f"%(thre.sum()))
-        '''
         if show_frame:
             hists,bins = np.histogram(currframe.ravel() , bins=120 , range=(-6,6) )
             histMap = {}
             bins = bins[:-1]
             rest = currframe.size - hists.sum() 
             hists[-1]+=rest
+            print(hists)
             ret,thre = otsuThreshold(currframe , 64)
             for i in range(len(bins)):
-                histMap[bins[i]] = hists[i]
+                histMap[bins[i]] = int(hists[i])
             gaussian = cv.GaussianBlur(currframe,(5,5),0)
             plt.figure(num=seq)
             plt.subplot(2,2,1)
             plt.imshow(currframe)
             plt.xticks([]),plt.yticks([])
-            plt.subplot(2,2,2)
-            plt.plot(bins , hists)
+            ax2 = plt.subplot(2,2,2)
+            ax2.set_ylabel("pixel number")
+            ax2.set_xlabel("temperature difference")
+            ax2.set_title("temperature difference distribution")
+            ax2.plot(bins , hists)
             plt.subplot(2,2,3)
             plt.imshow(thre)
             plt.xticks([])
@@ -112,6 +88,6 @@ if __name__ == "__main__":
         argarray = [i for i in range(len(allframe))]
     print(argarray)
     is_show_frame = False
-    if show_frame == "y":
+    if show_frame == "show_frame":
         is_show_frame=True
     analyseSequence(allframe,avgtemp , argarray,show_frame=is_show_frame)

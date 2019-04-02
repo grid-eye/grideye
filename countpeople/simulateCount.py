@@ -29,7 +29,7 @@ def showImage(original , newImage,contours_arr,plt_frames,path=None):
             plotImage(omg, img,rect,seq)
     else:
         plotImage(original,newImage,contours_arr,plt_frames)
-def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show_extract_frame=False):
+def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=False,show_extract_frame=False):
     human_data = []
     select_frames_dict = {}
     select_frames_list = []
@@ -163,8 +163,10 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,show_frame=False,show
     print("error seq is ")
     print(error_frame)
     human_data = np.array(human_data)
-    np.save(path+"/human_data_simu.npy",human_data)
-    print("sucessfully save human_data in "+path+"/human_data_simu.npy")
+    path =path +"/human_data.npy"
+    if not  os.path.exists(path):
+        np.save(path,human_data)
+    print("sucessfully save human_data in "+path)
     return area_ret,cp.getPeopleNum()
 
 if __name__ == "__main__":
@@ -182,4 +184,4 @@ if __name__ == "__main__":
             show_img=True
     else:
         frame_arr = [i for i in range(len(all_frames))]
-    analyseFrameSequence(frame_arr,all_frames,average_temp,True,show_img)
+    analyseFrameSequence(frame_arr,all_frames,average_temp,sys.argv[1],True,show_img)

@@ -8,4 +8,5 @@ imagedata/
 *.npy
 *test/
 .py.sw.*
+test/
 

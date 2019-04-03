@@ -3,6 +3,9 @@ import numpy as np
 def analyseHistAccuracy(allframe , avgtemp,xthresh= 1.8,ythresh =2):
     fg_num = 0
     bg_num = 0 
+    print("===========xthresh is %.2f==========="%(xthresh))
+    print("===========ythresh is %.2f==========="%(ythresh))
+
     for item in allframe:
         diff = item - avgtemp
         target_corr = np.where(diff > xthresh)

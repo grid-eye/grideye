@@ -182,6 +182,8 @@ if __name__ == "__main__":
         y = input("show image ?y or n:\n")
         if y == "y":
             show_img=True
+        elif y == "human":
+            all_frames = np.load(path+"/human_data.npy")
     else:
         frame_arr = [i for i in range(len(all_frames))]
     analyseFrameSequence(frame_arr,all_frames,average_temp,sys.argv[1],True,show_img)

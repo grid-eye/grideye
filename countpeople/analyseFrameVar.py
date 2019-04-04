@@ -9,19 +9,12 @@ from otsuBinarize import otsuThreshold
 def analyseSequence(allframe,avgtemp,argarray,show_frame=False,thresh=None ,interpolate_method = "linear"):
     #allframe = imageInterpolate(allframe,interpolate_method)
     #avgtemp = imageInterpolate(avgtemp,interpolate_method)
-    diff_frame = []
-    curr_frame =[]
-    for i in argarray:
-        diff_frame.append(allframe[i] - avgtemp)
-        curr_frame.append(allframe[i])
-    diff_frame = np.round(np.array(diff_frame),1)
     var_arr = []
     var_diff_arr=[]
-    for i in range(len(argarray)):
-        print("the %sth diff frame "%(argarray[i]))
-        seq = argarray[i]
-        diff = diff_frame[i]
-        origin_frame=curr_frame[i]
+    for i in argarray:
+        print("the %d th diff frame "%(i))
+        diff = allframe[i] - avgtemp
+        origin_frame=allframe[i]
         var = np.var(origin_frame)
         var_diff = np.var(diff)
         var_diff_arr.append(var_diff)

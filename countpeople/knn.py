@@ -36,6 +36,35 @@ def calculateFeature(allframe, avgtemp, select_index, label):
 def showSample(dataSet):
     for item in dataSet:
         print(item)
+def createDataSet(path , label = 0):
+    frame = np.load(path+"/imagedata.npy")
+    avgtemp = np.load(bg_path+"/avgtemp.npy")
+    if label == 1:
+        human_seq = np.load(path+"/human_data.npy")
+        half= int(human_frame.shape[0]/2)
+        select_train = human_seq[0:half]
+        select_test = human_seq[half:]
+    else:
+        half = int(frame.shape[0]/2)
+        select_train =[i for i in range(0,half)] 
+        select_test = [i for i in range(half,frame.shape[0])]
+    trainDataSet = calculateFeature(frame,avgtemp,select_train,label)
+    testDataSet  calculateFeature(frame,avgtemp,select_test,label)
+    return trainDataSet,testDataSet
+def getOneKindSampleSet(path_arr,label):
+    trainSet,testSet = [],[]
+    for path in path_arr :
+        train,test  = createDataSet(bg_path,label)
+        trainSet.append(train)
+        testSet.append(test)
+    return np.array(trainSet),np.array(testSet)
+
+def createMultiDirSampleSet(bg_path_arr,fg_path_arr):
+    trainSet ,testSet = getOneKindSampleSet(bg_path_arr,0)
+    fgSet = getOneKindSampleSet(fg_path_arr,1)
+    trainSet = np.append(trainSet,fgSet[0],axis=0)
+    testSet = np.append(testSet,fgSet[1],axis=0)
+    return trainSet,testSet
 
 def createSampleSet(bg_path,fg_paths):
     bgframe = np.load(bg_path+"/imagedata.npy")
@@ -58,25 +87,27 @@ def createSampleSet(bg_path,fg_paths):
         else:
             fgDataSet = fgData
     fgDataSet = np.array(fgDataSet)
-    return bgDataSet,fgDataSet
+    return (bgDataSet,fgDataSet)
 
-def createTrainingSetAndTestSet(bg_path, fg_path):
-    bgDataSet,fgDataSet = createSampleSet(bg_path,fg_path)
+def getNormalDataSet(fgDataSet,fgDataSet):
     bglen = len(bgDataSet)
     allDataSet = bgDataSet + fgDataSet
     allDataSet = np.array(allDataSet)
     normalDataSet, ranges, minVals = normDataSet(allDataSet)
-    print(allDataSet[:,1].shape)
-    print(normalDataSet.shape)
     allDataSet[:, 1] = normalDataSet
     bgDataSet, fgDataSet = allDataSet[0:bglen], allDataSet[bglen:]
     split_bg = int(len(bgDataSet)/2)
     split_fg = int(len(fgDataSet)/2)
     trainSet = np.append(bgDataSet[0:split_bg],fgDataSet[0:split_fg],axis=0)
-    # showSample(trainSet)
     testSet =np.append( bgDataSet[split_bg:],fgDataSet[split_fg:],axis=0)
-    # showSample(testSet)
-    return trainSet, testSet
+    return trainSet,testSet
+    
+def createTrainingSetAndTestSet(bg_path, fg_path):
+    if type(bg_path) == str:
+        bgDataSet,fgDataSet = createSampleSet(bg_path,fg_path)
+    elif type(bg_path)==list:
+        bgDataSet,fgDataSet =createMultiDirSampleSet(bg_path,fg_path) 
+    return getNormalDataSet(bgDataSet,fgDataSet)
 
 
 def normDataSet(dataSet):  # 归一化数据集
@@ -142,11 +173,16 @@ def knnTrain(trainSet, testSet, k=5):
     print("================errorCount is %d================"%(errorCount))
     print("===============error accuracy is %.5f==========="%(errorCount/dataSize))
     print("===============correct accuracy is %.5f==========="%((dataSize-errorCount)/dataSize))
-
+def getDefaultBgpathAndFgpath():
+    
 
 if __name__ == "__main__":
-    bg_path = sys.argv[1]
-    fg_path = sys.argv[2]
+    if len(sys.argv) > 2:
+        bg_path = sys.argv[1]
+        fg_path = sys.argv[2]
+    else:
+        bg_path ,fg_path = getDefaultBgpathAndFgpath()
+
     trainSet,testSet = createTrainingSetAndTestSet(bg_path,fg_path)
     ws = [3,5,7,9 ,11,13,15,17,19]
     for i in ws:

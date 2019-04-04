@@ -2,7 +2,7 @@ import numpy as np
 import sys
 import os
 from testMultiDirHistAccuracy import analyseMultiDirHist
-thresh = [1.75,2,2.25,2.5,2.75]
+thresh = [1.0,1.75,2,2.25,2.5,2.75]
 path = sys.argv[1]
 if sys.argv[2] == "human":
     bg=False
@@ -12,7 +12,7 @@ else:
     bg= True
 start ,end = [int(i) for i in sys.argv[s:]]
 result_map = []
-avgtemp = np.load(path+sys.argv[2]+"/avgtemp.npy")
+avgtemp = np.load(path+sys.argv[s]+"/avgtemp.npy")
 for t in thresh:
     print("===========current thresh is %.2f ==========="%(t))
     fg_num , bg_num,all_length = analyseMultiDirHist(path,start,end,bg,avgtemp,xthresh=t)

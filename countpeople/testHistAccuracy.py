@@ -1,6 +1,6 @@
 import sys
 import numpy as np
-def analyseHistAccuracy(allframe , avgtemp,xthresh= 1.8,ythresh =2):
+def analyseHistAccuracy(allframe , avgtemp,xthresh= 1,ythresh =1):
     fg_num = 0
     bg_num = 0 
     print("===========xthresh is %.2f==========="%(xthresh))

@@ -1,0 +1,32 @@
+         1000 2000 5000 10000 20000 30000 40000 50000 60000 70000
+1.75 
+ bg_num
+ fg_num
+2 
+ bg_num
+ fg_num
+2.25
+ bg_num
+ fg_num
+2.5
+ bg_num
+ fg_num
+2.75
+ bg_num
+ fg_num
+             
+1.75 
+ bg_num
+ fg_num
+2 
+ bg_num
+ fg_num
+2.25
+ bg_num
+ fg_num
+2.5
+ bg_num
+ fg_num
+2.75
+ bg_num
+ fg_num

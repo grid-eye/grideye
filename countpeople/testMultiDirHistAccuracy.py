@@ -13,7 +13,7 @@ if __name__ == "main":
     start ,end  = [ int(s) for  s in sys.argv[s:]]
     avgtemp = np.load(path+str(start)+"/avgtemp.npy")
     analyseMultiDirHist(path,start,end,avgtemp)
-def analyseMultiDirHist(path , start , end,bg,avgtemp ,xthresh=2,ythresh=3,avgtemp):
+def analyseMultiDirHist(path , start , end,bg,avgtemp ,xthresh=2,ythresh=3):
     fg_sum ,bg_sum ,length_sum = 0,0,0
     for i in range(start,end):
         actual_path = path+str(i)
@@ -22,9 +22,10 @@ def analyseMultiDirHist(path , start , end,bg,avgtemp ,xthresh=2,ythresh=3,avgte
             continue
         print("==========analyse the %sth sequence ========"%(i))
         allframe = np.load(actual_path+"/imagedata.npy")
-        human_path = actual_path+"/human_data.npy"
         if not bg :
             pos_data = []
+            print("=========cac bg frame ===========")
+            human_path = actual_path+"/human_data.npy"
             human_data = np.load(human_path)
             for i in human_data:
                 pos_data.append(allframe[i])

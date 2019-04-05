@@ -723,7 +723,7 @@ class CountPeople:
                 refindContours = True
         return refindContours
     def findContours(self,img):
-        img,contours,heir=cv.findContours(img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        contours,heir=cv.findContours(img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         return img,contours,heir
     def __findContours(self,label,key_arr):
         temp = np.zeros((self.row,self.col),np.uint8)

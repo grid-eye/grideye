@@ -49,7 +49,7 @@ def createDataSet(path , label = 0):
         select_train =[i for i in range(0,half)] 
         select_test = [i for i in range(half,frame.shape[0])]
     trainDataSet = calculateFeature(frame,avgtemp,select_train,label)
-    testDataSet  calculateFeature(frame,avgtemp,select_test,label)
+    testDataSet =  calculateFeature(frame,avgtemp,select_test,label)
     return trainDataSet,testDataSet
 def getOneKindSampleSet(path_arr,label):
     trainSet,testSet = [],[]
@@ -89,7 +89,7 @@ def createSampleSet(bg_path,fg_paths):
     fgDataSet = np.array(fgDataSet)
     return (bgDataSet,fgDataSet)
 
-def getNormalDataSet(fgDataSet,fgDataSet):
+def getNormalDataSet(fgDataSet,bgDataSet):
     bglen = len(bgDataSet)
     allDataSet = bgDataSet + fgDataSet
     allDataSet = np.array(allDataSet)
@@ -174,7 +174,7 @@ def knnTrain(trainSet, testSet, k=5):
     print("===============error accuracy is %.5f==========="%(errorCount/dataSize))
     print("===============correct accuracy is %.5f==========="%((dataSize-errorCount)/dataSize))
 def getDefaultBgpathAndFgpath():
-    
+    pass    
 
 if __name__ == "__main__":
     if len(sys.argv) > 2:

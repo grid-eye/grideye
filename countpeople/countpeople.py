@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 import time
-import busio
+#import busio
 #import board
 import adafruit_amg88xx
 import math
@@ -723,7 +723,7 @@ class CountPeople:
                 refindContours = True
         return refindContours
     def findContours(self,img):
-        contours,heir=cv.findContours(img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        img,contours,heir=cv.findContours(img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         return img,contours,heir
     def __findContours(self,label,key_arr):
         temp = np.zeros((self.row,self.col),np.uint8)

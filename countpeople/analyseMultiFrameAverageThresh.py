@@ -23,6 +23,7 @@ def showThreshMap(thresh_map):
         print("=================frame sum is %d =================="%(frame_sum))
         print("=================over thresh_sum is %d=============="%(over_thresh_sum))
         print("==================frame with man accuracy is %.2f====================="%(over_thresh_sum/frame_sum))
+        print("=================fg sum is %d==========="%(frame_sum - over_thresh_sum))
         print("===================frame without human accuracy is %.2f================="%((frame_sum-over_thresh_sum)/frame_sum))
 def analyseMultiDirFrame(path,start,end,thresh_arr,bg):
     avgtemp = np.load(path+str(start)+"/avgtemp.npy")

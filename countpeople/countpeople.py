@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 import time
-import busio
+#import busio
 #import board
 import adafruit_amg88xx
 import math

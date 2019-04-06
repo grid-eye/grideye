@@ -11,7 +11,7 @@ import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 from otsuBinarize import otsuThreshold
-from knn import createSampleSet,knnClassify
+from knn import createTrainingSet,knnClassify,getDefaultBgpathAndFgpath
 from objecttrack import ObjectTrack
 from target import Target
 class CountPeople:
@@ -66,10 +66,7 @@ class CountPeople:
         self.isDoorHigh=False
         self.door_high_max_temp=1.5
         self.interpolate_method='cubic'
-        self.bg_path="test/2019-3-12-second-1"
-        self.fg_path_0 = "test/2019-3-12-second-4"
-        self.fg_path_1 = "test/2019-3-26-3"
-        self.fg_path=[self.fg_path_0,self.fg_path_1]
+        self.bg_path,self.fg_path = getDefaultBgpathAndFgpath() 
         self.createTrainSample(self.bg_path,self.fg_path)
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
@@ -96,10 +93,8 @@ class CountPeople:
     def createTrainSample(self,bg_path,fg_path):
         if hasattr(self,"knnSampleSet"):
             return 
-        bg_sample,fg_sample = createSampleSet(bg_path,fg_path)
-        sampleSet =np.append(bg_sample,fg_sample,axis=0)
-        self.knnSampleSet = sampleSet
-        return sampleSet
+        self.knnSampleSet = createTrainingSet(bg_path,fg_path)
+        return self.knnSampleSet
     def interpolate(self, points, pixels, grid_x, grid_y, inter_type=None):
         '''
         interpolating for the pixels,default method is cubic

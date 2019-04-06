@@ -112,13 +112,15 @@ def getNormalDataSet(trainSet,testSet):
 def createTrainingSetAndTestSet(bg_path, fg_path):#创建测试数据集并进行归一化
     if type(bg_path) == str:
         print("case 1")
-        bgDataSet,fgDataSet = createSampleSet(bg_path,fg_path)
+        trainSet,testSet = createSampleSet(bg_path,fg_path)
     elif type(bg_path)==list:
         print("case 2")
         trainSet,testSet =createMultiDirSampleSet(bg_path,fg_path) 
     return getNormalDataSet(trainSet,testSet)
 
-
+def createTrainingSet(bg_path,fg_path):
+    trainSet,testSet = createTrainingSetAndTestSet(bg_path,fg_path)
+    return np.append(trainSet ,testSet,axis=0)
 def normDataSet(dataSet):  # 归一化数据集
     '''
      Min-Max scaling

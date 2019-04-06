@@ -137,14 +137,13 @@ def knnClassify(trainingSet, labels, test, weight, k=5):
     diff_set = test[1] - trainingSet
     distance = abs(diff_set)
     sortedDistanceIndex = np.argsort(distance)
-    classCount = {0:0,1:0}
+    classCount = {}
     for i in range(k):
         trainIndex = sortedDistanceIndex[i]
-        voteLabel = int(labels[trainIndex])
+        voteLabel = labels[trainIndex]
         classCount[voteLabel] = classCount.get(voteLabel, 0)+1
-    sortedLabel = sorted(classCount.items() ,key=  lambda d:d[1],reverse = True)
-    return sortedLabel[0]
-
+    sortedClassCount = sorted(classCount.items(), key=lambda d: d[1],reverse=True)
+    return sortedClassCount[0]
 def train(trainSet, testSet, weight, k):
     weight = np.tile(weight, (trainSet.shape[0], 1))
     errorCount = 0

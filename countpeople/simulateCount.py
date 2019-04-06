@@ -29,7 +29,7 @@ def showImage(original , newImage,contours_arr,plt_frames,path=None):
             plotImage(omg, img,rect,seq)
     else:
         plotImage(original,newImage,contours_arr,plt_frames)
-def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=False,show_extract_frame=False):
+def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=False,show_extract_frame=False,cv_show=False):
     human_data = []
     select_frames_dict = {}
     select_frames_list = []
@@ -56,6 +56,13 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         blur =frame #cp.gaussianFilter(frame)
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
+        if cv_show:
+            temp = curr_diff.astype(np.uint8)
+            temp[np.where(temp >= 1.7)] = 255
+            temp[np.where(temp !=255)] = 0
+            temp = cv.resize(temp,(16,16),interpolation = cv.INTER_CUBIC) 
+            cv.imshow("images",temp)
+            cv.waitKey(40)
         start_time = time.perf_counter()
         show_vote = False
         seq = frame_arr[i]
@@ -134,7 +141,6 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
                     error_frame.append(seq)
                     for j in range(last_seq+1,seq):
                         print("============add %d in frame ============= "%(j))
-                        print(all_frames[j])
                         human_data.insert(0,j)
             last_seq = seq
         for pos in center_temp_arr[i]:
@@ -166,7 +172,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     path =path +"/human_data.npy"
     if not  os.path.exists(path):
         np.save(path,human_data)
-    print("sucessfully save human_data in "+path)
+        print("sucessfully save human_data in "+path)
     return area_ret,cp.getPeopleNum()
 
 if __name__ == "__main__":
@@ -177,8 +183,14 @@ if __name__ == "__main__":
     average_temp = np.load(path+"/avgtemp.npy")
     print("==============loaded people =====================")
     show_img = False
+    cv_show=False
     if len(sys.argv ) > 2:
-        frame_arr =[int(i) for i in  sys.argv[2:] ]
+        if sys.argv[2] == "cvshow":
+            cv_show = True
+            cv.namedWindow("images",cv.WINDOW_NORMAL)
+            frame_arr = [i for i in range(len(all_frames))]
+        else:
+            frame_arr =[int(i) for i in  sys.argv[2:] ]
         y = input("show image ?y or n:\n")
         if y == "y":
             show_img=True
@@ -186,4 +198,6 @@ if __name__ == "__main__":
             all_frames = np.load(path+"/human_data.npy")
     else:
         frame_arr = [i for i in range(len(all_frames))]
-    analyseFrameSequence(frame_arr,all_frames,average_temp,sys.argv[1],True,show_img)
+    analyseFrameSequence(frame_arr,all_frames,average_temp,sys.argv[1],True,show_img,cv_show=cv_show)
+    if cv_show:
+        cv.destroyAllWindows()

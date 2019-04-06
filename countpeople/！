@@ -337,16 +337,16 @@ class CountPeople:
         return (None,var , None)
     def knnJudgeFrameContainHuman(self,current_temp,avgtemp,diff_frame,showVoteCount=False):
         feature_vector = self.calculateImgFeature(diff_frame)
-        trainSet =self.knnSampleSet[:,1]
+        trainSet =self.knnSampleSet[:,1:2]
         trainLabels = self.knnSampleSet[:,2]
         category , voteCount= knnClassify(trainSet,trainLabels,feature_vector,(1,),self.__k)
-        print(category)
-        print(voteCount)
         if showVoteCount:
             print(category)
-        if category == 1 and   feature_vector[1] > 0.125:
+            print("===========current vote count is %d========="%(voteCount))
+        if  category == 1 #and feature_vector[1] > 0.125:
             return True,
         else:
+            print("no --------- ")
             if voteCount > self.__k*2/3:
                 return False,False
             return False,True

@@ -39,18 +39,21 @@ def createDataSet(path , label = 0):
     frame = np.load(path+"/imagedata.npy")
     avgtemp = np.load(path+"/avgtemp.npy")
     bg_proportion = 3/4
-    fg_proportion = 1/5
+    fg_proportion = 4/5
     if label == 1:
         human_seq = np.load(path+"/human_data.npy")
-        part= int(human_seq.shape[0]*bg_proportion)
+        part= int(human_seq.shape[0]*fg_proportion)
         select_train = human_seq[0:part]
         select_test = human_seq[part:]
     else:
-        part = int(frame.shape[0]*fg_proportion)
+        part = int(frame.shape[0]*bg_proportion)
         select_train =[i for i in range(0,part)] 
         select_test = [i for i in range(part,frame.shape[0])]
+    print("=============")
     trainDataSet = calculateFeature(frame,avgtemp,select_train,label)
     testDataSet =  calculateFeature(frame,avgtemp,select_test,label)
+    print(trainDataSet.shape)
+    print(testDataSet.shape)
     return trainDataSet,testDataSet
 def getOneKindSampleSet(path_arr,label):
     assign = False
@@ -71,9 +74,13 @@ def getOneKindSampleSet(path_arr,label):
 
 def createMultiDirSampleSet(bg_path_arr,fg_path_arr):
     trainSet ,testSet = getOneKindSampleSet(bg_path_arr,0)
+    print("bg set 'size is  %d"%(trainSet.shape[0] + testSet.shape[0]))
     fgTrainSet,fgTestSet = getOneKindSampleSet(fg_path_arr,1)
+    print("fg set 'size is %d "%(fgTrainSet.shape[0] + fgTestSet.shape[0]))
     trainSet = np.append(trainSet,fgTrainSet,axis=0)
     testSet = np.append(testSet,fgTestSet,axis=0)
+    print("trainSet's size is %d"%(trainSet.shape[0]))
+    print("testSet's size is %d"%(testSet.shape[0]))
     return trainSet,testSet
 
 def createSampleSet(bg_path,fg_paths):
@@ -146,6 +153,10 @@ def knnClassify(trainingSet, labels, test, weight, k=5):
     return sortedLabel[0]
 
 def train(trainSet, testSet, weight, k):
+    print("trainSet shape is ")
+    print(trainSet.shape)
+    print("testSet shape is ")
+    print(testSet.shape)
     weight = np.tile(weight, (trainSet.shape[0], 1))
     errorCount = 0
     fg_count ,bg_count = 0, 0 
@@ -185,7 +196,7 @@ def knnTrain(trainSet, testSet, k=5):
                         min_tuple = weight
    '''
     weight = (1,)
-    errorCount = train(testSet,trainSet,weight,k)
+    errorCount = train(trainSet,testSet,weight,k)
     dataSize = testSet.shape[0]
     print("================errorCount is %d================"%(errorCount))
     print("===============error accuracy is %.5f==========="%(errorCount/dataSize))
@@ -201,7 +212,7 @@ def getDeafultTestSet():
     return bg_paths,fg_paths
 def getDefaultBgpathAndFgpath():
     bg_paths =[
-                ("images/2019-01-17-bgfirst",1,6)
+                ("images/2019-01-17-bgfirst",1,9)
             ]
     fg_paths=[
                 ("test/2019-3-12-second-",1,5),

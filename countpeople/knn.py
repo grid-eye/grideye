@@ -58,6 +58,7 @@ def getOneKindSampleSet(path_arr,label):
         for i in range(start,end):
             real_path = path+str(i)
             if not os.path.exists(real_path):
+                print(real_path)
                 print("current path not existing")
                 continue
             train,test  = createDataSet(real_path,label)
@@ -217,11 +218,12 @@ def getDefaultBgpathAndFgpath():
             ]
     fg_paths=[
                 ("test/2019-3-12-second-",1,5),
-                ("test/2019-3-19-first-",1,2),
+                ("test/2019-3-19-",1,2),
                 ("test/2019-3-26-",1,4),
                 ("test/2019-3-31-",1,2),
                 ("test/2019-3-31-high-",1,4),
-                ("test/2019-4-1-",1,3)
+                ("test/2019-4-1-",1,3),
+                ("images/2019-2-2-first",1,6)
             ]
     return bg_paths,fg_paths
 
@@ -232,6 +234,10 @@ if __name__ == "__main__":
     else:
         bg_path ,fg_path = getDefaultBgpathAndFgpath()
     trainSet,testSet = createTrainingSetAndTestSet(bg_path,fg_path)
+    print("trainSet.size is ")
+    print(trainSet.shape)
+    print("testSet.size is ")
+    print(testSet.shape)
     ws = [3,5,7,9 ,11,13,15,17,19]
     for i in ws:
         print("===================%d=================="%(i))

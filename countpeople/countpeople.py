@@ -105,7 +105,6 @@ class CountPeople:
                     self.bgModel[i][j][s] = 0
 
     def updateBgModel(self,img):
-        return 
         self.setBgTemperature(img)
         matches  = 0 
         print("update bg model")
@@ -438,7 +437,7 @@ class CountPeople:
         category , voteCount= knnClassify(trainSet,trainLabels,feature_vector,(1,),self.__k)
         if showVoteCount:
             print(category)
-        if  feature_vector[1] > 0.125:
+        if category == 1 and  feature_vector[1] > 0.125:
             return True,
         else:
             if voteCount > self.__k*2/3:

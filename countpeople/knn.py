@@ -49,11 +49,8 @@ def createDataSet(path , label = 0):
         part = int(frame.shape[0]*bg_proportion)
         select_train =[i for i in range(0,part)] 
         select_test = [i for i in range(part,frame.shape[0])]
-    print("=============")
-    trainDataSet = calculateFeature(frame,avgtemp,select_train,label)
     testDataSet =  calculateFeature(frame,avgtemp,select_test,label)
-    print(trainDataSet.shape)
-    print(testDataSet.shape)
+    trainDataSet =  calculateFeature(frame,avgtemp,select_train,label)
     return trainDataSet,testDataSet
 def getOneKindSampleSet(path_arr,label):
     assign = False
@@ -123,6 +120,10 @@ def createTrainingSetAndTestSet(bg_path, fg_path):#创建测试数据集并进�
     elif type(bg_path)==list:
         print("case 2")
         trainSet,testSet =createMultiDirSampleSet(bg_path,fg_path) 
+    print("trainSet is ")
+    print(trainSet.shape)
+    print("testSet is")
+    print(testSet)
     return getNormalDataSet(trainSet,testSet)
 
 
@@ -212,7 +213,7 @@ def getDeafultTestSet():
     return bg_paths,fg_paths
 def getDefaultBgpathAndFgpath():
     bg_paths =[
-                ("images/2019-01-17-bgfirst",1,9)
+                ("images/2019-01-17-bgfirst",1,10)
             ]
     fg_paths=[
                 ("test/2019-3-12-second-",1,5),

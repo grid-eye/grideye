@@ -8,6 +8,7 @@ import math
 import scipy
 import os
 import sys
+import random
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 from otsuBinarize import otsuThreshold
@@ -68,12 +69,101 @@ class CountPeople:
         self.interpolate_method='cubic'
         self.bg_path,self.fg_path = getDefaultBgpathAndFgpath() 
         self.createTrainSample(self.bg_path,self.fg_path)
+        self.sampleNum = 20#背景模型大小
+        self.bgUpdateProbability = 16#背景模型更新概率
+        self.minMatchBg = 2#不超过R的次数T，决定当前像素是前景还是背景
+        self.bgRadius = 1 #当前像素和前景像素之间的温度差阈值R
+        self.continueBgThresh = 50
+        self.initVibeModel()
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
         #预读取数据，让数据稳定
         for i in range(self.pre_read_count):
             for row in self.amg.pixels:
                 pass
+
+    def initVibeModel(self):#初始化前景和背景模型
+        self.bgModel = np.zeros((self.row,self.col,self.sampleNum+1))#加1是为了保存该像素点被认为是前景的次数
+        self.fgModel = np.zeros((self.row,self.col),np.uint8)
+        self.neigborCorr = [-1,0,-1,0,-1,0,1,1,1]
+    def constructBgModel(self,bgImg):#通过背景帧构建背景模型
+        for i in range(bgImg.shape[0]):
+            for j in range(bgImg.shape[1]):
+                for s in range(self.bgModel.shape[2]):
+                    x = random.choice(self.neigborCorr)
+                    y = random.choice(self.neigborCorr)
+                    row = i + x
+                    col = j+y
+                    if row < 0 :
+                        row = 0 
+                    elif row > self.row-1:
+                        row = self.row -1 
+                    if col < 0 :
+                        col  = 0 
+                    elif row > self.col -1 :
+                        col = self.col -1 
+                    self.bgModel[i][j][s] = 0
+
+    def updateBgModel(self,img):
+        return 
+        self.setBgTemperature(img)
+        matches  = 0 
+        print("update bg model")
+        sel_list = [i for i in range(0,self.sampleNum)]
+        for i in range(self.bgModel.shape[0]):
+            for j in range(self.bgModel.shape[1]):
+                k = 0
+                while k < self.sampleNum and  matches <self.minMatchBg:
+                    dis = abs ( img[i][j] - self.bgModel[i][j] )
+                    for d in dis:
+                        if d <  self.bgRadius:
+                            matches += 1
+                    k += 1
+                if matches >= self.minMatchBg:
+                    self.bgModel[i][j][self.sampleNum] = 0
+                    #如果像素是背景像素，那么有1/self.bgUpdateProbability的概率更新自己的模型样本值
+                    updateBg = random.randint(0,self.bgUpdateProbability) == 0
+                    if updateBg :
+                        v = random.choice(sel_list)
+                        #以当前像素随机更新背景样本库中20个样本中任意一个值
+                        self.bgModel[i][j][v] = img[i][j]
+                    #同时以同样的概率更新它的邻居点模型样本的值
+                    updateNeigbor = random.randint(0,self.bgUpdateProbability) == 1
+                    if updateNeigbor:
+                        #随机更新(i,j)的邻居点的背景样本库
+                        row = i + random.choice(self.neigborCorr)
+                        col = j + random.choice(self.neigborCorr)
+                        if row < 0:
+                            row = 0
+                        elif row > self.row -1 :
+                            row = self.row -1 
+                        if col < 0 :
+                            col = 0
+                        elif col > self.col-1 :
+                            col = self.col-1 
+                        v = random.choice(sel_list)
+                        self.bgModel[row][col][v] = img[i][j]
+                    self.fgModel[i][j] = 0
+                else:
+                    #当前像素是前景
+                    self.bgModel[i][j][self.sampleNum] += 1
+                    self.fgModel[i][j] = 1
+                    if self.bgModel[i][j][self.sampleNum] > self.continueBgThresh:#一个像素连续50次被连续检测为前景，则认为该静止区域为运动区域，将其更新为背景点
+                        rand = random.choice(sel_list)#随即选择背景模型集的任意一个元素数值
+                        self.bgModel[i][j][rand] = img[i][j]
+        temp = self.average_temp
+        for i in range(temp.shape[0]):
+            for j in range(temp.shape[1]):
+                if self.bgModel[i][j][self.sampleNum] == 0:
+                    isUpdate = random.randint(0,self.bgUpdateProbability) == 1
+                    if isUpdate:
+                        rand = random.randint(0,self.sampleNum)
+                        temp[i][j] =self.bgModel[i][j][rand]
+        print("exit update bg model")
+    def getVibeFgModel(self):
+        return self.fgModel
+    def getVibeBgModel(self):
+        return self.bgModel
 
     def preReadBgTemperature(self,bg_number=400,output_dir ="temp"):
         output_dir = self.ensurePathValid(output_dir)
@@ -335,23 +425,28 @@ class CountPeople:
     def calculateImgFeature(self,diff_frame):
         var =np.var(np.ravel(diff_frame.ravel()))
         return (None,var , None)
+    def vibeJudge(self):
+        cnt = np.sum(self.fgModel)
+        if cnt == 0:
+            return False
+        else:
+            return True
     def knnJudgeFrameContainHuman(self,current_temp,avgtemp,diff_frame,showVoteCount=False):
         feature_vector = self.calculateImgFeature(diff_frame)
         trainSet =self.knnSampleSet[:,1]
         trainLabels = self.knnSampleSet[:,2]
         category , voteCount= knnClassify(trainSet,trainLabels,feature_vector,(1,),self.__k)
-        print(category)
-        print(voteCount)
         if showVoteCount:
             print(category)
-        if category == 1 and   feature_vector[1] > 0.125:
+        if  feature_vector[1] > 0.125:
             return True,
         else:
             if voteCount > self.__k*2/3:
                 return False,False
             return False,True
 
-
+    def setBgTemperature(self,avgtemp):
+        self.average_temp = avgtemp
     def isCurrentFrameContainHuman(self,current_temp,
             average_temperature,img_diff,show_vote=False):
         '''
@@ -360,7 +455,9 @@ class CountPeople:
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
         #print(img_diff)
-        return self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
+        return   self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
+        vibe = self.vibeJudge()
+        return ret[0] or vibe ,None
         var_result = self.judgeFrameByDiffVar(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
@@ -461,6 +558,7 @@ class CountPeople:
                     print("===finish testing bg temperature===")
                     print("===average temp is ===")
                     print(self.average_temp)
+                    self.constructBgModel(self.average_temp)
                     if not self.calcBg: 
                         if show_frame:
                             cv.namedWindow("image",cv.WINDOW_NORMAL)
@@ -469,6 +567,7 @@ class CountPeople:
                 elif not self.calcBg: #是否计算完背景温度
                     bg_frames.append(currFrame)
                     frame_counter += 1#帧数计数器自增
+                    self.updateBgModel(currFrame)
                     continue
                 all_frame.append(currFrame)
                 #计算完背景温度的步骤
@@ -492,6 +591,7 @@ class CountPeople:
                     if ret[1]:#加入背景帧的标志
                         bg_frames.append(currFrame)
                         frame_counter += 1
+                    self.updateBgModel(currFrame)
                     continue
                 self.setExistPeople(True)
                 (cnt_count,image ,contours,hierarchy),area =self.extractBodyCollect(self.average_temp, currFrame)
@@ -501,6 +601,7 @@ class CountPeople:
                 self.updateObjectTrackDictAge()#增加目标年龄
                 self.countPeopleNum()
                 self.showCurrentState()
+                self.updateBgModel(currFrame)
         except KeyboardInterrupt:
             if show_frame:
                 cv.destroyAllWindows()
@@ -572,6 +673,7 @@ class CountPeople:
                     bg_frames = [] #清空保存的图片以节省内存
                     print("===average temp is ===")
                     print(self.average_temp)
+                    self.constructBgModel(average_temp)
                     if not  self.calcBg:
                         if show_frame:
                             cv.namedWindow("image",cv.WINDOW_NORMAL)
@@ -580,6 +682,7 @@ class CountPeople:
                 elif not self.calcBg: #是否计算完背景温度
                     bg_frames.append(currFrame)
                     frame_counter += 1#帧数计数器自增
+
                     continue
                 all_frame.append(currFrame)
                 print("========================================================process============================================================")
@@ -605,11 +708,7 @@ class CountPeople:
                         self.frame_counter =0 #重置背景帧数计数器
                         '''
                         self.setExistPeople(False)
-                    if ret[1]:#加入背景帧的标志
-                        '''
-                        bg_frames.append(currFrame)
-                        frame_counter += 1
-                        '''
+                    self.updateBgModel(currFrame)
                     continue
                 self.setExistPeople(True)
                 print("extractbody")
@@ -618,6 +717,7 @@ class CountPeople:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
                     self.showCurrentState()
+                    self.updateBgModel(currFrame)
                     continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
@@ -625,6 +725,7 @@ class CountPeople:
                 self.updateObjectTrackDictAge()#增加目标年龄
                 self.countPeopleNum()
                 self.showCurrentState()
+                self.updateBgModel(currFrame)
                 #sleep(0.5)
 
         except KeyboardInterrupt:
@@ -666,12 +767,13 @@ class CountPeople:
         max_temperature_thresh=2
         horizontal_thresh = 2
         vertical_thresh = 2
+        second_temperature_thresh = 1.4
         cp_temp_dict = {}
         corr_set = set(corr)
         corr_bak=corr_set.copy()
         for item in corr_set:
             local_max_temp = curr_temp[item]
-            if local_max_temp  >=  max_temperature_thresh or self.isDoorHigh:
+            if local_max_temp  >=  max_temperature_thresh or (self.isDoorHigh and local_max_temp > second_temperature_thresh):
                 cp_temp_dict[item] = curr_temp[item]
             else:
                 corr_bak.remove(item)
@@ -776,8 +878,6 @@ class CountPeople:
         diff_test =ones*( curr_temp > thre_temp)
         if diff_test.sum() >= self.image_size/4:
             thre_temp += 1
-        else:
-            self.isDoorHigh=True
         iter_count = 0
         max_iter = 2
         single_dog = False
@@ -875,8 +975,6 @@ class CountPeople:
         diff_test =ones*( curr_temp > thre_temp)
         if diff_test.sum() >= self.image_size/4:
             thre_temp += 1
-        else:
-            self.isDoorHigh=True
         iter_count = 0
         max_iter = 2
         single_dog = False

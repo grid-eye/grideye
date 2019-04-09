@@ -40,7 +40,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     sel_frames = np.array(select_frames_list , np.float32)
     target_frames = sel_frames
     cp = CountPeople(row=8,col=8)
-    average_median = cp.gaussianFilter(average_temp)
+    average_median = average_temp
     all_result = []
     mask_arr = []
     respect_img=[]
@@ -50,6 +50,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     plt_frames = []#被绘制的帧的序号
     error_frame_dict={}
     cp.setExistPeople(False)
+    cp.constructBgModel(average_temp)
     for i in range(sel_frames.shape[0]):
         print("the %dth frame in all_frames "%(frame_arr[i]))
         frame =  target_frames[i]
@@ -62,7 +63,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
             temp[np.where(temp !=255)] = 0
             temp = cv.resize(temp,(16,16),interpolation = cv.INTER_CUBIC) 
             cv.imshow("images",temp)
-            cv.waitKey(40)
+            cv.waitKey(10)
         start_time = time.perf_counter()
         show_vote = False
         seq = frame_arr[i]
@@ -79,6 +80,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
             cp.showCurrentState()
             if cp.getExistPeople():
                 cp.setExistPeople(False)
+            cp.updateBgModel(blur)
             continue
         cp.setExistPeople(True)
         print("capture the body contours")
@@ -94,6 +96,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
             cp.updateObjectTrackDictAgeAndInterval()
             cp.countPeopleNum()
             cp.showCurrentState()
+            cp.updateBgModel(blur)
             continue
         plt_frames.append(seq)
         rect_arr = []
@@ -121,6 +124,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         cp.updateObjectTrackDictAge()
         cp.countPeopleNum()
         cp.showCurrentState()
+        cp.updateBgModel(blur)
     mask_arr = np.array(mask_arr)
     respect_img =np.array(respect_img)
     last_seq = 0

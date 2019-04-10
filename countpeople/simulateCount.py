@@ -48,7 +48,6 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     center_temp_arr=[]
     curr_arr = []#保存图片的差值(当前帧和背景的差值)
     plt_frames = []#被绘制的帧的序号
-    error_frame_dict={}
     cp.setExistPeople(False)
     cp.constructBgModel(average_temp)
     for i in range(sel_frames.shape[0]):
@@ -63,24 +62,21 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
             temp[np.where(temp !=255)] = 0
             temp = cv.resize(temp,(16,16),interpolation = cv.INTER_CUBIC) 
             cv.imshow("images",temp)
-            cv.waitKey(10)
+            cv.waitKey(40)
         start_time = time.perf_counter()
         show_vote = False
         seq = frame_arr[i]
-        if (seq <= 1495  and seq >=1491)or (seq >= 2443 and seq <=2447)or(seq >=3447 and seq <=3452):
-            show_vote=True
         ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff.copy(),show_vote)
         end_time = time.perf_counter()
         interval = end_time - start_time
         #print("=============analyse this frame contain human's time is====================")
         #print(interval)
         if not ret[0]:
+            print("=============no human ==============")
             cp.updateObjectTrackDictAgeAndInterval()
-            cp.countPeopleNum()
-            cp.showCurrentState()
+            cp.tailOperate(blur)
             if cp.getExistPeople():
                 cp.setExistPeople(False)
-            cp.updateBgModel(blur)
             continue
         cp.setExistPeople(True)
         print("capture the body contours")
@@ -92,11 +88,9 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         #print(interval)
         area_ret.append(area)
         if cnt_count == 0:
-            print("current frame has no people")
+            print("===================cnt count 0====================")
             cp.updateObjectTrackDictAgeAndInterval()
-            cp.countPeopleNum()
-            cp.showCurrentState()
-            cp.updateBgModel(blur)
+            cp.tailOperate(blur)
             continue
         plt_frames.append(seq)
         rect_arr = []
@@ -122,9 +116,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         end_time = time.perf_counter()
         interval = end_time - start_time
         cp.updateObjectTrackDictAge()
-        cp.countPeopleNum()
-        cp.showCurrentState()
-        cp.updateBgModel(blur)
+        cp.tailOperate(blur)
     mask_arr = np.array(mask_arr)
     respect_img =np.array(respect_img)
     last_seq = 0
@@ -135,7 +127,6 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         img = curr_arr[i]
         seq = plt_frames[i]
         human_data.append(seq)
-        print(seq,end=",")
         if center_temp_arr[i]:
             if seq > last_seq +interval:
                 artificial_count += 1
@@ -147,6 +138,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
                         print("============add %d in frame ============= "%(j))
                         human_data.insert(0,j)
             last_seq = seq
+        print(seq,end=",")
         for pos in center_temp_arr[i]:
             print(pos,end="===>")
             print(round(img[pos[0],pos[1]],2) ,end=",")

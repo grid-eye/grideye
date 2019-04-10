@@ -58,8 +58,6 @@ def getOneKindSampleSet(path_arr,label):
         for i in range(start,end):
             real_path = path+str(i)
             if not os.path.exists(real_path):
-                print(real_path)
-                print("current path not existing")
                 continue
             train,test  = createDataSet(real_path,label)
             if not assign:
@@ -121,10 +119,6 @@ def createTrainingSetAndTestSet(bg_path, fg_path):#创建测试数据集并进�
     elif type(bg_path)==list:
         print("case 2")
         trainSet,testSet =createMultiDirSampleSet(bg_path,fg_path) 
-    print("trainSet is ")
-    print(trainSet.shape)
-    print("testSet is")
-    print(testSet)
     return getNormalDataSet(trainSet,testSet)
 
 
@@ -155,10 +149,6 @@ def knnClassify(trainingSet, labels, test, weight, k=5):
     return sortedLabel[0]
 
 def train(trainSet, testSet, weight, k):
-    print("trainSet shape is ")
-    print(trainSet.shape)
-    print("testSet shape is ")
-    print(testSet.shape)
     weight = np.tile(weight, (trainSet.shape[0], 1))
     errorCount = 0
     fg_count ,bg_count = 0, 0 
@@ -214,7 +204,7 @@ def getDeafultTestSet():
     return bg_paths,fg_paths
 def getDefaultBgpathAndFgpath():
     bg_paths =[
-                ("images/2019-01-17-bgfirst",1,10)
+                ("images/2019-01-17-bgfirst",1,5)
             ]
     fg_paths=[
                 ("test/2019-3-12-second-",1,5),
@@ -222,8 +212,6 @@ def getDefaultBgpathAndFgpath():
                 ("test/2019-3-26-",1,4),
                 ("test/2019-3-31-",1,2),
                 ("test/2019-3-31-high-",1,4),
-                ("test/2019-4-1-",1,3),
-                ("images/2019-2-2-first",1,6)
             ]
     return bg_paths,fg_paths
 

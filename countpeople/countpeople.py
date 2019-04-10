@@ -1,8 +1,6 @@
 import numpy as np
 import cv2 as cv
 import time
-#import busio
-#import board
 import adafruit_amg88xx
 import math
 import scipy
@@ -15,6 +13,11 @@ from otsuBinarize import otsuThreshold
 from knn import createTrainingSet,knnClassify,getDefaultBgpathAndFgpath
 from objecttrack import ObjectTrack
 from target import Target
+try:
+    import busio
+    import board
+except ImportError:
+    print("no busio or board")
 class CountPeople:
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
@@ -89,7 +92,7 @@ class CountPeople:
     def constructBgModel(self,bgImg):#通过背景帧构建背景模型
         for i in range(bgImg.shape[0]):
             for j in range(bgImg.shape[1]):
-                for s in range(self.bgModel.shape[2]):
+                for s in range(self.sampleNum):
                     x = random.choice(self.neigborCorr)
                     y = random.choice(self.neigborCorr)
                     row = i + x
@@ -100,18 +103,18 @@ class CountPeople:
                         row = self.row -1 
                     if col < 0 :
                         col  = 0 
-                    elif row > self.col -1 :
+                    elif col  > self.col -1 :
                         col = self.col -1 
-                    self.bgModel[i][j][s] = 0
+                    self.bgModel[i][j][s] = bgImg[row][col]
 
     def updateBgModel(self,img):
         self.setBgTemperature(img)
-        matches  = 0 
         print("update bg model")
         sel_list = [i for i in range(0,self.sampleNum)]
         for i in range(self.bgModel.shape[0]):
             for j in range(self.bgModel.shape[1]):
                 k = 0
+                matches  = 0 
                 while k < self.sampleNum and  matches <self.minMatchBg:
                     dis = abs ( img[i][j] - self.bgModel[i][j] )
                     for d in dis:
@@ -121,13 +124,13 @@ class CountPeople:
                 if matches >= self.minMatchBg:
                     self.bgModel[i][j][self.sampleNum] = 0
                     #如果像素是背景像素，那么有1/self.bgUpdateProbability的概率更新自己的模型样本值
-                    updateBg = random.randint(0,self.bgUpdateProbability) == 0
+                    updateBg = random.randint(0,self.bgUpdateProbability-1 ) == 0
                     if updateBg :
                         v = random.choice(sel_list)
                         #以当前像素随机更新背景样本库中20个样本中任意一个值
                         self.bgModel[i][j][v] = img[i][j]
                     #同时以同样的概率更新它的邻居点模型样本的值
-                    updateNeigbor = random.randint(0,self.bgUpdateProbability) == 1
+                    updateNeigbor = random.randint(0,self.bgUpdateProbability-1) == 1
                     if updateNeigbor:
                         #随机更新(i,j)的邻居点的背景样本库
                         row = i + random.choice(self.neigborCorr)
@@ -154,9 +157,12 @@ class CountPeople:
         for i in range(temp.shape[0]):
             for j in range(temp.shape[1]):
                 if self.bgModel[i][j][self.sampleNum] == 0:
-                    isUpdate = random.randint(0,self.bgUpdateProbability) == 1
+                    isUpdate = random.randint(0,self.bgUpdateProbability-1 ) == 1
                     if isUpdate:
-                        rand = random.randint(0,self.sampleNum)
+                        rand = random.randint(0,self.sampleNum-1)
+                        if rand == 20:
+                            print(rand)
+                            quit()
                         temp[i][j] =self.bgModel[i][j][rand]
         print("exit update bg model")
     def getVibeFgModel(self):
@@ -427,6 +433,7 @@ class CountPeople:
     def vibeJudge(self):
         cnt = np.sum(self.fgModel)
         if cnt == 0:
+            print("no false")
             return False
         else:
             return True
@@ -454,9 +461,9 @@ class CountPeople:
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
         #print(img_diff)
-        return   self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
+        ret =  self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
         vibe = self.vibeJudge()
-        return ret[0] or vibe ,None
+        return  ret[0] and vibe ,False
         var_result = self.judgeFrameByDiffVar(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
@@ -583,24 +590,24 @@ class CountPeople:
                 ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
-                    self.countPeopleNum()
-                    self.showCurrentState()
                     if self.getExistPeople():
                         self.setExistPeople(False)
                     if ret[1]:#加入背景帧的标志
                         bg_frames.append(currFrame)
                         frame_counter += 1
-                    self.updateBgModel(currFrame)
+                    self.tailOperate(currFrame)
                     continue
                 self.setExistPeople(True)
-                (cnt_count,image ,contours,hierarchy),area =self.extractBodyCollect(self.average_temp, currFrame)
+                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
+                if cnt_count == 0:
+                    self.updateObjectTrackDictAgeAndInterval()
+                    self.tailOperate(currFrame)
+                    continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
-                self.trackPeople(diff_temp,loc)#检测人体运动轨迹
+                self.trackPeople(currFrame,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄
-                self.countPeopleNum()
-                self.showCurrentState()
-                self.updateBgModel(currFrame)
+                self.tailOperate(currFrame)
         except KeyboardInterrupt:
             if show_frame:
                 cv.destroyAllWindows()
@@ -630,6 +637,11 @@ class CountPeople:
             #print("save all frames")
             print("exit")
             raise KeyboardInterrupt("catch keyboard interrupt")
+    def tailOperate(self,currFrame):
+        self.countPeopleNum()
+        self.showCurrentState()
+        self.updateBgModel(currFrame)
+
     def process(self,testSubDir=None,show_frame=False):
         '''
             main function
@@ -672,7 +684,7 @@ class CountPeople:
                     bg_frames = [] #清空保存的图片以节省内存
                     print("===average temp is ===")
                     print(self.average_temp)
-                    self.constructBgModel(average_temp)
+                    self.constructBgModel(self.average_temp)
                     if not  self.calcBg:
                         if show_frame:
                             cv.namedWindow("image",cv.WINDOW_NORMAL)
@@ -697,8 +709,7 @@ class CountPeople:
                 ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
-                    self.countPeopleNum()
-                    self.showCurrentState()
+                    self.tailOperate(currFrame)
                     if self.getExistPeople():
                         '''
                         print("============restart calculate the bgtemp======")
@@ -707,24 +718,19 @@ class CountPeople:
                         self.frame_counter =0 #重置背景帧数计数器
                         '''
                         self.setExistPeople(False)
-                    self.updateBgModel(currFrame)
                     continue
                 self.setExistPeople(True)
                 print("extractbody")
-                (cnt_count,image ,contours,hierarchy),area =self.extractBodyCollect(self.average_temp, currFrame)
+                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
                 if cnt_count ==0:
                     self.updateObjectTrackDictAgeAndInterval()
-                    self.countPeopleNum()
-                    self.showCurrentState()
-                    self.updateBgModel(currFrame)
+                    self.tailOperate(currFrame)
                     continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
-                self.trackPeople(diff_temp,loc)#检测人体运动轨迹
+                self.trackPeople(currFrame,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄
-                self.countPeopleNum()
-                self.showCurrentState()
-                self.updateBgModel(currFrame)
+                self.tailOperate(currFrame)
                 #sleep(0.5)
 
         except KeyboardInterrupt:
@@ -746,6 +752,7 @@ class CountPeople:
             np.save(avg_output_path,self.average_temp)
             print("sucessfully save the image data")
             print("path is in "+output_path)
+
     def showCurrentState(self):
         self.showPeopleNum()
         self.showEntranceExitEvents()
@@ -762,18 +769,18 @@ class CountPeople:
 
     def getExistPeople(self):
         return self.__isExist
-    def removeNoisePoint(self,curr_temp,corr):
+    def removeNoisePoint(self,diff_temp,corr):
         max_temperature_thresh=2
         horizontal_thresh = 2
-        vertical_thresh = 2
         second_temperature_thresh = 1.4
         cp_temp_dict = {}
         corr_set = set(corr)
         corr_bak=corr_set.copy()
+
         for item in corr_set:
-            local_max_temp = curr_temp[item]
+            local_max_temp = diff_temp[item]
             if local_max_temp  >=  max_temperature_thresh or (self.isDoorHigh and local_max_temp > second_temperature_thresh):
-                cp_temp_dict[item] = curr_temp[item]
+                cp_temp_dict[item] = diff_temp[item]
             else:
                 corr_bak.remove(item)
         if len(corr_bak) <= 1:
@@ -818,8 +825,10 @@ class CountPeople:
                 refindContours = True
         return refindContours
     def findContours(self,img):
-        contours,heir=cv.findContours(img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-        return img,contours,heir
+        ret =cv.findContours(img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        if len(ret ) > 2:
+            return ret
+        return (img,) + ret 
     def __findContours(self,label,key_arr):
         temp = np.zeros((self.row,self.col),np.uint8)
         cnts = []
@@ -1003,7 +1012,7 @@ class CountPeople:
                     plt.show()
             if n == 2 and (max_area <= self.image_size/4):
                 label = label.astype(np.uint8)
-                label,contours,heir=cv.findContours(label)
+                label,contours,heir=self.findContours(label)
                 #print("=======one people case =======")
                 h0,w0 = self.getActualHeightWidth(contours[0],label)
                 #print("h0,w0")
@@ -1029,7 +1038,7 @@ class CountPeople:
                         contours_cache[np.where(label==l)] = 1
                     temp = np.zeros((self.row,self.col)).astype(np.uint8)
                     temp[np.where(label ==l)] = 1
-                    img ,contours,heir=cv.findContours(temp)
+                    img ,contours,heir=self.findContours(temp)
                     if not contours:
                         break
                     h0,w0 = self.getActualHeightWidth(contours[0],label)
@@ -1056,74 +1065,6 @@ class CountPeople:
             elif max_area  < math.ceil(all_area*0.1):#
                 return self.__getFinalContours(label,contours_cache)
             thre_temp += 0.25
-    def extractBodyBak(self , average_temp,curr_temp,show_frame=False,seq=None):
-        thre_temp =average_temp.copy()+0.25
-        ones = np.ones(average_temp.shape,np.float32)
-        all_area =self.image_size
-        while True:
-            bin_img = ones*(curr_temp>= thre_temp)
-            bin_img = bin_img.astype(np.uint8)
-            #img , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-            n , label = cv.connectedComponents(bin_img,connectivity=4)
-            area_arr = []
-            label_dict= {}
-            for i in range(1,n):
-                sub_matrix = label[np.where(label==i)]
-                area_arr.append(sub_matrix.size)
-                label_dict[i] = sub_matrix.size
-            area_arr.sort()
-            if not area_arr:
-                return (0,None,None,None),0
-            max_area = area_arr[-1]
-            if max_area >= all_area * 0.3:
-                thre_temp += 0.25
-            elif max_area  > all_area * 0.1:
-                if len(area_arr) >=2 :
-                    second_largest = area_arr[-2]
-                    if second_largest > all_area*0.1:
-                        label_sorted = sorted(label_dict.items() , key =lambda d:d[1])
-                        sub_label = label_sorted[-2:]
-                        key1,key2 = sub_label[0][0],sub_label[1][0]
-                        if key1 != 1 and key2 != 1: 
-                            label[np.where(label == 1)] = 0
-                        if key1 != 1:
-                            label[np.where(label ==key1)]=1
-                        if key2 != 1:
-                            label[np.where(label==key2)]=1
-                        label[np.where(label!=1)] = 0
-                        bin_img = label.astype(np.uint8)
-                        bin_img ,contours,heir=self.findContours(bin_img)
-                        con_area ={}
-                        cont_area_arr = []
-                        max_area = -1
-                        for c in contours:
-                            area = cv.contourArea(c)
-                            while area  in con_area:
-                                area += 0.1
-                            cont_area_arr.append(area)
-                            con_area[area] = c
-                        ret_conto =[]
-                        for a,c in con_area.items():
-                            if a >= 1:
-                                ret_conto.append(c)
-                        return (2,img,ret_conto,heir),0
-                    else:
-                        thre_temp+=0.25
-                else:
-                    thre_temp += 0.25
-            elif max_area  < math.ceil(all_area*0.1):
-                label_sorted = sorted(label_dict.items(), key =lambda d:d[1])
-                sub_label = label_sorted[-1]
-                key = sub_label[0]
-                if key != 1:
-                    label[np.where(label ==1)] =0
-                    label[np.where(label == key)] = 1
-                label[np.where(label != 1)] = 0
-                bin_img =label.astype(np.uint8)
-                bin_img ,contours,heir=cv.findContours(bin_img)
-                return (1,img,contours,heir),0
-            else:
-                thre_temp += 0.25
     def showExtractProcessImage(self,origin,thresh ,images_contours):
         #输出提取人体过程的图片
         print("=================the contours of the image==============")
@@ -1190,8 +1131,12 @@ class CountPeople:
         print(corr)
         #print(img[ret[0][0],ret[0][1]])
         #input("press Enter continue...")
+        print(corr)
         print("================removed noise point===================")
-        return self.removeNoisePoint(img,corr)
+        ret =  self.removeNoisePoint(img,corr)
+        print("after remove ====")
+        print(ret)
+        return ret
         #for i in range(pcount):
             #cnt = contours[i]
             #moment = cv.moments(cnt)#求图像的矩
@@ -1505,7 +1450,7 @@ if __name__ == "__main__":
                 outputSubDir =  sys.argv[2]
             show_frame= False
             if len(sys.argv) > 3:
-                if sys.argv[3] == "show":
+                if sys.argv[3] == "cvshow":
                     show_frame=True
             if sys.argv[1] == "start":
                 cp.start( outputSubDir,show_frame=show_frame)

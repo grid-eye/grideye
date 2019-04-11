@@ -476,8 +476,8 @@ class CountPeople:
         '''
         #print(img_diff)
         ret =  self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
-        #vibe = self.vibeJudge()
-        return  ret[0]  ,False
+        vibe = self.vibeJudge()
+        return  ret[0] and vibe  ,False
         var_result = self.judgeFrameByDiffVar(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
@@ -885,8 +885,11 @@ class CountPeople:
         elif ratio >=3 and h0 >= (self.row-2):
             return True
         return False
-    def __getFinalContours(self,label,contours_cache):
+    def __getFinalContours(self,label,contours_cache,show_frame=False):
         label[np.where(contours_cache==1)]=1
+        if show_frame:
+            plt.imshow(label)
+            plt.show()
         label = label.astype(np.uint8)
         n,label = cv.connectedComponents(label,connectivity=4)
         return self.__findContours(label,[i for i in range(1,n)]),0
@@ -905,7 +908,6 @@ class CountPeople:
         iter_count = 0
         max_iter = 2
         single_dog = False
-        #show_frame = True
         all_area = self.image_size
         contours_cache = np.zeros((self.row,self.col),np.uint8)
         while True:
@@ -975,6 +977,9 @@ class CountPeople:
                         #print("proportion is true")
                         isReturn=True
                         self.__splitContours(label,contours)
+                        if show_frame:
+                            plt.imshow(label)
+                            plt.show()
                     else:
                         if size >= 3 and size <= self.row:
                             contours_cache [np.where(label == l)]=1#这是为了保存之前提取的轮廓
@@ -1035,7 +1040,7 @@ class CountPeople:
                 #print("h0,w0")
                 #print(h0,w0)
                 if h0 <= self.row/2:
-                        return self.__getFinalContours(label,contours_cache)
+                        return self.__getFinalContours(label,contours_cache,show_frame)
             if iter_count >= max_iter:#超过最大的迭代次数
                 isReturn = False
                 sum_area = sum(area_arr)
@@ -1073,14 +1078,14 @@ class CountPeople:
                         if size >= 3 and size <= self.row:
                             contours_cache [np.where(label == l)]=1#这是为了保存之前提取的轮廓
                 if isReturn:
-                    return self.__getFinalContours(label,contours_cache)
+                    return self.__getFinalContours(label,contours_cache,show_frame)
                 if single_dog or  max_area < all_area/8:#尽可能减少高温区域的面积
                     min_label = sorted_label_dict[-1]
                     if min_label[1]==1 and iter_count <= max_iter:
                         label[np.where(label==min_label[0])]=0
-                    return self.__getFinalContours(label,contours_cache)
+                    return self.__getFinalContours(label,contours_cache,show_frame)
             elif max_area  < math.ceil(all_area*0.1):#
-                return self.__getFinalContours(label,contours_cache)
+                return self.__getFinalContours(label,contours_cache,show_frame)
             thre_temp += 0.25
     def showExtractProcessImage(self,origin,thresh ,images_contours):
         #输出提取人体过程的图片

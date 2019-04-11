@@ -90,6 +90,7 @@ class CountPeople:
         self.fgModel = np.zeros((self.row,self.col),np.uint8)
         self.neigborCorr = [-1,0,-1,0,-1,0,1,1,1]
     def constructBgModel(self,bgImg):#通过背景帧构建背景模型
+        self.average_temp = bgImg
         for i in range(bgImg.shape[0]):
             for j in range(bgImg.shape[1]):
                 for s in range(self.sampleNum):
@@ -111,7 +112,6 @@ class CountPeople:
     def getFgModel(self):
         return self.fgModel
     def updateBgModel(self,img):
-        self.setBgTemperature(img)
         print("update bg model")
         sel_list = [i for i in range(0,self.sampleNum)]
         for i in range(self.bgModel.shape[0]):
@@ -588,7 +588,7 @@ class CountPeople:
                     img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
                     cv.imshow("image",img_resize)
                     cv.waitKey(1)
-                ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
+                ret =self.isCurrentFrameContainHuman(currFrame.copy(),self.average_temp.copy(), diff_temp.copy() )
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
                     if self.getExistPeople():
@@ -599,7 +599,7 @@ class CountPeople:
                     self.tailOperate(currFrame)
                     continue
                 self.setExistPeople(True)
-                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
+                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp.copy(), currFrame.copy())
                 if cnt_count == 0:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.tailOperate(currFrame)
@@ -705,7 +705,7 @@ class CountPeople:
                     img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
                     cv.imshow("image",img_resize)
                     cv.waitKey(1)
-                ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
+                ret =self.isCurrentFrameContainHuman(currFrame.copy(),self.average_temp.copy(), diff_temp.copy() )
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.tailOperate(currFrame)

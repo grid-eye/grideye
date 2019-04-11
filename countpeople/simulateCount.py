@@ -62,12 +62,9 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
             temp = cv.resize(temp,(16,16),interpolation = cv.INTER_CUBIC) 
             cv.imshow("images",temp)
             cv.waitKey(40)
-        start_time = time.perf_counter()
         show_vote = False
         seq = frame_arr[i]
         ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff.copy(),show_vote)
-        end_time = time.perf_counter()
-        interval = end_time - start_time
         #print("=============analyse this frame contain human's time is====================")
         #print(interval)
         if not ret[0]:
@@ -79,6 +76,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
             continue
         cp.setExistPeople(True)
         print("capture the body contours")
+        diff_sum1 = np.sum(curr_diff)
         start_time = time.perf_counter()
         (cnt_count , img2,contours , hierarchy),area = cp.extractBody(average_median , blur,show_extract_frame)
         end_time = time.perf_counter()
@@ -101,6 +99,9 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         curr_arr.append(curr_diff)
         start_time = time.perf_counter()
         pos = cp.findBodyLocation(curr_diff,contours,[i for i in range(cp.row)])
+        diff_sum2 = np.sum(curr_diff)
+        if (diff_sum1 != diff_sum2):
+            raise ValueError()
         end_time = time.perf_counter()
         interval = end_time -start_time
         mask = np.zeros((cp.row,cp.col),np.uint8)

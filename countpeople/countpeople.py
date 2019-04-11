@@ -582,6 +582,7 @@ class CountPeople:
                 #计算完背景温度的步骤
                 print("========================================================process============================================================")
                 diff_temp = currFrame - self.average_temp
+                diff_sum = np.sum(diff_temp)
                 if show_frame:
                     plot_img = np.zeros(currFrame.shape,np.uint8)
                     plot_img[np.where(diff_temp > 1.8)] = 255
@@ -599,12 +600,15 @@ class CountPeople:
                     self.tailOperate(currFrame)
                     continue
                 self.setExistPeople(True)
-                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp.copy(), currFrame.copy())
+                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
                 if cnt_count == 0:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.tailOperate(currFrame)
                     continue
                 #下一步是计算轮当前帧的中心位置
+                diff_sum1 = np.sum(diff_temp)
+                if diff_sum != diff_sum1:
+                    raise ValueError()
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
                 self.trackPeople(currFrame,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄

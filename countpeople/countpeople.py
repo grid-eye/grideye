@@ -16,14 +16,16 @@ from target import Target
 try:
     import busio
     import board
+    load_busio = True
 except ImportError:
     print("no busio or board")
+    load_busio = False
 class CountPeople:
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
     def __init__(self, pre_read_count=30, th_bgframes=128, row=8, col=8,load_amg = False):
         # the counter of the bgframes
-        if __name__ == "__main__" or load_amg:
+        if __name__ == "__main__" and load_busio or load_amg:
             self.i2c = busio.I2C(board.SCL, board.SDA)
             self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
         self.grid_x, self.grid_y = np.mgrid[0:7:32j, 0:7:32j]
@@ -93,7 +95,7 @@ class CountPeople:
         self.average_temp = bgImg
         for i in range(bgImg.shape[0]):
             for j in range(bgImg.shape[1]):
-                for s in range(self.sampleNum):
+                for s in range(0,self.sampleNum):
                     x = random.choice(self.neigborCorr)
                     y = random.choice(self.neigborCorr)
                     row = i + x
@@ -131,6 +133,8 @@ class CountPeople:
                     if updateBg :
                         v = random.choice(sel_list)
                         #以当前像素随机更新背景样本库中20个样本中任意一个值
+                        if img[i][j] == 0:
+                            img[i][j] = self.average_temp[i][j]
                         self.bgModel[i][j][v] = img[i][j]
                     #同时以同样的概率更新它的邻居点模型样本的值
                     updateNeigbor = random.randint(0,self.bgUpdateProbability-1) == 1
@@ -147,6 +151,8 @@ class CountPeople:
                         elif col > self.col-1 :
                             col = self.col-1 
                         v = random.choice(sel_list)
+                        if img[i][j] == 0:
+                            img[i][j] = self.average_temp[i][j]
                         self.bgModel[row][col][v] = img[i][j]
                     self.fgModel[i][j] = 0
                 else:
@@ -154,7 +160,13 @@ class CountPeople:
                     self.bgModel[i][j][self.sampleNum] += 1
                     self.fgModel[i][j] = 1
                     if self.bgModel[i][j][self.sampleNum] > self.continueBgThresh:#一个像素连续50次被连续检测为前景，则认为该静止区域为运动区域，将其更新为背景点
-                        rand = random.choice(sel_list)#随即选择背景模型集的任意一个元素数值
+                        self.bgModel[i][j][sampleNum] = 0
+                        self.fgModel[i][j] = 0
+                        rand = random.choice(sel_list)#随机选择背景模型集的任意一个元素数值
+                        if img[i][j] == 0:
+                            raise ValueError()
+                        if img[i][j] == 0:
+                            img[i][j] = self.average_temp[i][j]
                         self.bgModel[i][j][rand] = img[i][j]
         temp = self.average_temp
         for i in range(temp.shape[0]):
@@ -163,11 +175,12 @@ class CountPeople:
                     isUpdate = random.randint(0,self.bgUpdateProbability-1 ) == 1
                     if isUpdate:
                         rand = random.randint(0,self.sampleNum-1)
-                        if rand == 20:
-                            print(rand)
-                            quit()
                         temp[i][j] =self.bgModel[i][j][rand]
+                        if temp[i][j] < 1:
+                            raise ValueError()
         print("exit update bg model")
+        if np.any(temp[i][j] <= 0):
+            raise ValueError()
     def getVibeFgModel(self):
         return self.fgModel
     def getVibeBgModel(self):
@@ -463,8 +476,8 @@ class CountPeople:
         '''
         #print(img_diff)
         ret =  self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
-        vibe = self.vibeJudge()
-        return  ret[0] and vibe ,False
+        #vibe = self.vibeJudge()
+        return  ret[0]  ,False
         var_result = self.judgeFrameByDiffVar(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
@@ -658,7 +671,6 @@ class CountPeople:
         '''
         try:
             print("start running the application")
-            time.sleep(2)
             self.preReadPixels()
             print("read sample data ")
             self.calcBg = False #传感器是否计算完背景温度
@@ -676,24 +688,23 @@ class CountPeople:
                 print("the %dth frame of the bgtemperature "%(seq_counter))
                 print("current temperature is ")
                 print(currFrame)
-                if frame_counter  ==  self.th_bgframes :#是否测完平均温度
-                    #更新计算背景的阈值
-                    frame_counter=0
-                    num = len(bg_frames)
-                    print("====num is %d==="%(num))
-                    self.average_temp = self.calAverageTemp(bg_frames)
-                    bg_frames = [] #清空保存的图片以节省内存
-                    print("===average temp is ===")
-                    print(self.average_temp)
-                    self.constructBgModel(self.average_temp)
-                    if not  self.calcBg:
+                if not self.calcBg:
+                    if frame_counter  ==  self.th_bgframes :#是否测完平均温度
+                        #更新计算背景的阈值
+                        frame_counter=0
+                        num = len(bg_frames)
+                        print("====num is %d==="%(num))
+                        self.average_temp = self.calAverageTemp(bg_frames)
+                        bg_frames = [] #清空保存的图片以节省内存
+                        print("===average temp is ===")
+                        print(self.average_temp)
+                        self.constructBgModel(self.average_temp)
                         if show_frame:
                             cv.namedWindow("image",cv.WINDOW_NORMAL)
                         self.calcBg = True # has calculated the bg temperature
-                        continue
-                elif not self.calcBg: #是否计算完背景温度
-                    bg_frames.append(currFrame)
-                    frame_counter += 1#帧数计数器自增
+                    else:
+                        bg_frames.append(currFrame)
+                        frame_counter += 1#帧数计数器自增
 
                     continue
                 all_frame.append(currFrame)
@@ -1088,6 +1099,61 @@ class CountPeople:
         # save all image data in directory:./actual_dir
         np.save(outputdir+"/imagedata.npy", np.array(all_frames))
         # save all diff between bgtemperature and current temperature in actual dir
+    def simulateProcess(self,data_path,show_frame = False):
+        all_frame = np.load(data_path+"/imagedata.npy")
+        avgtemp = np.load(data_path +"/avgtemp.npy")
+        self.constructBgModel(avgtemp)
+        seq_arr = []
+        point_arr = []
+        diff_frame= []
+        if show_frame:
+            cv.namedWindow("image",cv.WINDOW_NORMAL)
+        for i in range(all_frame.shape[0]):
+            print(" %d frame in all frame "%(i))
+            currFrame = all_frame[i]
+            seq = i
+            print(currFrame)
+            diff_temp = currFrame - self.average_temp
+            if show_frame:
+                plot_img = np.zeros(currFrame.shape,np.uint8)
+                plot_img[np.where(diff_temp > 1.5)] = 255
+                img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
+                cv.imshow("image",img_resize)
+                cv.waitKey(30)
+            ret =self.isCurrentFrameContainHuman(currFrame.copy(),self.average_temp.copy(), diff_temp.copy() )
+            if not ret[0]:
+                self.updateObjectTrackDictAgeAndInterval()
+                self.tailOperate(currFrame)
+                if self.getExistPeople():
+                    self.setExistPeople(False)
+                continue
+            self.setExistPeople(True)
+            print("extractbody")
+            (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
+            if cnt_count ==0:
+                self.updateObjectTrackDictAgeAndInterval()
+                self.tailOperate(currFrame)
+                continue
+            #下一步是计算轮当前帧的中心位置
+            loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
+            seq_arr.append(seq)
+            point_arr.append(loc)
+            diff_frame.append(diff_temp)
+            self.trackPeople(currFrame,loc)#检测人体运动轨迹
+            self.updateObjectTrackDictAge()#增加目标年龄
+            self.tailOperate(currFrame)
+        for i in  range(len(seq_arr)):
+            seq = seq_arr[i]
+            print(seq,end = ":")
+            diff = diff_frame[i]
+            pos_arr = point_arr[i]
+            if len(pos_arr) == 0 :
+                print()
+                continue
+            for p in  pos_arr:
+                print(p,end = "=====>")
+                print(diff[p[0]][p[1]],end = " ; ")
+            print()
     def findMaxLocation(self,img):
         row_max = []
         for i in range(len(img)):
@@ -1449,7 +1515,7 @@ class CountPeople:
         self.__classifyObject(img,loc)
 if __name__ == "__main__":
     if len(sys.argv) > 1 :
-        if sys.argv[1] == "start" or sys.argv[1]=="process":
+        if sys.argv[1] == "start" or sys.argv[1]=="process" or sys.argv[1]=="simulate":
             cp = CountPeople(row = 8 ,col=8)
             outputSubDir=None
             if len(sys.argv) > 2:
@@ -1460,9 +1526,12 @@ if __name__ == "__main__":
                     show_frame=True
             if sys.argv[1] == "start":
                 cp.start( outputSubDir,show_frame=show_frame)
-            else:
+            elif sys.argv[1]== "process":
                 print("use process deal frame")
                 cp.process(outputSubDir,show_frame=show_frame)
+            else:
+                print("simulate ")
+                cp.simulateProcess(outputSubDir,show_frame = show_frame)
         elif sys.argv[1] == "collect":
             if len(sys.argv)>2:
                 subdir =""

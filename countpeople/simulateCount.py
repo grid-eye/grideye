@@ -57,9 +57,8 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
         if cv_show:
-            temp = curr_diff.astype(np.uint8)
-            temp[np.where(temp >= 1.7)] = 255
-            temp[np.where(temp !=255)] = 0
+            temp = np.zeros(blur.shape,np.uint8)
+            temp[np.where(curr_diff >= 1.8)] = 255
             temp = cv.resize(temp,(16,16),interpolation = cv.INTER_CUBIC) 
             cv.imshow("images",temp)
             cv.waitKey(40)
@@ -100,9 +99,8 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         all_result.append(cnt_count)
         contours_rect.append(rect_arr)
         curr_arr.append(curr_diff)
-        diff_ave_curr =  curr_diff
         start_time = time.perf_counter()
-        pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
+        pos = cp.findBodyLocation(curr_diff,contours,[i for i in range(cp.row)])
         end_time = time.perf_counter()
         interval = end_time -start_time
         mask = np.zeros((cp.row,cp.col),np.uint8)
@@ -165,10 +163,17 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     print("error seq is ")
     print(error_frame)
     human_data = np.array(human_data)
-    path =path +"/human_data.npy"
-    if not  os.path.exists(path):
-        np.save(path,human_data)
+    human_path =path +"/human_data.npy"
+    if not  os.path.exists(human_path):
+        np.save(human_path,human_data)
         print("sucessfully save human_data in "+path)
+    bgPath = path+"/bgModel.npy"
+    if not os.path.exists(bgPath):
+        fgModel = cp.getFgModel()
+        bgModel = cp.getBgModel()
+        np.save(path+"/fgModel.npy",fgModel)
+        np.save(bgPath,bgModel)
+        print("sucessffully save fgModel and bgModel in "+path)
     return area_ret,cp.getPeopleNum()
 
 if __name__ == "__main__":

@@ -106,7 +106,10 @@ class CountPeople:
                     elif col  > self.col -1 :
                         col = self.col -1 
                     self.bgModel[i][j][s] = bgImg[row][col]
-
+    def getBgModel(self):
+        return self.bgModel
+    def getFgModel(self):
+        return self.fgModel
     def updateBgModel(self,img):
         self.setBgTemperature(img)
         print("update bg model")
@@ -578,12 +581,10 @@ class CountPeople:
                 all_frame.append(currFrame)
                 #计算完背景温度的步骤
                 print("========================================================process============================================================")
-                diff_temp = self.calAverageAndCurrDiff(self.average_temp,currFrame)
+                diff_temp = currFrame - self.average_temp
                 if show_frame:
-                    plot_img = np.round(diff_temp)
-                    plot_img = plot_img.astype(np.uint8)
-                    plot_img[np.where(plot_img > 1.5)] = 255
-                    plot_img[np.where(plot_img <= 1.5)] = 0
+                    plot_img = np.zeros(currFrame.shape,np.uint8)
+                    plot_img[np.where(diff_temp > 1.8)] = 255
                     img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
                     cv.imshow("image",img_resize)
                     cv.waitKey(1)
@@ -697,12 +698,10 @@ class CountPeople:
                     continue
                 all_frame.append(currFrame)
                 print("========================================================process============================================================")
-                diff_temp = self.calAverageAndCurrDiff(self.average_temp,currFrame)
+                diff_temp = currFrame - self.average_temp
                 if show_frame:
-                    plot_img = np.round(diff_temp)
-                    plot_img = plot_img.astype(np.uint8)
-                    plot_img[np.where(plot_img > 1.5)] = 255
-                    plot_img[np.where(plot_img <= 1.5)] = 0
+                    plot_img = np.zeros(currFrame.shape,np.uint8)
+                    plot_img[np.where(duff_temp > 1.5)] = 255
                     img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
                     cv.imshow("image",img_resize)
                     cv.waitKey(1)
@@ -750,6 +749,8 @@ class CountPeople:
             avg_output_path = output_path +"avgtemp.npy"
             np.save(frame_output_path,np.array(all_frame))
             np.save(avg_output_path,self.average_temp)
+            np.save(output_path+"bgmodel.npy",self.bgModel)
+            np.save(output_path+"fgmodel.npy",self.fgModel)
             print("sucessfully save the image data")
             print("path is in "+output_path)
 
@@ -878,17 +879,22 @@ class CountPeople:
         label = label.astype(np.uint8)
         n,label = cv.connectedComponents(label,connectivity=4)
         return self.__findContours(label,[i for i in range(1,n)]),0
+    def bgHighTemperature(self,diff_temp,thre_temp):
+        pass
 
     def extractBody(self,average_temp,curr_temp,show_frame=False,seq=None):
         # issue version
         thre_temp =average_temp.copy()+1
         ones = np.ones(average_temp.shape,np.float32)
         diff_test =ones*( curr_temp > thre_temp)
+        print(diff_test.sum())
         if diff_test.sum() >= self.image_size/4:
+            print("short door")
             thre_temp += 1
         iter_count = 0
         max_iter = 2
         single_dog = False
+        show_frame = True
         all_area = self.image_size
         contours_cache = np.zeros((self.row,self.col),np.uint8)
         while True:

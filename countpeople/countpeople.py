@@ -189,8 +189,6 @@ class CountPeople:
         self.preReadBgTemperature(bg_number,output_dir)
         self.acquireImageData(body_number , output_dir)
     def createTrainSample(self,bg_path,fg_path):
-        if hasattr(self,"knnSampleSet"):
-            return 
         self.knnSampleSet = createTrainingSet(bg_path,fg_path)
         return self.knnSampleSet
     def interpolate(self, points, pixels, grid_x, grid_y, inter_type=None):
@@ -539,7 +537,6 @@ class CountPeople:
             print("start running the application")
             self.preReadPixels()
             print("read sample data ")
-            self.createTrainSample(self.bg_path,self.fg_path)
             self.calcBg = False #传感器是否计算完背景温度
             frame_counter = 0 #背景帧数计数器
             seq_counter = 0 
@@ -664,7 +661,6 @@ class CountPeople:
             time.sleep(2)
             self.preReadPixels()
             print("read sample data ")
-            self.createTrainSample(self.bg_path,self.fg_path)
             self.calcBg = False #传感器是否计算完背景温度
             frame_counter = 0 #帧数计数器
             seq_counter = 0 
@@ -1454,7 +1450,7 @@ class CountPeople:
 if __name__ == "__main__":
     if len(sys.argv) > 1 :
         if sys.argv[1] == "start" or sys.argv[1]=="process":
-            cp = CountPeople()
+            cp = CountPeople(row = 8 ,col=8)
             outputSubDir=None
             if len(sys.argv) > 2:
                 outputSubDir =  sys.argv[2]
@@ -1465,6 +1461,7 @@ if __name__ == "__main__":
             if sys.argv[1] == "start":
                 cp.start( outputSubDir,show_frame=show_frame)
             else:
+                print("use process deal frame")
                 cp.process(outputSubDir,show_frame=show_frame)
         elif sys.argv[1] == "collect":
             if len(sys.argv)>2:

@@ -701,7 +701,7 @@ class CountPeople:
                 diff_temp = currFrame - self.average_temp
                 if show_frame:
                     plot_img = np.zeros(currFrame.shape,np.uint8)
-                    plot_img[np.where(duff_temp > 1.5)] = 255
+                    plot_img[np.where(diff_temp > 1.5)] = 255
                     img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
                     cv.imshow("image",img_resize)
                     cv.waitKey(1)
@@ -894,7 +894,7 @@ class CountPeople:
         iter_count = 0
         max_iter = 2
         single_dog = False
-        show_frame = True
+        #show_frame = True
         all_area = self.image_size
         contours_cache = np.zeros((self.row,self.col),np.uint8)
         while True:

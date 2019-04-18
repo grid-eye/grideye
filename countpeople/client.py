@@ -12,6 +12,7 @@ socket2  = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 host1 = "192.168.1.100"
 host2 = "192.168.1.211"
 port1 = 9999
+show_frame = False
 port2 = port1
 all_frame_sensor_1 = []
 all_frame_sensor_2 = []
@@ -25,6 +26,10 @@ if len(sys.argv) > 3:
     path = sys.argv[3]
 if not os.path.exists(path):
     os.mkdir(path)
+if len(sys.argv) > 4:
+    show_arg = sys.argv[4]
+    if show_arg == "show_frame":
+        show_frame = True 
 class myThread (threading.Thread) :
     def __init__(self,threadID,name,lock,container,socket,condition):
         threading.Thread.__init__(self)
@@ -93,7 +98,7 @@ all_merge_frame = []
 cp = CountPeople()
 try:
     while True:
-        if not res :
+        if i > 0:
             con.acquire()
         if mythread.getQuitFlag():
             break
@@ -121,7 +126,7 @@ try:
                 cp.constructBgModel(avgtemp)
                 if show_frame:
                     cv.nameWindow("image",cv.WINDOW_NORMAL)
-                self.calcBg = True
+                cp.calcBg = True
                 all_merge_frame=[]
             else:
                 all_merge_frame.append(current_frame)
@@ -134,25 +139,25 @@ try:
             cv.waitKey(1)
         res = False
         diff = current_frame - avgtemp
-        ret = cp.isCurrentFrameConainHuman(self,current_frame,avgtemp,diff)
+        ret = cp.isCurrentFrameContainHuman(current_frame,avgtemp,diff)
         if not ret[0]:
-            self.updateObjectTrackDictDictAgeAndInterval()
-            self.tailOperate(currFrame)
-            if self.getExistPeople():
-                self.setExistPeople(False)
+            cp.updateObjectTrackDictAgeAndInterval()
+            cp.tailOperate(current_frame)
+            if cp.getExistPeople():
+                cp.setExistPeople(False)
             continue
-        self.setExistPeople(True)
+        cp.setExistPeople(True)
         print("extractbody")
-        (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
+        (cnt_count,image ,contours,hierarchy),area =cp.extractBody(cp.average_temp, current_frame)
         if cnt_count ==0:
-            self.updateObjectTrackDictAgeAndInterval()
-            self.tailOperate(currFrame)
+            cp.updateObjectTrackDictAgeAndInterval()
+            cp.tailOperate(current_frame)
             continue
         #下一步是计算轮当前帧的中心位置
-        loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
-        self.trackPeople(currFrame,loc)#检测人体运动轨迹
-        self.updateObjectTrackDictAge()#增加目标年龄
-        self.tailOperate(currFrame)
+        loc = cp.findBodyLocation(diff,contours,[ i for i in range(cp.row)])
+        cp.trackPeople(current_frame,loc)#检测人体运动轨迹
+        cp.updateObjectTrackDictAge()#增加目标年龄
+        cp.tailOperate(current_frame)
         #sleep(0.5)
         if mythread.getQuitFlag():
             break

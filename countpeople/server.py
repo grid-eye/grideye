@@ -51,10 +51,13 @@ try:
                 rec = clientSocket.recv(30)
                 msg = rec.decode("utf-8")
                 temp = []
-        except BrokenPipeError:
-            print("BrokenPipeError")
-        except (KeyboardInterrupt,ConnectionResetError):
+        except (BrokenPipeError,ConnectionResetError)::
+            print("BrokenPipeError or connectionResetError")
+        except KeyboardInterrupt:
             print("error ............ ")
             break
+        finally:
+            print("bind the addr %s , %d "%(host,port))
+            print("listenning...")
 finally:
     clientSocket.close()

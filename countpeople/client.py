@@ -7,8 +7,8 @@ import threading
 import os
 import cv2 as cv
 from countpeople import CountPeople
-s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-s2 = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+socket1 = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+socket2  = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 host1 = "192.168.1.100"
 host2 = "192.168.1.211"
 port1 = 9999
@@ -48,6 +48,7 @@ class myThread (threading.Thread) :
                         self.condition.wait()
                     recv = self.socket.recv(1024)
                     data = pickle.loads(recv)
+                    recv = np.array(recv)
                     self.socket.send("ok".encode("utf-8"))
                     self.container.append(data)
                     self.condition.notify()
@@ -59,17 +60,17 @@ class myThread (threading.Thread) :
     def getContainer(self):
         return self.container
 data_container = [ ]
-s.connect((host1,port1))
-s2.connect((host2,port2))
+socket1.connect((host1,port1))
+socket2.connect((host2,port2))
 lock = threading.Lock()#互斥锁
 con = threading.Condition()#为了轮流读取两个服务器的数据,不需要互斥锁了
 res = con.acquire()#提前让主线程获得锁
 if not res :
     raise RuntimeError()
-mythread = myThread("001","wangThread",lock,data_container,s2,con)
+mythread = myThread("001","wangThread",lock,data_container,socket2,con)
 mythread.start()
-s.settimeout(3)
-s2.settimeout(3)
+socket1.settimeout(3)
+socket2.settimeout(3)
 def showData(data):
     for item in data:
         print(np.array(item))
@@ -82,9 +83,11 @@ def saveImageData(sensor1,sensor2,path):
     np.save(path+"/sensor2.npy",np.array(sensor2))
 def mergeData(t1,t2):
     temp = np.zeros(t1.shape)
+    print(" t1 shape is")
+    print(t1.shape)
     for i in range(t1.shape[0]):
         for j in range(t1.shape[1]):
-            temp = max(t1[i][j],t2[i][j])
+            temp[i][j] = max(t1[i][j],t2[i][j])
     return temp
 all_merge_frame = []
 cp = CountPeople()
@@ -96,10 +99,11 @@ try:
             break
         i += 1
         print(" the %dth frame "%(i))
-        msg = s.recv(1024)
+        msg = socket1.recv(1024)
         msg = pickle.loads(msg)
-        s.send("ok".encode("utf-8"))
-        all_frame_sensor_1.append(np.array(msg))
+        msg = np.array(msg)
+        socket1.send("ok".encode("utf-8"))
+        all_frame_sensor_1.append(msg)
         data_container.append(msg)
         con.notify()
         con.wait(3)
@@ -160,6 +164,6 @@ except KeyboardInterrupt:
 finally:
     saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
     mythread.setQuitFlag(True)
-    s.close()
-    s2.close()
+    socket1.close()
+    socket2.close()
 print(" exit sucessfully!")

@@ -42,7 +42,7 @@ try:
                 temp = [] 
                 for row in amg.pixels:
                     # Pad to 1 decimal place
-                    temp += row
+                    temp.append(row)
                 i += 1
                 print(" the %dth frame "%(i))
                 print(np.array(temp))

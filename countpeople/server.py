@@ -50,6 +50,8 @@ try:
                 rec = clientSocket.recv(30)
                 msg = rec.decode("utf-8")
                 temp = []
+        except BrokenPipeError:
+            print("BrokenPipeError")
         except (KeyboardInterrupt,ConnectionResetError):
             print("error ............ ")
             break

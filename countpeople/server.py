@@ -12,6 +12,7 @@ host = ""
 port = 9998
 if len(sys.argv) > 1:
     port = int(sys.argv[1])
+print("port is %d "%(port))
 addr = (host,port)
 try:
     serverSocket.bind(addr)

@@ -42,6 +42,7 @@ class CountPeople:
         # 8*8 grid
         self.points = [(math.floor(ix/8), (ix % 8)) for ix in range(0, 64)]
         self.diff_ave_otsu= 0.5#通过OTSU分类的背景和前景的差的阈值,用于判断是否有人
+        self.calcBg = False #传感器是否计算完背景温度
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
@@ -86,6 +87,10 @@ class CountPeople:
         for i in range(self.pre_read_count):
             for row in self.amg.pixels:
                 pass
+    def isCalcBg(self):
+        return self.calcBg
+    def setCalcBg(self,calc):
+        self.calcBg = calc
 
     def initVibeModel(self):#初始化前景和背景模型
         self.bgModel = np.zeros((self.row,self.col,self.sampleNum+1))#加1是为了保存该像素点被认为是前景的次数
@@ -673,7 +678,6 @@ class CountPeople:
             print("start running the application")
             self.preReadPixels()
             print("read sample data ")
-            self.calcBg = False #传感器是否计算完背景温度
             frame_counter = 0 #帧数计数器
             seq_counter = 0 
             bg_frames = [] #保存用于计算背景温度的帧
@@ -1104,9 +1108,10 @@ class CountPeople:
         # save all image data in directory:./actual_dir
         np.save(outputdir+"/imagedata.npy", np.array(all_frames))
         # save all diff between bgtemperature and current temperature in actual dir
-    def simulateProcess(self,data_path,show_frame = False):
-        all_frame = np.load(data_path+"/imagedata.npy")
-        avgtemp = np.load(data_path +"/avgtemp.npy")
+    def simulateProcess(self,data_path = None,show_frame = False,all_frame = None,avgtemp = None):
+        if data_path:
+            all_frame = np.load(data_path+"/imagedata.npy")
+            avgtemp = np.load(data_path +"/avgtemp.npy")
         self.constructBgModel(avgtemp)
         seq_arr = []
         point_arr = []

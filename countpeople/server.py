@@ -73,3 +73,4 @@ try:
             print("listenning...")
 finally:
     clientSocket.close()
+    serverSocket.close()

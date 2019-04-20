@@ -4,11 +4,11 @@ import numpy as np
 import pickle
 import time
 import threading
+from  multiprocessing import Process,Queue
 import os
 import cv2 as cv
 from countpeople import CountPeople
 socket1 = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-socket2  = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 host1 = "192.168.1.100"
 host2 = "192.168.1.211"
 port1 = 9999
@@ -17,10 +17,21 @@ port2 = port1
 all_frame_sensor_1 = []
 all_frame_sensor_2 = []
 if len(sys.argv) > 1:
-    port1 = int(sys.argv[1])
+    port1 = sys.argv[1]
+    split_res = sys.argv[1].split(":")
+    if len(split_res) == 2:
+        host1 = split_res[0]
+        port1 = split_res[1]
+        host2 = host1
+    port1 = int(port1)
     port2 = port1
     if len(sys.argv) > 2:
-        port2 = int(sys.argv[2])
+        port2 = sys.argv[2]
+        split_res = sys.argv[2].split(":")
+        if len(split_res) == 2:
+            host2 = split_res[0]
+            port2 = split_res[1]
+        port2 = int(port2)
 path = "double_sensor"
 if len(sys.argv) > 3:
     path = sys.argv[3]
@@ -30,52 +41,69 @@ if len(sys.argv) > 4:
     show_arg = sys.argv[4]
     if show_arg == "show_frame":
         show_frame = True 
-class myThread (threading.Thread) :
-    def __init__(self,threadID,name,lock,container,socket,condition):
-        threading.Thread.__init__(self)
-        self.threadID = threadID
-        self.name = name
+class myThread (Process) :
+    def __init__(self,host,port,condition):
+        Process.__init__(self)
+        self.host = host
+        self.port = port
         self.lock = threading.Lock()
-        self.container = container
-        self.socket = socket
-        self.condition = condition
+        self.con = condition
         self.quit = False
+        self.counter = 0
+        self.last_cnt = 0 
+        self.queue = Queue()
+        self.socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self.socket.connect((self.host,self.port))
     def setQuitFlag(self,flag):
         self.quit = True
     def getQuitFlag(self):
         return self.quit
     def run(self):
-        print("start thread "+self.name)
+        print("start process")
+        print("host2==========")
+        print(host2)
+        print("port2==========")
+        print(port2)
         try:
             while True:
-                if self.condition.acquire():
-                    if len(self.container) == 0:
-                        self.condition.wait()
-                    recv = self.socket.recv(1024)
-                    data = pickle.loads(recv)
-                    recv = np.array(recv)
-                    self.socket.send("ok".encode("utf-8"))
-                    self.container.append(data)
-                    self.condition.notify()
-                    self.condition.wait(3)
-                    self.condition.release()
+                #if len(self.container) == 0:
+                #    self.condition.wait()
+                recv = self.socket.recv(1024)
+                recv = pickle.loads(recv)
+                recv = np.array(recv)
+                self.counter += 1
+                #print("==========the %dth frame========"%(self.counter))
+                #print(recv)
+                self.queue.put(recv)
+                self.socket.send("ok".encode("utf-8"))
+                '''
+                self.con.acquire()
+                self.container.append(recv)
+                self.counter += 1
+                self.con.notify()
+                self.con.release()
+                '''
+                #self.condition.notify()
+                #self.condition.wait(3)
+                #self.condition.release()
         except KeyboardInterrupt:
             print("keyboardinterrupt ..........")
             self.setQuitFlag = True
-    def getContainer(self):
-        return self.container
-data_container = [ ]
+    def getNextFrame(self):
+        return self.queue.get() 
+        if self.con.acquire():
+            while self.last_cnt >=  self.counter:
+                self.con.wait()
+            index = self.last_cnt
+            self.last_cnt += 1
+            self.con.release()
+            return self.container[index]
 socket1.connect((host1,port1))
-socket2.connect((host2,port2))
 lock = threading.Lock()#互斥锁
 con = threading.Condition()#为了轮流读取两个服务器的数据,不需要互斥锁了
-res = con.acquire()#提前让主线程获得锁
-if not res :
-    raise RuntimeError()
-mythread = myThread("001","wangThread",lock,data_container,socket2,con)
-mythread.start()
 socket1.settimeout(3)
-socket2.settimeout(3)
+mythread = myThread(host2,port2,con)
+mythread.start()
 def showData(data):
     for item in data:
         print(np.array(item))
@@ -98,8 +126,6 @@ all_merge_frame = []
 cp = CountPeople()
 try:
     while True:
-        if i > 0:
-            con.acquire()
         if mythread.getQuitFlag():
             break
         i += 1
@@ -108,15 +134,12 @@ try:
         msg = pickle.loads(msg)
         msg = np.array(msg)
         socket1.send("ok".encode("utf-8"))
-        all_frame_sensor_1.append(msg)
-        data_container.append(msg)
-        con.notify()
-        con.wait(3)
-        all_frame_sensor_2.append(np.array(data_container[1]))
-        showData(data_container)
-        s1,s2 = data_container
-        data_container.clear()
-        con.release()
+        all_frame_sensor_2.append(msg)
+        s1 = msg
+        print("============wait=============")
+        s2 = mythread.getNextFrame()
+        print("=============show ===========")
+        showData([s1,s2])
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
         if not cp.isCalcBg(): 
             if i == thresh:
@@ -124,13 +147,15 @@ try:
                 cp.setCalcBg(True)
                 cp.setBgTemperature(avgtemp)
                 cp.constructBgModel(avgtemp)
+                print(show_frame)
                 if show_frame:
-                    cv.nameWindow("image",cv.WINDOW_NORMAL)
+                    cv.namedWindow("image",cv.WINDOW_NORMAL)
                 cp.calcBg = True
                 all_merge_frame=[]
             else:
                 all_merge_frame.append(current_frame)
             continue
+        diff = current_frame - avgtemp
         if show_frame:
             plot_img = np.zeros(current_frame.shape,np.int8)
             plot_img[ np.where(diff > 1.5) ] = 255
@@ -138,7 +163,6 @@ try:
             cv.imshow("image",img_resize)
             cv.waitKey(1)
         res = False
-        diff = current_frame - avgtemp
         ret = cp.isCurrentFrameContainHuman(current_frame,avgtemp,diff)
         if not ret[0]:
             cp.updateObjectTrackDictAgeAndInterval()
@@ -170,5 +194,4 @@ finally:
     saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
     mythread.setQuitFlag(True)
     socket1.close()
-    socket2.close()
 print(" exit sucessfully!")

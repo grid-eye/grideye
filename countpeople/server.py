@@ -14,9 +14,13 @@ if len(sys.argv) > 1:
     port = int(sys.argv[1])
 print("port is %d "%(port))
 addr = (host,port)
+hostname = socket.gethostname()
+ip = socket.gethostbyname(hostname)
 try:
     serverSocket.bind(addr)
     print("bind the addr %s , %d "%(host,port))
+    print("===============ip is =========")
+    print(ip)
     serverSocket.listen(2)
     print("listenning...")
     i2c = busio.I2C(board.SCL, board.SDA)

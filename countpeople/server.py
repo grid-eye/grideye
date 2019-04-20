@@ -7,6 +7,14 @@ import adafruit_amg88xx
 import socket
 import threading
 import sys
+def get_host_ip():
+    try:
+        s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8",80))
+        ip = s.getsockname()[0]
+    finally:
+        s.close()
+    return ip
 serverSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 host = ""
 port = 9998
@@ -15,7 +23,7 @@ if len(sys.argv) > 1:
 print("port is %d "%(port))
 addr = (host,port)
 hostname = socket.gethostname()
-ip = socket.gethostbyname(hostname)
+ip = get_host_ip()
 try:
     serverSocket.bind(addr)
     print("bind the addr %s , %d "%(host,port))

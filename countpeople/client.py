@@ -8,7 +8,6 @@ from  multiprocessing import Process,Queue
 import os
 import cv2 as cv
 from countpeople import CountPeople
-socket1 = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 host1 = "192.168.1.100"
 host2 = "192.168.1.211"
 port1 = 9999
@@ -98,12 +97,14 @@ class myThread (Process) :
             self.last_cnt += 1
             self.con.release()
             return self.container[index]
-socket1.connect((host1,port1))
+    def close(self):
+        self.socket.close()
 lock = threading.Lock()#互斥锁
 con = threading.Condition()#为了轮流读取两个服务器的数据,不需要互斥锁了
-socket1.settimeout(3)
-mythread = myThread(host2,port2,con)
-mythread.start()
+mythread1 = myThread(host1,port1,con)
+mythread2 = myThread(host2,port2,con)
+mythread1.start()
+mythread2.start()
 def showData(data):
     for item in data:
         print(np.array(item))
@@ -126,18 +127,21 @@ all_merge_frame = []
 cp = CountPeople()
 try:
     while True:
-        if mythread.getQuitFlag():
+        if mythread1.getQuitFlag() or mythread2.getQuitFlag():
             break
         i += 1
         print(" the %dth frame "%(i))
+        '''
         msg = socket1.recv(1024)
         msg = pickle.loads(msg)
         msg = np.array(msg)
         socket1.send("ok".encode("utf-8"))
         all_frame_sensor_2.append(msg)
         s1 = msg
+        '''
         print("============wait=============")
-        s2 = mythread.getNextFrame()
+        s1 = mythread1.getNextFrame()
+        s2 = mythread2.getNextFrame()
         print("=============show ===========")
         showData([s1,s2])
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
@@ -157,7 +161,7 @@ try:
             continue
         diff = current_frame - avgtemp
         if show_frame:
-            plot_img = np.zeros(current_frame.shape,np.int8)
+            plot_img = np.zeros(current_frame.shape,np.uint8)
             plot_img[ np.where(diff > 1.5) ] = 255
             img_resize  = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
             cv.imshow("image",img_resize)
@@ -183,7 +187,7 @@ try:
         cp.updateObjectTrackDictAge()#增加目标年龄
         cp.tailOperate(current_frame)
         #sleep(0.5)
-        if mythread.getQuitFlag():
+        if mythread1.getQuitFlag() or mythread2.getQuitFlag():
             break
         if i >= thresh:
             saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
@@ -192,6 +196,8 @@ except KeyboardInterrupt:
     print("==========sensor catch keyboardinterrupt==========")
 finally:
     saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
-    mythread.setQuitFlag(True)
-    socket1.close()
+    mythread1.setQuitFlag(True)
+    mythread2.setQuitFlag(True)
+    mythread1.close()
+    mythread2.close()
 print(" exit sucessfully!")

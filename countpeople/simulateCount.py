@@ -53,15 +53,17 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     for i in range(sel_frames.shape[0]):
         print("the %dth frame in all_frames "%(frame_arr[i]))
         frame =  target_frames[i]
+        if show_frame:
+            print(frame)
         blur =frame #cp.gaussianFilter(frame)
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
         if cv_show:
             temp = np.zeros(blur.shape,np.uint8)
-            temp[np.where(curr_diff >= 1.8)] = 255
+            temp[np.where(curr_diff >= 1.5)] = 255
             temp = cv.resize(temp,(16,16),interpolation = cv.INTER_CUBIC) 
             cv.imshow("images",temp)
-            cv.waitKey(40)
+            cv.waitKey(10)
         show_vote = False
         seq = frame_arr[i]
         ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff.copy(),show_vote)
@@ -187,7 +189,7 @@ if __name__ == "__main__":
     show_img = False
     cv_show=False
     if len(sys.argv ) > 2:
-        if sys.argv[2] == "cvshow":
+        if sys.argv[2] == "show_frame":
             cv_show = True
             cv.namedWindow("images",cv.WINDOW_NORMAL)
             frame_arr = [i for i in range(len(all_frames))]

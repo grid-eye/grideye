@@ -54,6 +54,7 @@ def createDataSet(path , label = 0):
     return trainDataSet,testDataSet
 def getOneKindSampleSet(path_arr,label):
     assign = False
+    print(path_arr)
     for path,start,end in path_arr :
         for i in range(start,end):
             real_path = path+str(i)
@@ -204,14 +205,11 @@ def getDeafultTestSet():
     return bg_paths,fg_paths
 def getDefaultBgpathAndFgpath():
     bg_paths =[
-                ("images/2019-01-17-bgfirst",1,5)
+                ("test/2019-3-12-second-",1,2)
             ]
     fg_paths=[
-                ("test/2019-3-12-second-",1,5),
-                ("test/2019-3-19-",1,2),
-                ("test/2019-3-26-",1,4),
-                ("test/2019-3-31-",1,2),
-                ("test/2019-3-31-high-",1,4),
+                ("test/2019-3-12-second-",4,5),
+                ("test/2019-3-26-",3,4),
             ]
     return bg_paths,fg_paths
 

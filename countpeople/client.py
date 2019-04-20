@@ -131,17 +131,11 @@ try:
             break
         i += 1
         print(" the %dth frame "%(i))
-        '''
-        msg = socket1.recv(1024)
-        msg = pickle.loads(msg)
-        msg = np.array(msg)
-        socket1.send("ok".encode("utf-8"))
-        all_frame_sensor_2.append(msg)
-        s1 = msg
-        '''
         print("============wait=============")
         s1 = mythread1.getNextFrame()
         s2 = mythread2.getNextFrame()
+        all_frame_sensor_1.append(s1)
+        all_frame_sensor_2.append(s2)
         print("=============show ===========")
         showData([s1,s2])
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
@@ -194,6 +188,7 @@ try:
             thresh += 500 
 except KeyboardInterrupt:
     print("==========sensor catch keyboardinterrupt==========")
+    saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
 finally:
     saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
     mythread1.setQuitFlag(True)

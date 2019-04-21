@@ -69,6 +69,7 @@ class CountPeople:
         self.__var_thresh=0.125
         self.__max_bg_counter = 4096#计算背景所用的最大帧数
         self.__k = 7
+        self.M = 50#计算背景帧的数量
         self.otsu_threshold =0
         self.isDoorHigh=False
         self.door_high_max_temp=1.5
@@ -97,11 +98,11 @@ class CountPeople:
         for i in range(self.bgModel.shape[0]):
             for j in range(self.bgModel.shape[1]):
                 print(self.bgModel[i][j])
-    def initVibeModel(self):#初始化前景和背景模型
+    def initVibeModel(self):#初始化vibe前景和vibe背景模型
         self.bgModel = np.zeros((self.row,self.col,self.sampleNum+1))#加1是为了保存该像素点被认为是前景的次数
         self.fgModel = np.zeros((self.row,self.col),np.uint8)
         self.neigborCorr = [-1,0,-1,0,-1,0,1,1,1]
-    def constructBgModel(self,bgImg):#通过背景帧构建背景模型
+    def constructVibeBgModel(self,bgImg):#通过背景帧构建背景模型
         self.average_temp = bgImg
         for i in range(bgImg.shape[0]):
             for j in range(bgImg.shape[1]):
@@ -123,7 +124,7 @@ class CountPeople:
         return self.bgModel
     def getFgModel(self):
         return self.fgModel
-    def updateBgModel(self,img):
+    def updateVibeBgModel(self,img):
         return 
         print("update bg model")
         sel_list = [i for i in range(0,self.sampleNum)]
@@ -455,7 +456,7 @@ class CountPeople:
     def calculateImgFeature(self,diff_frame):
         var =np.var(np.ravel(diff_frame.ravel()))
         return (None,var , None)
-    def vibeJudge(self):
+    def vibeJudge(self):#本项目不适用此方法，因为像素分辨率太低，选择的邻域相互影响太大。
         cnt = np.sum(self.fgModel)
         if cnt < 2 :
             print("no false")
@@ -476,7 +477,39 @@ class CountPeople:
             if voteCount > self.__k*2/3:
                 return False,False
             return False,True
-
+    def constructAverageBgModel(self, bg_frames):#构造平均背景模型
+        ft = np.zeros((self.row,self.col))
+        self.step = 3
+        self.M = len(bg_frames)
+        u_diff = ft.copy()
+        diff_std = ft.copy()
+        ft_arr = []
+        for s in range(self.step,self.M,self.step):
+            ft =abs( bg_frames[s] - bg_frames[s-self.step] )
+            u_diff += ft
+            ft_arr.append(ft)
+        u_diff = u_diff / self.M#均值
+        for f in ft_arr:
+            diff_std += (f - u_diff)**2
+        diff_std /= self.M
+        diff_std = diff_std ** (1/2)
+        self.u_diff = u_diff #差值均值
+        self.u = self.calAverageTemp(bg_frames)
+        self.average_temp = self.u
+        self.diff_std = diff_std#标准差
+        self.beta = 2
+        self.TH = u_diff + self.beta * diff_std
+        self.alpha = 0.5 #背景模型学习率
+        return self.u
+    def updateAverageBgModel(self,current_frame,last_frame_step):#更新背景模型
+        bgModel = np.zeros(current_frame.shape)
+        diff = current_frame - self.average_temp
+        bgModel[np.where(diff  > self.TH)] = 1
+        self.average_temp = (1-self.alpha)*self.average_temp + self.alpha * current_frame
+        self.u = self.average_temp
+        F = abs(current_frame - last_frame_step)
+        self.u_diff = (1-self.alpha)*self.u_diff + self.alpha*F
+        self.diff_std = (1-self.alpha)*self.diff_std  + self.alpha * abs(F  - self.u_diff)
     def setBgTemperature(self,avgtemp):
         self.average_temp = avgtemp
     def isCurrentFrameContainHuman(self,current_temp,
@@ -489,8 +522,6 @@ class CountPeople:
         #print(img_diff)
         ret =  self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
         return ret
-        vibe = self.vibeJudge()
-        return ret[0] and   vibe  ,False
     def ensurePathValid(self,customDir):
         if customDir:
             if not os.path.exists(customDir):
@@ -533,10 +564,10 @@ class CountPeople:
             # save all images
             self.saveImageData(all_frames, customDir)
             print("save all frames")
-    def tailOperate(self,currFrame):
+    def tailOperate(self,currFrame,lastThreeFrame):
         self.countPeopleNum()
         self.showCurrentState()
-        self.updateBgModel(currFrame)
+        self.updateAverageBgModel(currFrame,lastThreeFrame)
 
     def process(self,testSubDir=None,show_frame=False):
         '''
@@ -554,8 +585,8 @@ class CountPeople:
             print("start running the application")
             self.preReadPixels()
             print("read sample data ")
-            frame_counter = 0 #帧数计数器
-            seq_counter = 0 
+            frame_counter = 0 #背景帧数计数器
+            seq_counter = 0 #帧数计数器
             bg_frames = [] #保存用于计算背景温度的帧
             all_frame=[]#所有帧数
             while True:
@@ -568,6 +599,7 @@ class CountPeople:
                 print("the %dth frame of the bgtemperature "%(seq_counter))
                 print("current temperature is ")
                 print(currFrame)
+                all_frame.append(currFrame)
                 if not self.calcBg:
                     if frame_counter  ==  self.th_bgframes :#是否测完平均温度
                         #更新计算背景的阈值
@@ -578,16 +610,14 @@ class CountPeople:
                         bg_frames = [] #清空保存的图片以节省内存
                         print("===average temp is ===")
                         print(self.average_temp)
-                        self.constructBgModel(self.average_temp)
                         if show_frame:
                             cv.namedWindow("image",cv.WINDOW_NORMAL)
                         self.calcBg = True # has calculated the bg temperature
                     else:
-                        bg_frames.append(currFrame)
                         frame_counter += 1#帧数计数器自增
 
                     continue
-                all_frame.append(currFrame)
+                last_frame_step = all_frame[ seq_counter - 1 - self.step] 
                 print("========================================================process============================================================")
                 diff_temp = currFrame - self.average_temp
                 if show_frame:
@@ -599,8 +629,7 @@ class CountPeople:
                 ret =self.isCurrentFrameContainHuman(currFrame.copy(),self.average_temp.copy(), diff_temp.copy() )
                 if not ret[0]:
                     self.updateObjectTrackDictAgeAndInterval()
-                    self.tailOperate(currFrame)
-                    #self.updateBgModel(currFrame)
+                    self.tailOperate(currFrame,last_frame_step)
                     if self.getExistPeople():
                         '''
                         print("============restart calculate the bgtemp======")
@@ -615,13 +644,13 @@ class CountPeople:
                 (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
                 if cnt_count ==0:
                     self.updateObjectTrackDictAgeAndInterval()
-                    self.tailOperate(currFrame)
+                    self.tailOperate(currFrame,last_frame_step)
                     continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
                 self.trackPeople(currFrame,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄
-                self.tailOperate(currFrame)
+                self.tailOperate(currFrame,last_frame_step)
                 #sleep(0.5)
 
         except KeyboardInterrupt:
@@ -796,6 +825,8 @@ class CountPeople:
                 bin_img = bin_img.astype(np.uint8)
                 label=np.zeros((self.row,self.col))
                 n , label = cv.connectedComponents(bin_img,label,connectivity=4 )
+                print(curr_temp)
+                print(thre_temp)
                 print("=======current label is========")
                 print(label)
                 iter_count += 1
@@ -897,15 +928,16 @@ class CountPeople:
         if data_path:
             all_frame = np.load(data_path+"/imagedata.npy")
             avgtemp = np.load(data_path +"/avgtemp.npy")
-        self.constructBgModel(avgtemp)
+        self.constructAverageBgModel(all_frame[0:self.M])
         seq_arr = []
         point_arr = []
         diff_frame= []
         if show_frame:
             cv.namedWindow("image",cv.WINDOW_NORMAL)
-        for i in range(all_frame.shape[0]):
+        for i in range(self.M,all_frame.shape[0]):
             print(" %d frame in all frame "%(i))
             currFrame = all_frame[i]
+            last_frame_step = all_frame[i - self.step]
             seq = i
             print(currFrame)
             diff_temp = currFrame - self.average_temp
@@ -918,7 +950,7 @@ class CountPeople:
             ret =self.isCurrentFrameContainHuman(currFrame.copy(),self.average_temp.copy(), diff_temp.copy() )
             if not ret[0]:
                 self.updateObjectTrackDictAgeAndInterval()
-                self.tailOperate(currFrame)
+                self.tailOperate(currFrame,last_frame_step)
                 if self.getExistPeople():
                     self.setExistPeople(False)
                 continue
@@ -927,7 +959,7 @@ class CountPeople:
             (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
             if cnt_count ==0:
                 self.updateObjectTrackDictAgeAndInterval()
-                self.tailOperate(currFrame)
+                self.tailOperate(currFrame,last_frame_step)
                 continue
             #下一步是计算轮当前帧的中心位置
             loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
@@ -936,7 +968,7 @@ class CountPeople:
             diff_frame.append(diff_temp)
             self.trackPeople(currFrame,loc)#检测人体运动轨迹
             self.updateObjectTrackDictAge()#增加目标年龄
-            self.tailOperate(currFrame)
+            self.tailOperate(currFrame,last_frame_step)
         for i in  range(len(seq_arr)):
             seq = seq_arr[i]
             print(seq,end = ":")

@@ -40,23 +40,24 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     sel_frames = np.array(select_frames_list , np.float32)
     target_frames = sel_frames
     cp = CountPeople(row=8,col=8)
-    average_median = average_temp#cp.gaussianFilter(average_temp)
     all_result = []
     mask_arr = []
     respect_img=[]
     contours_rect = []
     center_temp_arr=[]
+    average_temp = cp.constructAverageBgModel(all_frames[0:cp.M])
+    average_median = average_temp#cp.gaussianFilter(average_temp)
     curr_arr = []#保存图片的差值(当前帧和背景的差值)
     plt_frames = []#被绘制的帧的序号
     cp.setExistPeople(False)
-    cp.constructBgModel(average_temp)
     all_length = sel_frames.shape[0]
-    for i in range(sel_frames.shape[0]):
+    for i in range(cp.M,sel_frames.shape[0]):
         print("the %dth frame in all_frames "%(frame_arr[i]))
         frame =  target_frames[i]
         blur =frame #cp.gaussianFilter(frame)
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
+        last_frame_step = all_frames[i - cp.step]
         if cv_show:
             temp = np.zeros(blur.shape,np.uint8)
             temp[np.where(curr_diff >= 1.5)] = 255
@@ -71,8 +72,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         if not ret[0]:
             print("=============no human ==============")
             cp.updateObjectTrackDictAgeAndInterval()
-            cp.tailOperate(blur)
-            #cp.updateBgModel(blur)
+            cp.tailOperate(blur,last_frame_step)
             if cp.getExistPeople():
                 cp.setExistPeople(False)
             continue
@@ -89,7 +89,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         if cnt_count == 0:
             print("===================cnt count 0====================")
             cp.updateObjectTrackDictAgeAndInterval()
-            cp.tailOperate(blur)
+            cp.tailOperate(blur,last_frame_step)
             continue
         plt_frames.append(seq)
         rect_arr = []
@@ -117,7 +117,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         end_time = time.perf_counter()
         interval = end_time - start_time
         cp.updateObjectTrackDictAge()
-        cp.tailOperate(blur)
+        cp.tailOperate(blur,last_frame_step)
     mask_arr = np.array(mask_arr)
     respect_img =np.array(respect_img)
     last_seq = 0

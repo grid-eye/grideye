@@ -51,19 +51,37 @@ try:
                 cp.constructBgModel(avgtemp)
                 print(show_frame)
                 if show_frame:
-                    cv.namedWindow("image",cv.WINDOW_NORMAL)
+                    cv.namedWindow("merge_data",cv.WINDOW_NORMAL)
+                    cv.namedWindow("sensor1_data",cv.WINDOW_NORMAL)
+                    cv.namedWindow("sensor2_data",cv.WINDOW_NORMAL)
                 cp.calcBg = True
                 all_merge_frame=[]
             else:
                 all_merge_frame.append(current_frame)
             continue
         diff = current_frame - avgtemp
+        diff_bak = diff
         if show_frame:
             plot_img = np.zeros(current_frame.shape,np.uint8)
             plot_img[ np.where(diff > 1.5) ] = 255
             img_resize  = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
-            cv.imshow("image",img_resize)
-            cv.waitKey(1)
+            cv.imshow("merge_data",img_resize)
+            cv.waitKey(5)
+            plot_img.fill(0)
+            diff = s1 - avgtemp
+            plot_img[ np.where(diff > 1.5) ] = 255
+            img_resize  = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
+            cv.imshow("sensor1_data",img_resize)
+            cv.waitKey(5)
+            plot_img.fill(0)
+            diff - s2 - avgtemp
+            plot_img[ np.where(diff > 1.5) ] = 255
+            img_resize  = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
+            cv.imshow("sensor2_data",img_resize)
+            cv.waitKey(5)
+        diff = diff_bak
+        res = False
+        res = False
         res = False
         ret = cp.isCurrentFrameContainHuman(current_frame,avgtemp,diff)
         if not ret[0]:

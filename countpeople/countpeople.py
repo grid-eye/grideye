@@ -477,6 +477,32 @@ class CountPeople:
             if voteCount > self.__k*2/3:
                 return False,False
             return False,True
+    def constructGaussianBgModel(self,first_frame):
+        row,col =  first_frame.shape
+        self.alpha_gaussian = 0.03#学习率
+        stdInit = 9
+        varInit = stdInit ** 2
+        self.lambda_gaussian = 2.5*1.2#背景更新参数
+        self.u_gaussian =first_frame.copy()
+        self.average_temp = self.u_gaussian
+        self.d_gaussian =np.zeros((row,col))
+        self.std_gaussian = np.zeros((row,col))
+        self.std_gaussian.fill(stdInit)
+        self.var_gaussian =  np.zeros((row,col))
+        self.var_gaussian.fill(varInit)
+        return self.u_gaussian
+    def updateGaussianBgModel(self,frame):
+        for i in range(self.row):
+            for j in range(self.col):
+                gray  = frame[i][j]
+                diff_abs =abs( gray - self.u_gaussian[i][j] )
+                if diff_abs < self.lambda_gaussian*self.std_gaussian[i][j]:
+                    self.u_gaussian[i][j] = (1-self.alpha_gaussian)*self.u_gaussian[i][j]+self.alpha_gaussian * frame[i][j]
+                    self.var_gaussian[i][j] = (1-self.alpha_gaussian)*self.var_gaussian[i][j] + self.alpha_gaussian*(frame[i][j] - self.u_gaussian[i][j])**2
+                    self.std_gaussian[i][j]  = self.var_gaussian[i][j]**0.5
+                else:
+                    self.d_gaussian[i][j] = frame[i][j] - self.u_gaussian[i][j]
+
     def constructAverageBgModel(self, bg_frames):#构造平均背景模型
         ft = np.zeros((self.row,self.col))
         self.step = 3
@@ -503,13 +529,18 @@ class CountPeople:
         return self.u
     def updateAverageBgModel(self,current_frame,last_frame_step):#更新背景模型
         bgModel = np.zeros(current_frame.shape)
-        diff = current_frame - self.average_temp
+        diff = abs(current_frame - self.average_temp)
         bgModel[np.where(diff  > self.TH)] = 1
-        self.average_temp = (1-self.alpha)*self.average_temp + self.alpha * current_frame
-        self.u = self.average_temp
         F = abs(current_frame - last_frame_step)
-        self.u_diff = (1-self.alpha)*self.u_diff + self.alpha*F
-        self.diff_std = (1-self.alpha)*self.diff_std  + self.alpha * abs(F  - self.u_diff)
+        u_temp =  (1-self.alpha)*self.average_temp + self.alpha * current_frame
+        u_diff_temp =  (1-self.alpha)*self.u_diff + self.alpha*F
+        diff_std_temp =  (1-self.alpha)*self.diff_std  + self.alpha * abs(F - self.u_diff)
+        for i in range(bgModel.shape[0]):
+            for j in range(bgModel.shape[1]):
+                if bgModel[i][j] == 0:
+                    self.average_temp[i][j] =u_temp[i][j]# (1-self.alpha)*self.average_temp[i][j] + self.alpha * current_frame[i][j]
+                    self.u_diff[i][j] =u_diff_temp[i][j]# (1-self.alpha)*self.u_diff[i][j] + self.alpha*F[i][j]
+                    self.diff_std[i][j] =diff_std_temp[i][j]# (1-self.alpha)*self.diff_std[i][j]  + self.alpha * abs(F[i][j]  - self.u_diff[i][j])
     def setBgTemperature(self,avgtemp):
         self.average_temp = avgtemp
     def isCurrentFrameContainHuman(self,current_temp,
@@ -567,7 +598,8 @@ class CountPeople:
     def tailOperate(self,currFrame,lastThreeFrame):
         self.countPeopleNum()
         self.showCurrentState()
-        self.updateAverageBgModel(currFrame,lastThreeFrame)
+        self.updateGaussianBgModel(currFrame)
+        #self.updateAverageBgModel(currFrame,lastThreeFrame)
 
     def process(self,testSubDir=None,show_frame=False):
         '''
@@ -825,8 +857,6 @@ class CountPeople:
                 bin_img = bin_img.astype(np.uint8)
                 label=np.zeros((self.row,self.col))
                 n , label = cv.connectedComponents(bin_img,label,connectivity=4 )
-                print(curr_temp)
-                print(thre_temp)
                 print("=======current label is========")
                 print(label)
                 iter_count += 1
@@ -849,10 +879,7 @@ class CountPeople:
                 if n == 2 and (max_area <= self.image_size/4):
                     label = label.astype(np.uint8)
                     label , contours,heir=self.findContours(label)
-                    #print("=======one people case =======")
                     h0,w0 = self.getActualHeightWidth(contours[0],label)
-                    #print("h0,w0")
-                    #print(h0,w0)
                     if h0 <= self.row/2:
                             return self.__getFinalContours(label,contours_cache)
                 if iter_count >= max_iter:#超过最大的迭代次数

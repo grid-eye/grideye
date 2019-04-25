@@ -90,6 +90,7 @@ class myThread (Process) :
             self.setQuitFlag = True
     def getNextFrame(self):
         return self.queue.get() 
+        '''
         if self.con.acquire():
             while self.last_cnt >=  self.counter:
                 self.con.wait()
@@ -97,6 +98,7 @@ class myThread (Process) :
             self.last_cnt += 1
             self.con.release()
             return self.container[index]
+        '''
     def close(self):
         self.socket.close()
 lock = threading.Lock()#互斥锁

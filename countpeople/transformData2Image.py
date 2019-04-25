@@ -57,6 +57,6 @@ else:
 print(imagedata.shape)
 for i in sel_frame:
     print('%dth frames pic'%(i))
-    convertData2Image(imagedata[i],i,True)
+    convertData2Image(imagedata[i],i,False)
 print("save sucessfully")
 

@@ -37,10 +37,11 @@ merge_data= [ ]
 last_three = thresh - 3
 container = []
 print_trible_tuple =[]
+compliment = 2
 try:
     for i in range(sensor1.shape[0]):
         s1 = sensor1[i]
-        s2 = sensor2[i]
+        s2 = sensor2[i]+2
         counter += 1
         print(" the %dth frame "%(counter))
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
@@ -75,13 +76,13 @@ try:
             cv.waitKey(5)
             plot_img.fill(0)
             diff = s1 - avgtemp
-            plot_img[ np.where(diff > 1.5) ] = 255
+            plot_img[ np.where(diff > 1) ] = 255
             img_resize  = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
             cv.imshow("sensor1_data",img_resize)
             cv.waitKey(5)
             plot_img.fill(0)
-            diff - s2 - avgtemp
-            plot_img[ np.where(diff > 1.5) ] = 255
+            diff = s2 - avgtemp
+            plot_img[ np.where(diff > 1) ] = 255
             img_resize  = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
             cv.imshow("sensor2_data",img_resize)
             cv.waitKey(5)

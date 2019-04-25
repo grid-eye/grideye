@@ -502,7 +502,56 @@ class CountPeople:
                     self.std_gaussian[i][j]  = self.var_gaussian[i][j]**0.5
                 else:
                     self.d_gaussian[i][j] = frame[i][j] - self.u_gaussian[i][j]
+    def constructMultiGaussianBgModel(self,current_frame):
+        pixel_range = 80
+        self.C_mgaussian = 3
+        self.M_mgaussian = 3
+        self.D_mgaussian = 2.5
+        self.alpha_mgaussian = 0.01#学习率
+        self.thresh_mgaussian = 0.25 #前景阈值
+        self.sd_init_mgaussian = 15
+        self.average_temp = current_frame#第一帧作为背景帧
+        self.fg_mgaussian = np.zeros((self.row,self.col))
+        self.bg_mgaussian = np.zeros((self.row,self.col))
+        self.weight_mgaussian = np.zeros((self.row,self.col,self.C_mgaussian))#权重矩阵
+        self.mean_mgaussian = np.zeros((self.row,self.col,self.C_mgaussian))#像素均值
+        self.u_diff_mgaussian = np.zeros((self.row,self.col,self.C_mgaussian))
+        self.sd_mgaussian = np.zeros((self.row,self.col,self.C_mgaussian))
+        self.p_mgaussian = self.alpha_mgaussian / (1/self.C_mgaussian)#初始化P变量
+        self.rank_gauss = np.zeros((1,self.C_mgaussian))#各个高斯分布的权重优先级
+        for i in range(self.row):
+            for j in range(self.col):
+                for k in range(self.C_mgaussian):
+                    self.mean_mgaussian[i][j][k] = np.random.random()*pixel_range
+                    self.weight_mgaussian[i][j][k] = 1/self.C_mgaussian
+                    self.sd_mgaussian[i][j][k] = self.sd_init_mgaussian
+    def updateMgaussianBgModel(self,current_frame):
+        for m in range(self.C_gaussian):
+            self.u_diff_mgaussian[m] = abs(cruuent_frame - self.mean_mgaussian[:,:,m])
 
+        #更新高斯模型的参数
+        for i in range(self.row):
+            for j in range(self.col):
+                match = 0 
+                for k in range(self.C_mgaussian):
+                    if abs(self.u_diff_mgaussian[i][j][k]) <= self.D_mgaussian*self.sd_mgaussian[i][j][k]:
+                        #更新权重，均值，标准差，p
+                        match = 1
+                        self.weight_mgaussian[i][j][k] = (1-self.alpha_mgaussian)*self.weight_mgaussian[i][j][k] + self.alpha_mgaussian
+                        self.p_mgaussian = self.alpha_mgaussian/self.weight_mgaussian[i][j][k]
+                        self.mean_mgaussian[i][j][k] = (1-self.p_mgaussian)*self.mean_mgaussian[i][j][k] + self.p_mgaussian * current_frame[i][j]
+                        self.sd_mgaussian[i][j][k] = math.sqrt((1-self.p_mgaussian)*(self.sd_mgaussian[i][j][k]**2) + self.p_mgaussian*(current_frame[i][j] - self.mean_mgaussian[i][j][k])**2)
+                    else:
+                        self.weight_mgaussian[i][j][k] = (1-self.alpha_mgaussian)*self.weight_mgaussian[i][j][k]
+                self.average_temp[i][j] = 0 
+                for k  in range(self.C_mgaussian):
+                    self.average_temp[i][j] = self.average_temp[i][j] + self.mean_mgaussian[i][j][k] * self.weight_mgaussian[i][j][k]
+                if match == 0:
+                    min_val = np.min(self.weight_gaussian[i][j])
+                    min_index =np.where(self.weight_gaussian[i][j] == min_val)[0][0]
+                    self.mean_mgaussian[i][min_index] = current_frame[i][j]
+                    self.sd_mgaussian[i][j][min_index] = self.sd_init_mgaussian 
+                self.rank_mgaussian = self.weight_mgaussian[i][j]
     def constructAverageBgModel(self, bg_frames):#构造平均背景模型
         ft = np.zeros((self.row,self.col))
         self.step = 3
@@ -598,8 +647,8 @@ class CountPeople:
     def tailOperate(self,currFrame,lastThreeFrame):
         self.countPeopleNum()
         self.showCurrentState()
-        self.updateGaussianBgModel(currFrame)
-        #self.updateAverageBgModel(currFrame,lastThreeFrame)
+        #self.updateGaussianBgModel(currFrame)
+        self.updateAverageBgModel(currFrame,lastThreeFrame)
 
     def process(self,testSubDir=None,show_frame=False):
         '''

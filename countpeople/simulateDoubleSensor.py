@@ -34,6 +34,9 @@ sensor1 = np.load(path+"/sensor1.npy")
 sensor2 = np.load(path +"/sensor2.npy")
 counter = 0 
 merge_data= [ ]
+last_three = thresh - 3
+container = []
+print_trible_tuple =[]
 try:
     for i in range(sensor1.shape[0]):
         s1 = sensor1[i]
@@ -42,13 +45,16 @@ try:
         print(" the %dth frame "%(counter))
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
         merge_data.append(current_frame)
+        container.append(current_frame)
+        if len(container) > 3:
+            last_three_frame = container.pop(0)
         print(current_frame)
         if not cp.isCalcBg(): 
-            if i == thresh:
+            if i == thresh-1 :
                 avgtemp = cp.calAverageTemp(all_merge_frame)
                 cp.setCalcBg(True)
                 cp.setBgTemperature(avgtemp)
-                cp.constructBgModel(avgtemp)
+                cp.constructAverageBgModel(avgtemp)
                 print(show_frame)
                 if show_frame:
                     cv.namedWindow("merge_data",cv.WINDOW_NORMAL)
@@ -84,9 +90,10 @@ try:
         res = False
         res = False
         ret = cp.isCurrentFrameContainHuman(current_frame,avgtemp,diff)
+        last_three += 1
         if not ret[0]:
             cp.updateObjectTrackDictAgeAndInterval()
-            cp.tailOperate(current_frame)
+            cp.tailOperate(current_frame,last_three_frame)
             if cp.getExistPeople():
                 cp.setExistPeople(False)
             continue
@@ -95,14 +102,21 @@ try:
         (cnt_count,image ,contours,hierarchy),area =cp.extractBody(cp.average_temp, current_frame)
         if cnt_count ==0:
             cp.updateObjectTrackDictAgeAndInterval()
-            cp.tailOperate(current_frame)
+            cp.tailOperate(current_frame,last_three_frame)
             continue
         #下一步是计算轮当前帧的中心位置
         loc = cp.findBodyLocation(diff,contours,[ i for i in range(cp.row)])
+        print_trible_tuple.append((i,diff,loc))
         cp.trackPeople(current_frame,loc)#检测人体运动轨迹
         cp.updateObjectTrackDictAge()#增加目标年龄
-        cp.tailOperate(current_frame)
+        cp.tailOperate(current_frame,last_three_frame)
         #sleep(0.5)
-    saveMergeData(np.array(merge_data),cp.getBgTemperature(),path)
+    for i,frame,loc in print_trible_tuple:
+        print("%d:  "%(i),end = "")
+        for p in loc:
+            print(p,end="==>")
+            print(round(frame[p],2),end=",")
+        print()
+    #saveMergeData(np.array(merge_data),cp.getBgTemperature(),path)
 except KeyboardInterrupt:
     print("keyboardInterrupt")

@@ -4,29 +4,27 @@ import pickle
 import socket
 import threading
 import sys
+def get_host_ip():
+    try:
+        s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8",80))
+        ip = s.getsockname()[0]
+    finally:
+        s.close()
+    return ip
 serverSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-host = ""
+host = "localhost"
 port = 9998
 if len(sys.argv) > 1:
     port = int(sys.argv[1])
 addr = (host,port)
+print(addr)
 try:
     serverSocket.bind(addr)
     print("bind the addr %s , %d "%(host,port))
+    print("current ip is %s"%(get_host_ip()))
     serverSocket.listen(2)
     print("listenning...")
-    class MyThread(threading.Thread):
-        def __init__(self,threadID,name,q):
-            threading.Thread.__init__(self)
-            self.threadID = threadID
-            self.name = name
-            self.q = q 
-        def run(self):
-            print("start thread : "+self.name)
-            self.process_data()
-        def process_data(self):
-            pass
-
     while True:
         clientSocket,addr = serverSocket.accept()
         print(addr)
@@ -48,4 +46,5 @@ try:
             print("error ............ ")
             break
 finally:
+    serverSocket.close()
     clientSocket.close()

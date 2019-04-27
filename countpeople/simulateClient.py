@@ -72,7 +72,6 @@ class myThread (Process) :
                 #    self.condition.wait()
                 recv = self.socket.recv(1024)
                 recv = pickle.loads(recv)
-                recv = np.array(recv)
                 self.counter += 1
                 #print("==========the %dth frame========"%(self.counter))
                 #print(recv)
@@ -146,9 +145,22 @@ try:
         print("============wait=============")
         s1 = mythread1.getNextFrame()
         s2 = mythread2.getNextFrame()
+        time_1 = s1[1]
+        time_2 = s2[1]
+        s1 = s1[0]
+        s2 = s2[0]
         all_frame_sensor_1.append(s1)
         all_frame_sensor_2.append(s2)
         print("=============show ===========")
+        print("=============time is ==============")
+        print(time_1)
+        print(time_2)
+        time_local_1 = time.localtime(int(time_1))
+        time_local_2 = time.localtime(int(time_2))
+        dt1 = time.strftime("%Y-%m-%d:%H:%M:%S",time_local_1)
+        dt2 = time.strftime("%Y-%m-%d:%H:%M:%S",time_local_2)
+        print(dt1,end = "<=============>")
+        print(dt2)
         showData([s1,s2])
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
         container.append((s1,s2,current_frame))

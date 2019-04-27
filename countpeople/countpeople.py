@@ -582,15 +582,12 @@ class CountPeople:
         bgModel[np.where(diff  > self.TH)] = 1
         F = abs(current_frame - last_frame_step)
         u_temp =  (1-self.alpha)*self.average_temp + self.alpha * current_frame
-        print(F)
         u_diff_temp =  (1-self.alpha)*self.u_diff + self.alpha*F
-        print(u_diff_temp)
         diff_std_temp =  (1-self.alpha)*self.diff_std  + self.alpha * abs(F - self.u_diff)
         for i in range(bgModel.shape[0]):
             for j in range(bgModel.shape[1]):
                 if bgModel[i][j] == 0:
                     self.average_temp[i][j] =u_temp[i][j]# (1-self.alpha)*self.average_temp[i][j] + self.alpha * current_frame[i][j]
-                    print(u_diff_temp[i][j])
                     self.u_diff[i][j] =u_diff_temp[i][j]# (1-self.alpha)*self.u_diff[i][j] + self.alpha*F[i][j]
                     self.diff_std[i][j] =diff_std_temp[i][j]# (1-self.alpha)*self.diff_std[i][j]  + self.alpha * abs(F[i][j]  - self.u_diff[i][j])
     def setBgTemperature(self,avgtemp):
@@ -602,7 +599,6 @@ class CountPeople:
             ret : (bool,bool) ret[0] True:含有人类，ret[0] False:没有人类，表示属于背景
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
-        #print(img_diff)
         ret =  self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
         return ret
     def ensurePathValid(self,customDir):
@@ -691,6 +687,7 @@ class CountPeople:
                         num = len(bg_frames)
                         print("====num is %d==="%(num))
                         self.average_temp = self.calAverageTemp(bg_frames)
+                        self.constructAverageBgModel(bg_frames)
                         bg_frames = [] #清空保存的图片以节省内存
                         print("===average temp is ===")
                         print(self.average_temp)

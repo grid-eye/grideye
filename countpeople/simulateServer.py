@@ -39,6 +39,8 @@ try:
                 data = (temp,round(timestamp,1))
                 serial_temp = pickle.dumps(data)
                 print("simulate the %dth frame "%(i))
+                print("========time is===========")
+                print(timestamp)
                 print(np.array(temp))
                 clientSocket.send(serial_temp)
                 rec = clientSocket.recv(30)

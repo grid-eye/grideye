@@ -11,5 +11,5 @@ while True:
         # Pad to 1 decimal place
         print(['{0:.1f}'.format(temp) for temp in row])
         print("")
+    print(time.time())
     print("\n")
-    time.sleep(1)

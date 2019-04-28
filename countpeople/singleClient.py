@@ -178,7 +178,7 @@ try:
         if mythread1.getQuitFlag() :
             break
         if i >= thresh:
-            saveImageData(all_frame_sensor_1,path)
+            saveImageData(all_frame_sensor_1,path,initial_avg)
             thresh += 500 
 except KeyboardInterrupt:
     print("==========sensor catch keyboardinterrupt==========")

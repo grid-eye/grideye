@@ -55,6 +55,7 @@ try:
             print(msg) 
             while True:
                 i += 1
+                t = time.time()
                 print(t)
                 print(" the %dth frame "%(i))
                 serial_temp = pickle.dumps(t)

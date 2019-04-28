@@ -63,7 +63,7 @@ try:
                 print(t)
                 print(" the %dth frame "%(i))
                 temp = np.array(temp)
-                temp = (temp,t)
+                temp = (temp,round(t,3))
                 serial_temp = pickle.dumps(temp)
                 clientSocket.send(serial_temp)
                 rec = clientSocket.recv(30)

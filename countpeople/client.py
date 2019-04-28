@@ -77,13 +77,6 @@ class myThread (Process) :
                 #print(recv)
                 self.queue.put(recv)
                 self.socket.send("1".encode("utf-8"))
-                '''
-                self.con.acquire()
-                self.container.append(recv)
-                self.counter += 1
-                self.con.notify()
-                self.con.release()
-                '''
                 #self.condition.notify()
                 #self.condition.wait(3)
                 #self.condition.release()
@@ -92,15 +85,6 @@ class myThread (Process) :
             self.setQuitFlag = True
     def getNextFrame(self):
         return self.queue.get() 
-        '''
-        if self.con.acquire():
-            while self.last_cnt >=  self.counter:
-                self.con.wait()
-            index = self.last_cnt
-            self.last_cnt += 1
-            self.con.release()
-            return self.container[index]
-        '''
     def close(self):
         self.socket.close()
 lock = threading.Lock()#互斥锁
@@ -120,7 +104,8 @@ def showData(data):
     print("================")
 
 i = 0 
-thresh = 40
+thresh = 80#用于计算背景的帧数
+diff_time_thresh = 20
 def saveImageData(sensor1,sensor2,path):
     np.save(path+"/sensor1.npy",np.array(sensor1))
     np.save(path+"/sensor2.npy",np.array(sensor2))
@@ -132,10 +117,19 @@ def mergeData(t1,t2):
         for j in range(t1.shape[1]):
             temp[i][j] = max(t1[i][j],t2[i][j])
     return temp
+def isSynchronize(t1,t2,thresh):
+    if abs(t1 - t2 ) > thresh:
+        return False
+    return True
 all_merge_frame = []
 cp = CountPeople()
 i = 0 
 container = []
+time_thresh = 0.06
+diff_sum = 0 
+toggle = False
+align = True#两帧数据时间线是否对齐，即同步
+
 try:
     while True:
         if mythread1.getQuitFlag() or mythread2.getQuitFlag():
@@ -149,8 +143,39 @@ try:
         print(s2)
         t1 = s1[1]
         t2 = s2[1]
+        diff = t1 - t2
+        if diff > 0:
+            toggle = True#sensor1快
+        else:
+            toggle = False#sensor2快
         s1= s1[0]
         s2 = s2[0]
+        if i < diff_time_thresh:
+            diff_sum += abs(diff)
+        elif i == diff_time_thresh:
+            complement = diff_sum / i#计算两个传感器的传送的数据的时间的原始差值,这个差值作为补偿值
+            print("======complement is %.3f "%(complement))
+            time_thresh += complement #判断两个传感器数据是否同步的阈值
+            print("======synchronize's thresh is %.3f "%(time_thresh))
+        isSync = isSynchronize(t1,t2,time_thresh)
+        count = 0
+        while_count = 2
+        while not isSync and count < while_count:#同步措施
+            if not toggle:#sensor2 快
+                s1 = mythread1.getNextFrame()
+                t1 = s1[1]
+                s1 = s1[0]  
+            else:
+                s2 = mythread2.getNextFrame()#sensor1快
+                t2 = s2[1]
+                s2 = s2[0]
+            diff = t1 - t2 
+            if diff >0 :
+                toggle = True
+            else:
+                toggle = False
+            isSync = isSynchronize(t1,t2,time_thresh)
+            count += 1
         print(t1,t2)
         all_frame_sensor_1.append(s1)
         all_frame_sensor_2.append(s2)
@@ -161,13 +186,13 @@ try:
         if len(container) == 4:
             last_three_tuple = container.pop(0)
             last_three_frame = last_three_tuple[0]
-
         if not cp.isCalcBg(): 
             if i == thresh:
                 avgtemp = cp.calAverageTemp(all_merge_frame)
                 cp.setCalcBg(True)
                 cp.setBgTemperature(avgtemp)
                 cp.constructAverageBgModel(avgtemp)
+                print("==========time thresh is %.3f============="%(time_thresh))
                 print(show_frame)
                 if show_frame:
                     cv.namedWindow("image",cv.WINDOW_NORMAL)

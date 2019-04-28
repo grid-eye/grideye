@@ -147,4 +147,7 @@ try:
         s2 = mythread2.getNextFrame()
         print(s1,end="======>")
         print(s2)
-        time.sleep(1)
+except (BrokenPipeError,KeyboardInterrupt):
+    print("error")
+finally:
+    pass

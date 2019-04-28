@@ -9,35 +9,22 @@ import os
 import cv2 as cv
 from countpeople import CountPeople
 host1 = "192.168.1.100"
-host2 = "192.168.1.211"
-port1 = 9999
 show_frame = False
-port2 = port1
 all_frame_sensor_1 = []
-all_frame_sensor_2 = []
 if len(sys.argv) > 1:
     port1 = sys.argv[1]
     split_res = sys.argv[1].split(":")
     if len(split_res) == 2:
         host1 = split_res[0]
         port1 = split_res[1]
-        host2 = host1
     port1 = int(port1)
-    port2 = port1
-    if len(sys.argv) > 2:
-        port2 = sys.argv[2]
-        split_res = sys.argv[2].split(":")
-        if len(split_res) == 2:
-            host2 = split_res[0]
-            port2 = split_res[1]
-        port2 = int(port2)
-path = "double_sensor"
-if len(sys.argv) > 3:
-    path = sys.argv[3]
+path = "test"
+if len(sys.argv) > 2:
+    path = sys.argv[2]
 if not os.path.exists(path):
     os.mkdir(path)
-if len(sys.argv) > 4:
-    show_arg = sys.argv[4]
+if len(sys.argv) > 3:
+    show_arg = sys.argv[3]
     if show_arg == "show_frame":
         show_frame = True 
 class myThread (Process) :
@@ -60,10 +47,6 @@ class myThread (Process) :
         return self.quit
     def run(self):
         print("start process")
-        print("host2==========")
-        print(host2)
-        print("port2==========")
-        print(port2)
         self.event.wait()
         self.socket.send("start".encode("utf-8"))
         try:
@@ -72,7 +55,6 @@ class myThread (Process) :
                 #    self.condition.wait()
                 recv = self.socket.recv(1024)
                 recv = pickle.loads(recv)
-                recv = np.array(recv)
                 self.counter += 1
                 #print("==========the %dth frame========"%(self.counter))
                 #print(recv)
@@ -110,9 +92,7 @@ event = Event()
 print(" is start receive sensor data ? ",end = ":")
 print(event.is_set())
 mythread1 = myThread(host1,port1,con,event)
-mythread2 = myThread(host2,port2,con,event)
 mythread1.start()
-mythread2.start()
 event.set()
 print(" is start receive sensor data ? ",end = ":")
 def showData(data):
@@ -122,45 +102,42 @@ def showData(data):
 
 i = 0 
 thresh = 40
-def saveImageData(sensor1,sensor2,path):
-    np.save(path+"/sensor1.npy",np.array(sensor1))
-    np.save(path+"/sensor2.npy",np.array(sensor2))
-def mergeData(t1,t2):
-    temp = np.zeros(t1.shape)
-    print(" t1 shape is")
-    print(t1.shape)
-    for i in range(t1.shape[0]):
-        for j in range(t1.shape[1]):
-            temp[i][j] = max(t1[i][j],t2[i][j])
-    return temp
+def saveImageData(sensor1,path,avgtemp):
+    np.save(path+"/imagedata.npy",np.array(sensor1))
+    np.save(path+"/avgtemp.npy",avgtemp)
 all_merge_frame = []
 cp = CountPeople()
 i = 0 
 container = []
+initial_avg  = None
 try:
     while True:
-        if mythread1.getQuitFlag() or mythread2.getQuitFlag():
+        if mythread1.getQuitFlag() :
             break
         i += 1
         print(" the %dth frame "%(i))
         print("============wait=============")
         s1 = mythread1.getNextFrame()
-        s2 = mythread2.getNextFrame()
+        time_1 = s1[1]
+        s1 = s1[0]
         all_frame_sensor_1.append(s1)
-        all_frame_sensor_2.append(s2)
         print("=============show ===========")
-        showData([s1,s2])
-        current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
-        container.append((s1,s2,current_frame))
+        print("=============time is ==============")
+        print(time_1)
+        time_local_1 = time.localtime(int(time_1))
+        dt1 = time.strftime("%Y-%m-%d:%H:%M:%S",time_local_1)
+        print(dt1)
+        showData([s1])
+        current_frame = s1#合并两个传感器的数据,取最大值
+        container.append(s1)
         if len(container) == 4:
-            last_three_tuple = container.pop(0)
-            last_three_frame = last_three_tuple[0]
-
+            last_three_frame = container.pop(0)
         if not cp.isCalcBg(): 
             if i == thresh:
                 avgtemp = cp.calAverageTemp(all_merge_frame)
                 cp.setCalcBg(True)
                 cp.setBgTemperature(avgtemp)
+                initial_avg = avgtemp
                 cp.constructAverageBgModel(avgtemp)
                 print(show_frame)
                 if show_frame:
@@ -198,19 +175,17 @@ try:
         cp.updateObjectTrackDictAge()#增加目标年龄
         cp.tailOperate(current_frame,last_three_frame)
         #sleep(0.5)
-        if mythread1.getQuitFlag() or mythread2.getQuitFlag():
+        if mythread1.getQuitFlag() :
             break
         if i >= thresh:
-            saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
+            saveImageData(all_frame_sensor_1,path)
             thresh += 500 
 except KeyboardInterrupt:
     print("==========sensor catch keyboardinterrupt==========")
-    saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
+    saveImageData(all_frame_sensor_1,path,initial_avg)
 finally:
-    saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
+    saveImageData(all_frame_sensor_1,path,initial_avg)
     mythread1.setQuitFlag(True)
-    mythread2.setQuitFlag(True)
     mythread1.close()
-    mythread2.close()
 print(" exit sucessfully!")
 

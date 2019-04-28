@@ -120,7 +120,7 @@ def createTrainingSetAndTestSet(bg_path, fg_path):#创建测试数据集并进�
     elif type(bg_path)==list:
         print("case 2")
         trainSet,testSet =createMultiDirSampleSet(bg_path,fg_path) 
-    return getNormalDataSet(trainSet,testSet)
+    return trainSet,testSet
 
 
 def createTrainingSet(bg_path,fg_path):
@@ -220,6 +220,7 @@ if __name__ == "__main__":
     else:
         bg_path ,fg_path = getDefaultBgpathAndFgpath()
     trainSet,testSet = createTrainingSetAndTestSet(bg_path,fg_path)
+    trainSet,testSet = getNormalDataSet(trainSet,testSet)
     print("trainSet.size is ")
     print(trainSet.shape)
     print("testSet.size is ")

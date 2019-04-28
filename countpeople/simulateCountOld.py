@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from countpeople import CountPeople
+from countpeopleOld import CountPeople
 from interpolate import imageInterpolate
 import time
 import os
@@ -29,7 +29,7 @@ def showImage(original , newImage,contours_arr,plt_frames,path=None):
             plotImage(omg, img,rect,seq)
     else:
         plotImage(original,newImage,contours_arr,plt_frames)
-def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=False,show_extract_frame=False,cv_show=False):
+def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=False,show_extract_frame=False):
     human_data = []
     select_frames_dict = {}
     select_frames_list = []
@@ -40,45 +40,47 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     sel_frames = np.array(select_frames_list , np.float32)
     target_frames = sel_frames
     cp = CountPeople(row=8,col=8)
+    average_median = cp.gaussianFilter(average_temp)
     all_result = []
     mask_arr = []
     respect_img=[]
     contours_rect = []
     center_temp_arr=[]
-    average_temp = cp.constructAverageBgModel(all_frames[0:cp.M])
-    average_median = average_temp#cp.gaussianFilter(average_temp)
     curr_arr = []#保存图片的差值(当前帧和背景的差值)
     plt_frames = []#被绘制的帧的序号
+    error_frame_dict={}
     cp.setExistPeople(False)
-    all_length = sel_frames.shape[0]
-    for i in range(cp.M,sel_frames.shape[0]):
+    for i in range(sel_frames.shape[0]):
         print("the %dth frame in all_frames "%(frame_arr[i]))
         frame =  target_frames[i]
         blur =frame #cp.gaussianFilter(frame)
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
-        last_frame_step = all_frames[i - cp.step]
-        if cv_show:
-            temp = np.zeros(blur.shape,np.uint8)
-            temp[np.where(curr_diff >= 1.5)] = 255
-            temp = cv.resize(temp,(16,16),interpolation = cv.INTER_CUBIC) 
-            cv.imshow("images",temp)
+        if show_frame:
+            temp = np.zeros(curr_diff.shape,np.uint8)
+            temp[np.where(curr_diff > 1.5)] = 255
+            resize = cv.resize(temp,(16,16),cv.INTER_CUBIC)
+            cv.imshow("images",resize)
             cv.waitKey(10)
+        start_time = time.perf_counter()
         show_vote = False
         seq = frame_arr[i]
+        if (seq <= 1495  and seq >=1491)or (seq >= 2443 and seq <=2447)or(seq >=3447 and seq <=3452):
+            show_vote=True
         ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff.copy(),show_vote)
+        end_time = time.perf_counter()
+        interval = end_time - start_time
         #print("=============analyse this frame contain human's time is====================")
         #print(interval)
         if not ret[0]:
-            print("=============no human ==============")
             cp.updateObjectTrackDictAgeAndInterval()
-            cp.tailOperate(blur,last_frame_step)
+            cp.countPeopleNum()
+            cp.showCurrentState()
             if cp.getExistPeople():
                 cp.setExistPeople(False)
             continue
         cp.setExistPeople(True)
         print("capture the body contours")
-        diff_sum1 = np.sum(curr_diff)
         start_time = time.perf_counter()
         (cnt_count , img2,contours , hierarchy),area = cp.extractBody(average_median , blur,show_extract_frame)
         end_time = time.perf_counter()
@@ -87,9 +89,10 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         #print(interval)
         area_ret.append(area)
         if cnt_count == 0:
-            print("===================cnt count 0====================")
+            print("current frame has no people")
             cp.updateObjectTrackDictAgeAndInterval()
-            cp.tailOperate(blur,last_frame_step)
+            cp.countPeopleNum()
+            cp.showCurrentState()
             continue
         plt_frames.append(seq)
         rect_arr = []
@@ -99,11 +102,9 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         all_result.append(cnt_count)
         contours_rect.append(rect_arr)
         curr_arr.append(curr_diff)
+        diff_ave_curr =  curr_diff
         start_time = time.perf_counter()
-        pos = cp.findBodyLocation(curr_diff,contours,[i for i in range(cp.row)])
-        diff_sum2 = np.sum(curr_diff)
-        if (diff_sum1 != diff_sum2):
-            raise ValueError()
+        pos = cp.findBodyLocation(diff_ave_curr,contours,[i for i in range(cp.row)])
         end_time = time.perf_counter()
         interval = end_time -start_time
         mask = np.zeros((cp.row,cp.col),np.uint8)
@@ -117,7 +118,8 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         end_time = time.perf_counter()
         interval = end_time - start_time
         cp.updateObjectTrackDictAge()
-        cp.tailOperate(blur,last_frame_step)
+        cp.countPeopleNum()
+        cp.showCurrentState()
     mask_arr = np.array(mask_arr)
     respect_img =np.array(respect_img)
     last_seq = 0
@@ -128,6 +130,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         img = curr_arr[i]
         seq = plt_frames[i]
         human_data.append(seq)
+        print(seq,end=",")
         if center_temp_arr[i]:
             if seq > last_seq +interval:
                 artificial_count += 1
@@ -137,9 +140,9 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
                     error_frame.append(seq)
                     for j in range(last_seq+1,seq):
                         print("============add %d in frame ============= "%(j))
+                        print(all_frames[j])
                         human_data.insert(0,j)
             last_seq = seq
-        print(seq,end=",")
         for pos in center_temp_arr[i]:
             print(pos,end="===>")
             print(round(img[pos[0],pos[1]],2) ,end=",")
@@ -166,17 +169,10 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     print("error seq is ")
     print(error_frame)
     human_data = np.array(human_data)
-    human_path =path +"/human_data.npy"
-    if not  os.path.exists(human_path):
-        #np.save(human_path,human_data)
-        print("sucessfully save human_data in "+path)
-    bgPath = path+"/bgModel.npy"
-    if not os.path.exists(bgPath):
-        fgModel = cp.getFgModel()
-        bgModel = cp.getBgModel()
-        #np.save(path+"/fgModel.npy",fgModel)
-        #np.save(bgPath,bgModel)
-        print("sucessffully save fgModel and bgModel in "+path)
+    path =path +"/human_data.npy"
+    if not  os.path.exists(path):
+        np.save(path,human_data)
+    print("sucessfully save human_data in "+path)
     return area_ret,cp.getPeopleNum()
 
 if __name__ == "__main__":
@@ -187,21 +183,22 @@ if __name__ == "__main__":
     average_temp = np.load(path+"/avgtemp.npy")
     print("==============loaded people =====================")
     show_img = False
-    cv_show=False
+    show_frame = False
     if len(sys.argv ) > 2:
-        if sys.argv[2] == "show_frame":
-            cv_show = True
+        if (sys.argv[2]) == "show_frame":
+            show_frame = True
             cv.namedWindow("images",cv.WINDOW_NORMAL)
-            frame_arr = [i for i in range(len(all_frames))]
+            if len(sys.argv) > 3:
+                frame_arr =[int(i) for i in  sys.argv[3:] ]
+            else:
+                frame_arr = [i for i in range(len(all_frames))]
         else:
             frame_arr =[int(i) for i in  sys.argv[2:] ]
         y = input("show image ?y or n:\n")
         if y == "y":
             show_img=True
-        elif y == "human":
-            all_frames = np.load(path+"/human_data.npy")
     else:
         frame_arr = [i for i in range(len(all_frames))]
-    analyseFrameSequence(frame_arr,all_frames,average_temp,sys.argv[1],True,show_img,cv_show=cv_show)
-    if cv_show:
+    analyseFrameSequence(frame_arr,all_frames,average_temp,sys.argv[1],show_frame,show_img)
+    if show_frame:
         cv.destroyAllWindows()

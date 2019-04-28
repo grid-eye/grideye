@@ -45,19 +45,20 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
     respect_img=[]
     contours_rect = []
     center_temp_arr=[]
-    average_temp = cp.constructAverageBgModel(all_frames[0:cp.M])
+    average_temp = cp.constructGaussianBgModel(all_frames[0])
+    #average_temp = cp.constructAverageBgModel(all_frames[0:cp.M])
     average_median = average_temp#cp.gaussianFilter(average_temp)
     curr_arr = []#保存图片的差值(当前帧和背景的差值)
     plt_frames = []#被绘制的帧的序号
     cp.setExistPeople(False)
     all_length = sel_frames.shape[0]
-    for i in range(cp.M,sel_frames.shape[0]):
+    for i in range(0,sel_frames.shape[0]):
         print("the %dth frame in all_frames "%(frame_arr[i]))
         frame =  target_frames[i]
         blur =frame #cp.gaussianFilter(frame)
         seq = frame_arr[i]#表示选择的帧的序号，不一定从0开始
         curr_diff= blur - average_median
-        last_frame_step = all_frames[i - cp.step]
+        last_frame_step = all_frames[i - 0]
         if cv_show:
             temp = np.zeros(blur.shape,np.uint8)
             temp[np.where(curr_diff >= 1.5)] = 255

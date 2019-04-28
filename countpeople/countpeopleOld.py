@@ -1,9 +1,6 @@
 import numpy as np
 import cv2 as cv
 import time
-import busio
-import board
-import adafruit_amg88xx
 import math
 import scipy
 import os
@@ -11,15 +8,22 @@ import sys
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 from otsuBinarize import otsuThreshold
-from knn import createSampleSet,knnClassify
+from knnOld import createSampleSet,knnClassify
 from objecttrack import ObjectTrack
 from target import Target
+isImport = True
+try:
+    import busio
+    import board
+    import adafruit_amg88xx
+except (ImportError,ModuleNotFoundError):
+    isImport = False
 class CountPeople:
     # otsu阈值处理后前景所占的比例阈值，低于这个阈值我们认为当前帧是背景，否则是前景
 
-    def __init__(self, pre_read_count=30, th_bgframes=128, row=8, col=8):
+    def __init__(self, pre_read_count=30, th_bgframes=128, row=8, col=8,load_amg = False):
         # the counter of the bgframes
-        if __name__ == "__main__":
+        if (__name__ == "__main__" or load_amg) and isImport:
             self.i2c = busio.I2C(board.SCL, board.SDA)
             self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
         self.grid_x, self.grid_y = np.mgrid[0:7:32j, 0:7:32j]
@@ -43,6 +47,8 @@ class CountPeople:
         self.__y_thresh =2
         self.__diff_individual_tempera= 0.5 #单人进出时的中心温度阈值
         self.__peoplenum = 0  # 统计的人的数量
+        self.__enter = 0
+        self.__exit = 0
         self.__entrance_exit_events = 0
         self.__diffThresh = 2.5 #温度差阈值
         self.__otsuThresh = 3.0 # otsu 阈值
@@ -61,9 +67,13 @@ class CountPeople:
         self.__max_bg_counter = 4096#计算背景所用的最大帧数
         self.__k = 7
         self.otsu_threshold =0
+        self.isDoorHigh=False
+        self.door_high_max_temp=1.5
         self.interpolate_method='cubic'
         self.bg_path="test/2019-3-12-second-1"
-        self.fg_path = "test/2019-3-12-second-4"
+        self.fg_path_0 = "test/2019-3-12-second-4"
+        self.fg_path_1 = "test/2019-3-26-3"
+        self.fg_path=[self.fg_path_0,self.fg_path_1]
         self.createTrainSample(self.bg_path,self.fg_path)
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
@@ -71,6 +81,22 @@ class CountPeople:
         for i in range(self.pre_read_count):
             for row in self.amg.pixels:
                 pass
+
+    def preReadBgTemperature(self,bg_number=400,output_dir ="temp"):
+        output_dir = self.ensurePathValid(output_dir)
+        counter = 0 
+        all_frame = []
+        while counter < bg_number:
+            curr_frame = []
+            for row in self.amg.pixels:
+                curr_frame.append(row)
+            all_Frame.append(cframe)
+            counter += 1
+        self.average_temp = self.calAverageTemp(all_frame)
+        np.save(output_dir+"/avgtemp.npy",self.average_temp)
+    def readAndSaveBgAndBodyTemperature(self,bg_number=400,body_number = 1000, output_dir="temp"):
+        self.preReadBgTemperature(bg_number,output_dir)
+        self.acquireImageData(body_number , output_dir)
     def createTrainSample(self,bg_path,fg_path):
         if hasattr(self,"knnSampleSet"):
             return 
@@ -85,6 +111,10 @@ class CountPeople:
         if not inter_type:
             inter_type = self.interpolate_method
         return griddata(points, pixels, (grid_x, grid_y), method=inter_type)
+    def getEnterNum(self):
+        return self.__enter
+    def getExitNum(self):
+        return self.__exit
     def getPeopleNum(self):
         return self.__peoplenum
     def getEntranceExitEvents(self):
@@ -314,11 +344,16 @@ class CountPeople:
     def calculateImgFeature(self,diff_frame):
         var =np.var(np.ravel(diff_frame.ravel()))
         return (None,var,None)
-    def knnJudgeFrameContainHuman(self,current_temp,avgtemp,diff_frame):
+    def knnJudgeFrameContainHuman(self,current_temp,avgtemp,diff_frame,showVoteCount=False):
         feature_vector = self.calculateImgFeature(diff_frame)
         trainSet =self.knnSampleSet[:,1]
         trainLabels = self.knnSampleSet[:,2]
-        category , voteCount= knnClassify(trainSet,trainLabels,feature_vector,(1,),self.__k)
+        sorted_label= knnClassify(trainSet,trainLabels,feature_vector,(1,),self.__k)
+        category , voteCount=sorted_label[0]
+        if showVoteCount:
+            print(sorted_label)
+            print(category)
+            print("===========current vote count is %d========="%(voteCount))
         if category == 1:
             return True,
         else:
@@ -328,14 +363,14 @@ class CountPeople:
 
 
     def isCurrentFrameContainHuman(self,current_temp,
-            average_temperature,img_diff):
+            average_temperature,img_diff,show_vote=False):
         '''
             判断当前帧是否含有人类
             ret : (bool,bool) ret[0] True:含有人类，ret[0] False:没有人类，表示属于背景
             ret[1] 为False丢弃这个帧，ret[1]为True，将这个帧作为背景帧
         '''
         #print(img_diff)
-        return self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff)
+        return self.knnJudgeFrameContainHuman(current_temp,average_temperature,img_diff,show_vote)
         var_result = self.judgeFrameByDiffVar(img_diff)
         hist_result  =  self.judgeFrameByHist(img_diff) 
         ave_result = self.judgeFrameByAverage(average_temperature, current_temp)
@@ -349,11 +384,7 @@ class CountPeople:
             print("case 3：=======no people=======")
             print(sums)
             return (False,True)
-
-    def acquireImageData(self,frame_count = 2000,customDir = None):
-        '''
-            这个方法是为了获得图像数据，数据保存在customDir中
-        '''
+    def ensurePathValid(self,customDir):
         if customDir:
             if not os.path.exists(customDir):
                 os.mkdir(customDir)
@@ -362,6 +393,13 @@ class CountPeople:
             customDir = "imagetemp"
             if not os.path.exists(customDir):
                 os.mkdir(customDir)
+        return customDir
+
+    def acquireImageData(self,frame_count =1000 ,customDir = None):
+        '''
+            这个方法是为了获得图像数据，数据保存在customDir中
+        '''
+        customDir = self.ensurePathValid(customDir)
         # load the avetemp.py stores the average temperature
         # the result of the interpolating for the grid
         average_path = customDir+"/"+"avgtemp.npy"
@@ -370,7 +408,7 @@ class CountPeople:
         frame_counter = 0  # a counter of frames' num
         # diff_queues saves the difference between average_temp and curr_temp
         try:
-            while True:
+            while frame_counter < frame_count:
                 currFrame = []
                 for row in self.amg.pixels:
                     # Pad to 1 decimal place
@@ -381,134 +419,13 @@ class CountPeople:
                 all_frames.append(currFrame)
                 frame_counter += 1
                 print("the %dth frame" % (frame_counter))
-                if frame_counter > frame_count:
-                    self.saveImageData(all_frames, customDir)
-                    break
+            self.saveImageData(all_frames, customDir)
 
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
             # save all images
             self.saveImageData(all_frames, customDir)
             print("save all frames")
-    def start(self,testSubDir=None,show_frame=False):
-        '''
-            main functiona
-            和process方法不同的是此方法有自动更新背景温度的功能
-
-            循环读取传感器数据，计算出背景温度后，读取的下一帧时，对帧进行插值处理，并进行相应的滤波处理（为了降噪），然后进一步
-            噪声检测，通过计算图像直方图分布，计算背景温度差值并用大津二值法对差值图像进行二值化，下一步是计算帧的平均温度和背景温度的
-            平均温度的差值，通过三者结合可以得出当前帧是否含有人类，如果存在人类那么可以进行下一步提取目标，找到目标位置，跟踪目标
-            ，如果不存在就可以认为这个帧是背景温度，也可以丢弃这个帧(如果这个帧噪声很多，可能是其他人员路过监控区域边缘被检测到），
-            这是为了减少噪声的影响，
-            参数：frame_interval
-            表示开始读取的数据帧数作为计算背景温度的数据，无人经过一段时间(1000帧之后)需要重新计算背景温度帧
-        '''
-        try:
-            print("start running the application")
-            self.preReadPixels()
-            print("read sample data ")
-            self.createTrainSample(self.bg_path,self.fg_path)
-            self.calcBg = False #传感器是否计算完背景温度
-            frame_counter = 0 #背景帧数计数器
-            seq_counter = 0 
-            bg_frames = [] #保存用于计算背景温度的帧
-            all_frame=[]#所有帧数
-            while True:
-                currFrame = []
-                for row in self.amg.pixels:
-                    # Pad to 1 decimal place
-                    currFrame.append(row)
-                currFrame = np.array(currFrame)
-                seq_counter += 1
-                print("the %dth frame of the bgtemperature "%(seq_counter))
-                print("current temperature is ")
-                print(currFrame)
-                if frame_counter  ==  self.th_bgframes :#是否测完平均温度
-                    #更新计算背景的阈值
-                    frame_counter=0
-                    if self.th_bgframes <= self.__max_bg_counter:
-                        self.th_bgframes = self.th_bgframes * 2
-                    num = len(bg_frames)
-                    print("====num is %d==="%(num))
-                    self.average_temp = self.calAverageTemp(bg_frames)
-                    bg_frames = [] #清空保存的图片以节省内存
-                    print("===finish testing bg temperature===")
-                    print("===average temp is ===")
-                    print(self.average_temp)
-                    if not self.calcBg: 
-                        if show_frame:
-                            cv.namedWindow("image",cv.WINDOW_NORMAL)
-                        self.calcBg = True # has calculated the bg temperature
-                        continue
-                elif not self.calcBg: #是否计算完背景温度
-                    bg_frames.append(currFrame)
-                    frame_counter += 1#帧数计数器自增
-                    continue
-                all_frame.append(currFrame)
-                #计算完背景温度的步骤
-                print("========================================================process============================================================")
-                diff_temp = self.calAverageAndCurrDiff(self.average_temp,currFrame)
-                if show_frame:
-                    plot_img = np.round(diff_temp)
-                    plot_img = plot_img.astype(np.uint8)
-                    plot_img[np.where(plot_img > 1.5)] = 255
-                    plot_img[np.where(plot_img <= 1.5)] = 0
-                    img_resize = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
-                    cv.imshow("image",img_resize)
-                    cv.waitKey(1)
-                ret =self.isCurrentFrameContainHuman(currFrame,self.average_temp, diff_temp )
-                if not ret[0]:
-                    self.updateObjectTrackDictAgeAndInterval()
-                    self.countPeopleNum()
-                    self.showCurrentState()
-                    if self.getExistPeople():
-                        self.setExistPeople(False)
-                    if ret[1]:#加入背景帧的标志
-                        bg_frames.append(currFrame)
-                        frame_counter += 1
-                    continue
-                self.setExistPeople(True)
-                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
-                if cnt_count ==0:
-                    self.updateObjectTrackDictAgeAndInterval()
-                    self.countPeopleNum()
-                    self.showCurrentState()
-                    continue
-                #下一步是计算轮当前帧的中心位置
-                loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
-                self.trackPeople(diff_temp,loc)#检测人体运动轨迹
-                self.updateObjectTrackDictAge()#增加目标年龄
-                self.countPeopleNum()
-                self.showCurrentState()
-        except KeyboardInterrupt:
-            if show_frame:
-                cv.destroyAllWindows()
-            print("catch keyboard interrupt")
-            output_path = ""
-            default_path = "test"
-            if testSubDir:
-                output_path += testSubDir
-            else:
-                output_path = default_path
-            output_path +="/"
-            if not  os.path.exists(output_path):
-                os.mkdir(output_path)
-            frame_output_path =output_path+ "imagedata.npy"
-            avg_output_path = output_path +"avgtemp.npy"
-            np.save(frame_output_path,np.array(all_frame))
-            np.save(avg_output_path,self.average_temp)
-            print("sucessfully save the image data")
-            print("path is in "+output_path)
-            # all_frames=[]
-            # save all images
-            #self.saveImageData(all_frames, customDir)
-            # for i in range(len(all_frames)):
-            #print("shape is "+str(diff_queues[i].shape))
-            #    self.saveDiffHist(diff_queues[i])
-            #   self.saveImage(average_temperature ,all_frames[i],True)
-            #print("save all frames")
-            print("exit")
-            raise KeyboardInterrupt("catch keyboard interrupt")
     def process(self,testSubDir=None,show_frame=False):
         '''
             main function
@@ -549,7 +466,6 @@ class CountPeople:
                     print("====num is %d==="%(num))
                     self.average_temp = self.calAverageTemp(bg_frames)
                     bg_frames = [] #清空保存的图片以节省内存
-                    print("===finish testing bg temperature===")
                     print("===average temp is ===")
                     print(self.average_temp)
                     if not  self.calcBg:
@@ -585,14 +501,10 @@ class CountPeople:
                         self.frame_counter =0 #重置背景帧数计数器
                         '''
                         self.setExistPeople(False)
-                    if ret[1]:#加入背景帧的标志
-                        '''
-                        bg_frames.append(currFrame)
-                        frame_counter += 1
-                        '''
                     continue
                 self.setExistPeople(True)
-                (cnt_count,image ,contours,hierarchy),area =self.extractBody(self.average_temp, currFrame)
+                print("extractbody")
+                (cnt_count,image ,contours,hierarchy),area =self.extractBodyCollect(self.average_temp, currFrame)
                 if cnt_count ==0:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.countPeopleNum()
@@ -600,7 +512,7 @@ class CountPeople:
                     continue
                 #下一步是计算轮当前帧的中心位置
                 loc = self.findBodyLocation(diff_temp,contours,[ i for i in range(self.row)])
-                self.trackPeople(diff_temp,loc)#检测人体运动轨迹
+                self.trackPeople(currFrame,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄
                 self.countPeopleNum()
                 self.showCurrentState()
@@ -628,6 +540,12 @@ class CountPeople:
     def showCurrentState(self):
         self.showPeopleNum()
         self.showEntranceExitEvents()
+        self.showEnterNum()
+        self.showExitNum()
+    def showEnterNum(self):
+        print("======================current enter num is %d================"%(self.__enter))
+    def showExitNum(self):
+        print("======================exit num is %d================"%(self.__exit))
     def showPeopleNum(self):
         print("=================current people num is %d ==============="%(self.__peoplenum))
     def showEntranceExitEvents(self):
@@ -643,20 +561,17 @@ class CountPeople:
         corr_set = set(corr)
         corr_bak=corr_set.copy()
         for item in corr_set:
-            if curr_temp[item] >=  max_temperature_thresh:
+            local_max_temp = curr_temp[item]
+            if local_max_temp  >=  max_temperature_thresh or self.isDoorHigh:
                 cp_temp_dict[item] = curr_temp[item]
             else:
                 corr_bak.remove(item)
-        print("===============cp temp dict is======")
-        print(cp_temp_dict)
         if len(corr_bak) <= 1:
             return list(corr_bak)
         cp_item_sorted =sorted(cp_temp_dict.items(),key =lambda d:d[1],reverse=True)
         cp_set = set(cp_item_sorted)
         reference_set =set()
         removed_set=set()
-        print("====cp item sorted============")
-        print(cp_item_sorted)
         for item in cp_item_sorted:
             reference_point=item
             if reference_point in reference_set or reference_point in removed_set:
@@ -665,14 +580,20 @@ class CountPeople:
             rest_points = cp_set - reference_set - removed_set
             for k in rest_points:
                 hori_dis = abs(reference_point[0][1] -k[0][1])
-                if hori_dis <=  horizontal_thresh :
-                    vertical_dis = abs(reference_point[0][0] - k[0][0])
-                    if vertical_dis <= vertical_thresh:
+                vertical_dis = abs(reference_point[0][0] - k[0][0])
+                streetDis = hori_dis +vertical_dis
+                if hori_dis <=  horizontal_thresh and not self.isDoorHigh :
+                    if streetDis <= 3:
                         removed_set.add(k)
+                elif self.isDoorHigh:
+                    if streetDis < 3:
+                        removed_set.add(k)
+
+
         final_corr = []
         rest_set = cp_set-removed_set
-        print("================rest set is ======================")
-        print(rest_set)
+        #print("================rest set is ======================")
+        #print(rest_set)
         for k,v in rest_set:
             final_corr.append(k)
         return final_corr
@@ -681,13 +602,24 @@ class CountPeople:
         row_index = int(self.row/2)-1
         for cnt in contours:
             x,y,w,h = cv.boundingRect(cnt)
-            print(x,y,w,h)
             if h >= self.row-2:
                 label[row_index,x:x+w] = 0
                 label[row_index+1,x:x+w]=0
                 refindContours = True
         return refindContours
-    def __findContours(self,label,label_dict,all_area):
+    def findContours(self,img):
+        contours,heir=cv.findContours(img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        return img,contours,heir
+    def __findContours(self,label,key_arr):
+        temp = np.zeros((self.row,self.col),np.uint8)
+        cnts = []
+        for l in key_arr:
+            temp[np.where(label == l)] =1
+            temp[np.where(label!=l)]=0
+            img ,contours,heir=self.findContours(temp)
+            cnts.append(contours[0])
+        return (len(key_arr),label,cnts,heir)
+    def __findContoursBak(self,label,label_dict,all_area):
         key_arr = list(label_dict.keys())
         special = 64
         for i in key_arr:
@@ -695,8 +627,9 @@ class CountPeople:
         label[np.where(label != special)] = 0
         label[np.where(label == special)] = 1
         label = label.astype(np.uint8)
-        img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        img,contours,heir=self.findContours(label)
         print("print the x,y,w,h")
+        print(len(contours))
         return (len(contours),img,contours,heir)
     def getActualHeightWidth(self,cnt,label):
         x,y,w,h = cv.boundingRect(cnt)
@@ -707,27 +640,46 @@ class CountPeople:
             size = len(index[0])
             if size > max_width:
                 max_width = size
-        print(h,max_width)
         return h,max_width
     def __hasTwoPeople(self,h0,w0,ratio,area):
-        if ratio >= 2 and( h0 >= (self.row -1) or area >= (self.row-2)*(self.col-4)):
+        if ratio >= 1.5 and area >=(self.row-2)*(self.col-4):
             return True
+        if ratio >= 2:
+            if  h0 >= (self.row -1):
+                return True
+            elif  h0 >= (self.row-2) and ( area >= 2*(self.col-1)):
+                return True
+            elif  area >= (self.row-4)*(self.row-4):
+                return True
         elif ratio >=3 and h0 >= (self.row-2):
             return True
         return False
+    def __getFinalContours(self,label,contours_cache):
+        label[np.where(contours_cache==1)]=1
+        label = label.astype(np.uint8)
+        n,label = cv.connectedComponents(label,connectivity=4)
+        return self.__findContours(label,[i for i in range(1,n)]),0
+
     def extractBody(self,average_temp,curr_temp,show_frame=False,seq=None):
-        thre_temp =average_temp.copy()+2
+        # issue version
+        thre_temp =average_temp.copy()+1
         ones = np.ones(average_temp.shape,np.float32)
-        all_area =self.image_size
+        diff_test =ones*( curr_temp > thre_temp)
+        if diff_test.sum() >= self.image_size/4:
+            thre_temp += 1
+        else:
+            self.isDoorHigh=True
         iter_count = 0
         max_iter = 2
         single_dog = False
+        all_area = self.image_size
         contours_cache = np.zeros((self.row,self.col),np.uint8)
         while True:
             bin_img = ones*(curr_temp>= thre_temp)
             bin_img = bin_img.astype(np.uint8)
-            n , label = cv.connectedComponents(bin_img)
-            print("label is ")
+            label=np.zeros((self.row,self.col))
+            n , label = cv.connectedComponents(bin_img,label,connectivity=4 )
+            print("=======current label is========")
             print(label)
             iter_count += 1
             area_arr = []
@@ -742,66 +694,161 @@ class CountPeople:
             max_label_tuple = sorted_label_dict[0]
             max_area = max_label_tuple[1]
             if iter_count  > 0:
-                print("max_size is %d "%(max_area))
+                #print("max_size is %d "%(max_area))
                 if show_frame :
                     plt.imshow(label)
                     plt.show()
+            if n == 2 and (max_area <= self.image_size/4):
+                label = label.astype(np.uint8)
+                label , contours,heir=self.findContours(label)
+                #print("=======one people case =======")
+                h0,w0 = self.getActualHeightWidth(contours[0],label)
+                #print("h0,w0")
+                #print(h0,w0)
+                if h0 <= self.row/2:
+                        return self.__getFinalContours(label,contours_cache)
             if iter_count >= max_iter:#超过最大的迭代次数
                 print("==========over iter====================")
-                isReturn = True
+                isReturn = False
+                sum_area = sum(area_arr)
+                if iter_count==max_iter :
+                    if sum_area <= self.image_size/8:
+                        single_dog = True
+                    min_item = sorted_label_dict[-1]
+                    if min_item[1] == 1:
+                        sorted_label_dict.remove(min_item)
+                        del label_dict[min_item[0]]#去掉大小为1的连通分量
+                        curr_temp[np.where(label==min_item[0])]=0
                 for l ,size in sorted_label_dict:
+                    if n > 4:
+                        thre_temp += 0.25
+                        break
                     if size <= self.col-3 and size > 2:
                         contours_cache[np.where(label==l)] = 1
-                    sum_area = sum(area_arr)
-                    if iter_count==max_iter :
-                        if sum_area <= self.image_size/8:
-                            single_dog = True
-                        min_item = sorted_label_dict[-1]
-                        if min_item[1] == 1:
-                            sorted_label_dict.remove(min_item)
-                            del label_dict[min_item[0]]#去掉大小为1的连通分量
                     temp = np.zeros((self.row,self.col)).astype(np.uint8)
                     temp[np.where(label ==l)] = 1
-                    temp_img,contours,heir=cv.findContours(temp,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                    temp , contours,heir=self.findContours(temp)
+                    if not contours:
+                        break
                     h0,w0 = self.getActualHeightWidth(contours[0],label)
                     ratio = h0/w0
                     area = w0*h0
-                    if  w0 >= self.col-3 or max_area >= self.image_size*0.45 or n > 4:
+                    if  w0 > self.col-4 or max_area >= self.image_size*0.45:
                         thre_temp +=0.25
-                        isReturn = False
                         break
                     proportion = self.__hasTwoPeople(h0,w0,ratio,area)
                     if proportion:
-                        print("proportion is true")
+                        #print("proportion is true")
+                        isReturn=True
                         self.__splitContours(label,contours)
                     else:
                         if size >= 3 and size <= self.row:
                             contours_cache [np.where(label == l)]=1#这是为了保存之前提取的轮廓
                 if isReturn:
-                    label[np.where(contours_cache==1)]=1
-                    return self.__findContours(label,label_dict,all_area),0
-            if max_area  > all_area * 0.1:#多个人的情况
-                if single_dog or  max_area <= all_area*0.15:#尽可能减少高温区域的面积
-                    print("==================case 2===========")
-                    label[np.where(contours_cache==1)]=1
-                    print(contours_cache)
+                    print("case 0 ")
                     print(label)
-                    return self.__findContours(label,label_dict,all_area),0
+                    return self.__getFinalContours(label,contours_cache)
+                if single_dog or  max_area < all_area/8:#尽可能减少高温区域的面积
+                    print("==================case 2===========")
+                    min_label = sorted_label_dict[-1]
+                    if min_label[1]==1 and iter_count <= max_iter:
+                        label[np.where(label==min_label[0])]=0
+                    return self.__getFinalContours(label,contours_cache)
             elif max_area  < math.ceil(all_area*0.1):#
-                sub_label = sorted_label_dict[0]
-                key = sub_label[0]
-                label[np.where(label!=0)]=1
-                label[np.where(contours_cache==1)]=1
-                '''
-                if key != 1:
-                    label[np.where(label ==1)] =0
-                    label[np.where(label == key)] = 1
-                label[np.where(label != 1)] = 0
-                '''
-                label=label.astype(np.uint8)
-                img,contours,heir=cv.findContours(label,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-                print("==================case 1===========")
-                return (len(contours),img,contours,heir),0
+                print("=========================case 3=================")
+                print(label)
+                return self.__getFinalContours(label,contours_cache)
+            thre_temp += 0.25
+    def extractBodyCollect(self,average_temp,curr_temp,show_frame=False,seq=None):
+        # issue version
+        thre_temp =average_temp.copy()+1
+        ones = np.ones(average_temp.shape,np.float32)
+        diff_test =ones*( curr_temp > thre_temp)
+        if diff_test.sum() >= self.image_size/4:
+            thre_temp += 1
+        else:
+            self.isDoorHigh=True
+        iter_count = 0
+        max_iter = 2
+        single_dog = False
+        all_area = self.image_size
+        contours_cache = np.zeros((self.row,self.col),np.uint8)
+        while True:
+            bin_img = ones*(curr_temp>= thre_temp)
+            bin_img = bin_img.astype(np.uint8)
+            label=np.zeros((self.row,self.col))
+            n , label = cv.connectedComponents(bin_img,label,connectivity=4 )
+            iter_count += 1
+            area_arr = []
+            label_dict= {}
+            for i in range(1,n):
+                sub_matrix = label[np.where(label==i)]
+                area_arr.append(sub_matrix.size)
+                label_dict[i] = sub_matrix.size
+            if not area_arr:
+                return (0,None,None,None),0
+            sorted_label_dict = sorted(label_dict.items(),key=lambda d:d[1],reverse=True)
+            max_label_tuple = sorted_label_dict[0]
+            max_area = max_label_tuple[1]
+            if iter_count  > 0:
+                #print("max_size is %d "%(max_area))
+                if show_frame :
+                    plt.imshow(label)
+                    plt.show()
+            if n == 2 and (max_area <= self.image_size/4):
+                label = label.astype(np.uint8)
+                label,contours,heir=cv.findContours(label)
+                #print("=======one people case =======")
+                h0,w0 = self.getActualHeightWidth(contours[0],label)
+                #print("h0,w0")
+                #print(h0,w0)
+                if h0 <= self.row/2:
+                        return self.__getFinalContours(label,contours_cache)
+            if iter_count >= max_iter:#超过最大的迭代次数
+                isReturn = False
+                sum_area = sum(area_arr)
+                if iter_count==max_iter :
+                    if sum_area <= self.image_size/8:
+                        single_dog = True
+                    min_item = sorted_label_dict[-1]
+                    if min_item[1] == 1:
+                        sorted_label_dict.remove(min_item)
+                        del label_dict[min_item[0]]#去掉大小为1的连通分量
+                        curr_temp[np.where(label==min_item[0])]=0
+                for l ,size in sorted_label_dict:
+                    if n > 4:
+                        thre_temp += 0.25
+                        break
+                    if size <= self.col-3 and size > 2:
+                        contours_cache[np.where(label==l)] = 1
+                    temp = np.zeros((self.row,self.col)).astype(np.uint8)
+                    temp[np.where(label ==l)] = 1
+                    img ,contours,heir=cv.findContours(temp)
+                    if not contours:
+                        break
+                    h0,w0 = self.getActualHeightWidth(contours[0],label)
+                    ratio = h0/w0
+                    area = w0*h0
+                    if  w0 > self.col-4 or max_area >= self.image_size*0.45:
+                        thre_temp +=0.25
+                        break
+                    proportion = self.__hasTwoPeople(h0,w0,ratio,area)
+                    if proportion:
+                        #print("proportion is true")
+                        isReturn=True
+                        self.__splitContours(label,contours)
+                    else:
+                        if size >= 3 and size <= self.row:
+                            contours_cache [np.where(label == l)]=1#这是为了保存之前提取的轮廓
+                if isReturn:
+                    return self.__getFinalContours(label,contours_cache)
+                if single_dog or  max_area < all_area/8:#尽可能减少高温区域的面积
+                    min_label = sorted_label_dict[-1]
+                    if min_label[1]==1 and iter_count <= max_iter:
+                        label[np.where(label==min_label[0])]=0
+                    return self.__getFinalContours(label,contours_cache)
+            elif max_area  < math.ceil(all_area*0.1):#
+                return self.__getFinalContours(label,contours_cache)
             thre_temp += 0.25
     def extractBodyBak(self , average_temp,curr_temp,show_frame=False,seq=None):
         thre_temp =average_temp.copy()+0.25
@@ -811,7 +858,7 @@ class CountPeople:
             bin_img = ones*(curr_temp>= thre_temp)
             bin_img = bin_img.astype(np.uint8)
             #img , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-            n , label = cv.connectedComponents(bin_img)
+            n , label = cv.connectedComponents(bin_img,connectivity=4)
             area_arr = []
             label_dict= {}
             for i in range(1,n):
@@ -839,7 +886,7 @@ class CountPeople:
                             label[np.where(label==key2)]=1
                         label[np.where(label!=1)] = 0
                         bin_img = label.astype(np.uint8)
-                        img,contours,heir=cv.findContours(bin_img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                        bin_img ,contours,heir=self.findContours(bin_img)
                         con_area ={}
                         cont_area_arr = []
                         max_area = -1
@@ -867,146 +914,10 @@ class CountPeople:
                     label[np.where(label == key)] = 1
                 label[np.where(label != 1)] = 0
                 bin_img =label.astype(np.uint8)
-                img,contours,heir=cv.findContours(bin_img,cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+                bin_img ,contours,heir=cv.findContours(bin_img)
                 return (1,img,contours,heir),0
             else:
                 thre_temp += 0.25
-
-
-    def extractBodyBak(self,average_temp , curr_temp,show_frame = False,seq=None):
-        '''
-           找到两人之间的间隙(如果有两人通过)
-           在背景温度的基础上增加0.25摄氏度作为阈值,低于阈值作为背景，高于阈值作为前景，观察是否能区分两个轮廓，如果不能就继续循环增加0.25
-           参数:average_temp:背景温度,curr_temp:被插值和滤波处理后的当前温度帧
-        '''
-        #show_frame =True
-        thre_temp = average_temp.copy()+1 #阈值温度
-        ones = np.ones(average_temp.shape , np.float32)
-        ret = (0 , None,None,None)
-        area_down_thresh,thresh_up,thresh_down = self.__image_area*0.01,self.__image_area/9,self.__image_area/10
-        kernel = np.ones((1,1))
-        single_people_flag=False
-        first_thresh = True
-        while True:
-            '''
-            print("current threshold is ")
-            print(thre_temp)
-            print("current temperature is")
-            print(curr_temp)
-            '''
-            #show_frame=True
-            '''
-            print("===curr_temp's sum is===")
-            print(curr_temp.sum())
-            print("===thre_temp's sum is ===")
-            print(thre_temp.sum())
-            print("===ones sum is===")
-            print(ones.sum())
-            '''
-            #diff = curr_temp - thre_temp
-            #diff[diff<0] = 0
-            # 对图片进行ostu二值化
-            ##th,bin_img = self.otsuThreshold(diff)
-            '''
-            print("after otsu binarize===")
-            '''
-            #plt.imshow(bin_img)
-            #plt.show()
-            bin_img = ones * (curr_temp >= thre_temp)
-            '''
-            bsum = binary.sum()
-            proportion = round(bsum / self.image_size,2)
-            print("binary_sum is %d"%(bsum))
-            print("the propotion is %.2f"%(proportion))
-            thresh = np.round(binary)
-            thresh = np.array(thresh , np.uint8)
-            #print("after binarize :")
-            #print(thresh)
-            '''
-            bin_img = np.array(bin_img,np.uint8)
-            #thresh = cv.erode(bin_img,kernel,iterations=1)#进行形态学侵蚀
-            img2 , contours , heirarchy = cv.findContours(bin_img,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-            cont_cnt = len(contours)
-            if show_frame:
-                img2 = np.array(img2,np.float32)
-                rect = np.zeros(img2.shape,np.uint8)
-                rect = cv.cvtColor(rect , cv.COLOR_GRAY2BGR)
-                x,y,w,h = cv.boundingRect(contours[0])
-                cv.rectangle(rect,(x,y),(x+w,y+h),(0,255,0),1)
-                self.showExtractProcessImage(curr_temp,img2 ,rect)
-            if cont_cnt == 0:
-                return (0,None,None,None),0
-            #print("has %d people"%(cont_cnt))
-            #求轮廓的面积
-            area_dict = {}
-            area_list = []
-            for c in contours:
-                area = cv.contourArea(c)
-                while area  in area_dict:
-                    area += 0.1
-                area_dict[area] = c
-                area_list.append(area)
-            if first_thresh:
-                first_thresh_sum = sum(area_list)
-                print("=====first_thresh_sum=====")
-                print(first_thresh_sum)
-                if first_thresh_sum < 5:
-                    first_thresh=False
-                    single_people_flag=True
-                    self.setSinglePeople(True)
-            print("===========area list is =========")
-            print(area_list)
-            bool_arr_down = np.array(area_list) < thresh_down
-            bool_arr_up = np.array(area_list) < thresh_up
-            if all( bool_arr_down) or all(bool_arr_up) :
-                print(area_list)
-                ret = []
-                for a in area_list:
-                    if a > area_down_thresh:
-                        ret.append(a)
-                    else:
-                        del area_dict[a]
-                img2_copy = img2.copy()
-                #cv.drawContours(img2,contours,-1,(0,255,0),2)
-                cnts = []
-                origin_num = len(ret)#原来的轮廓的数目
-                erosion = cv.erode(bin_img,kernel,iterations=1)#进行侵蚀
-                img2 , conts , heir = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-                erode_cnt = len(conts)#侵蚀后的轮廓数目
-                if erode_cnt != origin_num and not single_people_flag:
-                    erosion_area_list=[]
-                    for c in conts:
-                        erosion_area_list.append(cv.contourArea(c))
-                    print("====ersion area list is====")
-                    print(erosion_area_list)
-                    print("===after erosing===")
-                    return (erode_cnt,img2.copy,conts,heir),first_thresh_sum
-                for k,v in area_dict.items():
-                    cnts.append(v)
-                pnum = len(ret)
-                if pnum > 1:
-                        print("=======only has one people======")
-                        max_area_k = -1
-                        for k,v in area_dict.items():
-                            if k > max_area_k :
-                                max_area_k = k
-                            else:
-                                try:
-                                    id_arr = [id(i) for i in cnts]
-                                    id_index = id_arr.index(id(v))
-                                    cnts.pop(id_index)
-
-                                except ValueError:
-                                    print([id(item) for item in cnts])
-                                    print(v)
-                                    print(id(v))
-                                    raise ValueError()
-
-                        pnum = 1
-                return (pnum,img2_copy,cnts,heirarchy),first_thresh_sum
-            else:
-                thre_temp += 0.25
-                continue
     def showExtractProcessImage(self,origin,thresh ,images_contours):
         #输出提取人体过程的图片
         print("=================the contours of the image==============")
@@ -1065,8 +976,6 @@ class CountPeople:
             col += x
             temperature = img[row,col]
             max_temp = np.max(mask)
-            print("====max_temp is ====")
-            print(max_temp)
             if temperature != max_temp:
                 xcorr,ycorr = np.where(mask == temperature)
                 row = xcorr[0]+y
@@ -1243,8 +1152,7 @@ class CountPeople:
         为当前帧提取目标特征
         '''
         #空间距离
-        print("=====all corr is=====")
-        print(corr)
+        print("==================extract feature=========================")
         obj_num = len(self.__objectTrackDict)#原来的目标数目
         updated_obj_set = set()#已经更新轨迹的目标集合 
         removed_point_set = set()#已经确认隶属的点的集合
@@ -1311,7 +1219,6 @@ class CountPeople:
                     v = ObjectTrack()
                     v.put(point,img)
                     v.clearInterval()
-                    print("new one entering the visual field")
                     v.showContent()
                     self.__objectTrackDict[obj]= v
                 else:
@@ -1349,8 +1256,10 @@ class CountPeople:
                     self.__entrance_exit_events += 1
                     if track.getDirection() == 1:
                         self.__peoplenum += 1
+                        self.__enter += 1
                     else:
                         self.__peoplenum -= 1
+                        self.__exit += 1
                 removed_set.append(k)
         for k in removed_set:
             del self.__objectTrackDict[k]
@@ -1364,9 +1273,9 @@ class CountPeople:
         分类目标，确定当前点属于哪个目标
 
         '''
-        print("======extract feature=====")
+        print("======classifyObjec=====")
         self.__extractFeature(img,corr)
-        self.showTargetFeature()
+        #iself.showTargetFeature()
 
     def showTargetFeature(self):
         print("====show target feature===")
@@ -1383,7 +1292,7 @@ class CountPeople:
         self.__classifyObject(img,loc)
 if __name__ == "__main__":
     if len(sys.argv) > 1 :
-        if sys.argv[1] == "start" or sys.argv[1]=="process":
+        if  sys.argv[1]=="process":
             cp = CountPeople()
             outputSubDir=None
             if len(sys.argv) > 2:
@@ -1392,11 +1301,8 @@ if __name__ == "__main__":
             if len(sys.argv) > 3:
                 if sys.argv[3] == "show":
                     show_frame=True
-            if sys.argv[1] == "start":
-                cp.start( outputSubDir,show_frame=show_frame)
-            else:
-                cp.process(outputSubDir,show_frame=show_frame)
-        elif sys.argc[1] == "collect":
+            cp.process(outputSubDir,show_frame=show_frame)
+        elif sys.argv[1] == "collect":
             if len(sys.argv)>2:
                 subdir =""
                 if sys.argv[2] == "delay":
@@ -1404,9 +1310,9 @@ if __name__ == "__main__":
                     time.sleep(10)
                     # sys.argv[2] represents the custom  dir of  the image saved    
                     if len(sys.argv) > 3:
-                        subdir = sys.argv[2]
+                        subdir = sys.argv[3]
                 else:
-                    subdir = sys.argv[1]
+                    subdir = sys.argv[2]
                 current_dir = os.path.abspath(os.path.dirname(__file__))
                 adjust_dir = current_dir
                 if current_dir.endswith("grideye"):
@@ -1414,9 +1320,7 @@ if __name__ == "__main__":
                 packageDir = adjust_dir
                 actual_dir = adjust_dir
                 path_arg = ""
-                if len(sys.argv) > 3:
-                    actual_dir = actual_dir + "/"+subdir
-                    path_arg = subdir+"/"
+                actual_dir = actual_dir + "/"+subdir
                 # sleep 10 s
                 print("the actual_dir is %s" % (actual_dir))
 
@@ -1427,6 +1331,6 @@ if __name__ == "__main__":
                 # 这是为了方便访问背景温度数据而保存了包countpeople的绝对路径
                 countp.setPackageDir(packageDir)
                 try:
-                    countp.acquireImageData()
+                    countp.acquireImageData(customDir=actual_dir)
                 except KeyboardInterrupt("keyboard interrupt"):
                     print("exit")

@@ -50,14 +50,19 @@ try:
         print(addr)
         i = 0 
         try:
+            rec = clientSocket.recv(30)
+            msg = rec.decode("utf-8")
+            print(msg) 
             while True:
                 temp = [] 
                 for row in amg.pixels:
                     # Pad to 1 decimal place
                     temp.append(row)
+                t = time.time()
                 i += 1
+                print(t)
                 print(" the %dth frame "%(i))
-                print(np.array(temp))
+                temp = np.array(temp)
                 serial_temp = pickle.dumps(temp)
                 clientSocket.send(serial_temp)
                 rec = clientSocket.recv(30)

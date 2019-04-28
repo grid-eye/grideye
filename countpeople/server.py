@@ -58,7 +58,9 @@ try:
                 for row in amg.pixels:
                     # Pad to 1 decimal place
                     temp.append(row)
+                t = time.time()
                 i += 1
+                print(t)
                 print(" the %dth frame "%(i))
                 temp = np.array(temp)
                 serial_temp = pickle.dumps(temp)

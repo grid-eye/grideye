@@ -14,6 +14,8 @@ port1 = 9999
 show_frame = False
 port2 = port1
 all_frame_sensor_1 = []
+sensor_1_original = []
+sensor_2_original = []
 all_frame_sensor_2 = []
 if len(sys.argv) > 1:
     port1 = sys.argv[1]
@@ -106,9 +108,11 @@ def showData(data):
 i = 0 
 thresh = 80#用于计算背景的帧数
 diff_time_thresh = 20
-def saveImageData(sensor1,sensor2,path):
-    np.save(path+"/sensor1.npy",np.array(sensor1))
-    np.save(path+"/sensor2.npy",np.array(sensor2))
+def saveImageData(sensor1,sensor2,path,original = None):
+    if not original:
+        original = ""
+    np.save(path+"/"+original+"sensor1.npy",np.array(sensor1))
+    np.save(path+"/"+original+"sensor2.npy",np.array(sensor2))
 def mergeData(t1,t2):
     temp = np.zeros(t1.shape)
     print(" t1 shape is")
@@ -150,6 +154,8 @@ try:
             toggle = False#sensor2快
         s1= s1[0]
         s2 = s2[0]
+        sensor_1_original.append(s1)
+        sensor_2_original.append(s2)
         if i < diff_time_thresh:
             diff_sum += abs(diff)
         elif i == diff_time_thresh:
@@ -165,8 +171,10 @@ try:
                 s1 = mythread1.getNextFrame()
                 t1 = s1[1]
                 s1 = s1[0]  
+                sensor_1_original.append(s1)
             else:
                 s2 = mythread2.getNextFrame()#sensor1快
+                sensor_2_original.append(s2)
                 t2 = s2[1]
                 s2 = s2[0]
             diff = t1 - t2 
@@ -233,12 +241,13 @@ try:
             break
         if i >= thresh:
             saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
+            saveImageData(sensor_1_original,sensor_2_original,path,original = "original")
             thresh += 500 
 except KeyboardInterrupt:
     print("==========sensor catch keyboardinterrupt==========")
-    saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
 finally:
     saveImageData(all_frame_sensor_1,all_frame_sensor_2,path)
+    saveImageData(sensor_1_original,sensor_2_original,path,original = "original")
     mythread1.setQuitFlag(True)
     mythread2.setQuitFlag(True)
     mythread1.close()

@@ -99,12 +99,10 @@ mythread2 = myThread(host2,port2,con,event)
 mythread1.start()
 mythread2.start()
 event.set()
-print(" is start receive sensor data ? ",end = ":")
 def showData(data):
     for item in data:
         print(np.array(item))
     print("================")
-
 i = 0 
 thresh = 80#用于计算背景的帧数
 diff_time_thresh = 20
@@ -133,7 +131,8 @@ time_thresh = 0.06
 diff_sum = 0 
 toggle = False
 align = True#两帧数据时间线是否对齐，即同步
-
+sensor_complement = None#传感器之间数据的补偿值
+complement_arr = []
 try:
     while True:
         if mythread1.getQuitFlag() or mythread2.getQuitFlag():
@@ -189,6 +188,10 @@ try:
         all_frame_sensor_2.append(s2)
         print("=============show ===========")
         showData([s1,s2])
+        if not cp.isCalcBg():
+            complement_arr.append(s1-s2)
+        else:
+            s2 += complement#加上补偿值
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
         container.append((s1,s2,current_frame))
         if len(container) == 4:
@@ -202,6 +205,7 @@ try:
                 cp.constructAverageBgModel(avgtemp)
                 print("==========time thresh is %.3f============="%(time_thresh))
                 print(show_frame)
+                complement = np.average(np.array(complement_arr),axis = 0)
                 if show_frame:
                     cv.namedWindow("image",cv.WINDOW_NORMAL)
                 cp.calcBg = True

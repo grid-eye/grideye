@@ -10,14 +10,20 @@ def showData(data):
     print("================")
 
 i = 0 
-thresh = 40
-def mergeData(t1,t2):
+thresh = 80
+def mergeData(t1,t2,cp=None):
     temp = np.zeros(t1.shape)
     print(" t1 shape is")
     print(t1.shape)
+    if cp :
+        avgtemp = cp.getBgTemperature()
+    #return np.append(t1[0:4],t2[4:],axis=0)
     for i in range(t1.shape[0]):
         for j in range(t1.shape[1]):
-            temp[i][j] = max(t1[i][j],t2[i][j])
+            if cp and (i >2 and  i < 5):
+                temp[i][j] =avgtemp[i][j]
+            else:
+                temp[i][j] = max(t1[i][j],t2[i][j])
     return temp
 def saveMergeData(merge,avgtemp,path):
     np.save(path+"/imagedata.npy",merge)
@@ -37,22 +43,32 @@ merge_data= [ ]
 last_three = thresh - 3
 container = []
 print_trible_tuple =[]
-compliment = 2
+complement =None
+complement_arr = []
 try:
     for i in range(sensor1.shape[0]):
         s1 = sensor1[i]
-        s2 = sensor2[i]+2
+        s2 = sensor2[i]
         counter += 1
+        if i < thresh -1:
+            complement_arr.append(s1-s2)
         print(" the %dth frame "%(counter))
-        current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
+        if cp.isCalcBg():
+            s2 += complement#加上补偿值
+            current_frame = mergeData(s1,s2,cp)#合并两个传感器的数据,取最大值
+        else:
+            current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
         merge_data.append(current_frame)
         container.append(current_frame)
         if len(container) > 3:
             last_three_frame = container.pop(0)
-        print(current_frame)
+        print(np.round(current_frame,2))
         if not cp.isCalcBg(): 
             if i == thresh-1 :
                 avgtemp = cp.calAverageTemp(all_merge_frame)
+                complement = np.average(np.array(complement_arr),axis=0)
+                print("补偿值是")
+                print(np.round(complement,2))
                 cp.setCalcBg(True)
                 cp.setBgTemperature(avgtemp)
                 cp.constructAverageBgModel(avgtemp)
@@ -69,7 +85,7 @@ try:
         diff = current_frame - avgtemp
         diff_bak = diff
         if show_frame:
-            t = 20
+            t = 10
             plot_img = np.zeros(current_frame.shape,np.uint8)
             plot_img[ np.where(diff > 1.5) ] = 255
             img_resize  = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
@@ -88,9 +104,6 @@ try:
             cv.imshow("sensor2_data",img_resize)
             cv.waitKey(t)
         diff = diff_bak
-        res = False
-        res = False
-        res = False
         ret = cp.isCurrentFrameContainHuman(current_frame,avgtemp,diff)
         last_three += 1
         if not ret[0]:

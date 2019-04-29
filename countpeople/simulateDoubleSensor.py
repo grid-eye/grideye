@@ -15,6 +15,16 @@ def mergeData(t1,t2,cp=None):
     temp = np.zeros(t1.shape)
     print(" t1 shape is")
     print(t1.shape)
+    #return np.append(t1[0:4],t2[4:],axis=0)
+    for i in range(t1.shape[0]):
+        for j in range(t1.shape[1]):
+                temp[i][j] = max(t1[i][j],t2[i][j])
+    return temp
+'''
+def mergeData(t1,t2,cp=None):
+    temp = np.zeros(t1.shape)
+    print(" t1 shape is")
+    print(t1.shape)
     if cp :
         avgtemp = cp.getBgTemperature()
     #return np.append(t1[0:4],t2[4:],axis=0)
@@ -25,6 +35,7 @@ def mergeData(t1,t2,cp=None):
             else:
                 temp[i][j] = max(t1[i][j],t2[i][j])
     return temp
+'''
 def saveMergeData(merge,avgtemp,path):
     np.save(path+"/imagedata.npy",merge)
     np.save(path+"/avgtemp.npy",avgtemp)
@@ -45,6 +56,11 @@ container = []
 print_trible_tuple =[]
 complement =None
 complement_arr = []
+weight_arr = [1,0.8,0.7,0.2,0.2,0.7,0.8,1]
+weight_matrix = [ [weight_arr[i] for j in range(8)] for i in range(8)]
+weight_matrix = np.array(weight_matrix)
+print("weight_matrix is")
+print(weight_matrix)
 try:
     for i in range(sensor1.shape[0]):
         s1 = sensor1[i]
@@ -83,9 +99,11 @@ try:
                 all_merge_frame.append(current_frame)
             continue
         diff = current_frame - avgtemp
+        diff =  diff * weight_matrix#乘上权重矩阵
+        current_frame = avgtemp + diff #更新当前帧
         diff_bak = diff
         if show_frame:
-            t = 10
+            t = 20
             plot_img = np.zeros(current_frame.shape,np.uint8)
             plot_img[ np.where(diff > 1.5) ] = 255
             img_resize  = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
@@ -133,5 +151,6 @@ try:
             print(round(frame[p],2),end=",")
         print()
     #saveMergeData(np.array(merge_data),cp.getBgTemperature(),path)
+    cp.showCurrentState()
 except KeyboardInterrupt:
     print("keyboardInterrupt")

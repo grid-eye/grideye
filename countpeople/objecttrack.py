@@ -21,6 +21,11 @@ class ObjectTrack:
         self.__img_list.append(img)
         self.__size += 1
         self.__updateWalkTrend(point)
+        if self.__size == 1:
+            self.__autoUpdateShape(img.shape[0],img.shape[1])
+    def __autoUpdateShape(self,row,col):
+        self.__row = row
+        self.__col = col
     def getLastTrend(self):
         return self.__last_vote
     def __updateWalkTrend(self,point):

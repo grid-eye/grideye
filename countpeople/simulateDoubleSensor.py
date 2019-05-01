@@ -84,12 +84,13 @@ try:
     complement = calComplement(sensor1[0:thresh],sensor2[0:thresh])
     print("complement is ")
     print(complement)
+    np.save(path+"/complement.npy",complement)
     for i in range(sensor1.shape[0]):
         s1 = sensor1[i]
         s2 = sensor2[i]
         counter += 1
         print(" the %dth frame "%(counter))
-        s2 += complement#加上补偿值
+        s2 = s2 + complement#加上补偿值
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
         merge_data.append(current_frame)
         container.append(current_frame)

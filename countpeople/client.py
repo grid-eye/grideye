@@ -111,14 +111,18 @@ def saveImageData(sensor1,sensor2,path,original = None):
         original = ""
     np.save(path+"/"+original+"sensor1.npy",np.array(sensor1))
     np.save(path+"/"+original+"sensor2.npy",np.array(sensor2))
-def mergeData(t1,t2):
-    temp = np.zeros(t1.shape)
-    print(" t1 shape is")
-    print(t1.shape)
-    for i in range(t1.shape[0]):
+def mergeData(t1,t2,cp=None):
+    split = 2
+    t1,t2 = t1.copy(),t2.copy()
+    row = t1.shape[0]
+    sub1 = t1[:split]
+    sub2 = t1[-split:]
+    temp = np.zeros(sub1.shape)
+    for i in range(split):
         for j in range(t1.shape[1]):
-            temp[i][j] = max(t1[i][j],t2[i][j])
-    return temp
+            temp[i][j] = round(max(t1[i][j],t2[i][j]),2)
+    res = np.append(t2[:-split],temp,axis=0)
+    return np.append(res,t1[split:],axis=0)
 def isSynchronize(t1,t2,thresh):
     if abs(t1 - t2 ) > thresh:
         return False
@@ -131,8 +135,12 @@ time_thresh = 0.06
 diff_sum = 0 
 toggle = False
 align = True#两帧数据时间线是否对齐，即同步
-sensor_complement = None#传感器之间数据的补偿值
+complement = np.load("complement.npy")#传感器之间数据的补偿值
 complement_arr = []
+s2_arr = []
+t = 1
+cp.setCol(8)
+cp.setRow(14)
 try:
     while True:
         if mythread1.getQuitFlag() or mythread2.getQuitFlag():
@@ -158,9 +166,9 @@ try:
         if i < diff_time_thresh:
             diff_sum += abs(diff)
         elif i == diff_time_thresh:
-            complement = diff_sum / i#计算两个传感器的传送的数据的时间的原始差值,这个差值作为补偿值
-            print("======complement is %.3f "%(complement))
-            time_thresh += complement #判断两个传感器数据是否同步的阈值
+            time_complement = diff_sum / i#计算两个传感器的传送的数据的时间的原始差值,这个差值作为补偿值
+            print("======time complement is %.3f "%(time_complement))
+            time_thresh += time_complement #判断两个传感器数据是否同步的阈值
             print("======synchronize's thresh is %.3f "%(time_thresh))
         isSync = isSynchronize(t1,t2,time_thresh)
         count = 0
@@ -188,38 +196,62 @@ try:
         all_frame_sensor_2.append(s2)
         print("=============show ===========")
         showData([s1,s2])
+        temp = s2
+        s2 = s2 + complement#加上补偿值
         if not cp.isCalcBg():
-            complement_arr.append(s1-s2)
-        else:
-            s2 += complement#加上补偿值
+            complement_arr.append(s1-temp)
+            s2_arr.append(s2)
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
         container.append((s1,s2,current_frame))
         if len(container) == 4:
             last_three_tuple = container.pop(0)
-            last_three_frame = last_three_tuple[0]
+            last_three_frame = last_three_tuple[2]
         if not cp.isCalcBg(): 
             if i == thresh:
-                avgtemp = cp.calAverageTemp(all_merge_frame)
+                avgtemp = cp.calAverageTemp(np.array(all_merge_frame))
+                print(avgtemp)
+                s1_avgtemp = cp.calAverageTemp(np.array(all_frame_sensor_1))
+                s2_avgtemp = cp.calAverageTemp(np.array(s2_arr))
                 cp.setCalcBg(True)
                 cp.setBgTemperature(avgtemp)
-                cp.constructAverageBgModel(avgtemp)
+                cp.constructAverageBgModel(all_merge_frame)
                 print("==========time thresh is %.3f============="%(time_thresh))
-                print(show_frame)
-                complement = np.average(np.array(complement_arr),axis = 0)
+                complement = np.round(np.average(np.array(complement_arr),axis = 0),2)#更新这个补偿值
                 if show_frame:
                     cv.namedWindow("image",cv.WINDOW_NORMAL)
-                cp.calcBg = True
+                    cv.namedWindow("sensor1_data",cv.WINDOW_NORMAL)
+                    cv.namedWindow("sensor2_data",cv.WINDOW_NORMAL)
+                cp.calcBg = True#计算背景完毕
                 all_merge_frame=[]
             else:
                 all_merge_frame.append(current_frame)
             continue
         diff = current_frame - avgtemp
+        diff_bak = diff
         if show_frame:
             plot_img = np.zeros(current_frame.shape,np.uint8)
             plot_img[ np.where(diff > 1.5) ] = 255
-            img_resize  = cv.resize(plot_img,(16,16),interpolation=cv.INTER_CUBIC)
+            print(plot_img.shape)
+            img_resize  = cv.resize(plot_img,(plot_img.shape[1]*3,plot_img.shape[0]*3),interpolation=cv.INTER_CUBIC)
             cv.imshow("image",img_resize)
-            cv.waitKey(1)
+            cv.waitKey(t)
+            plot_img.fill(0)
+            diff = s1 - s1_avgtemp
+            plot_img = np.zeros(s1.shape,np.uint8)
+            print(plot_img.shape)
+            shape = (plot_img.shape[0]*4,plot_img.shape[1]*4)
+            plot_img[ np.where(diff > 1) ] = 255
+            img_resize  = cv.resize(plot_img,shape,interpolation=cv.INTER_CUBIC)
+            cv.imshow("sensor1_data",img_resize)
+            cv.waitKey(t)
+            plot_img.fill(0)
+            diff = s2 - s2_avgtemp
+            print(plot_img.shape)
+            plot_img[ np.where(diff > 1) ] = 255
+            img_resize  = cv.resize(plot_img,shape,interpolation=cv.INTER_CUBIC)
+            cv.imshow("sensor2_data",img_resize)
+            cv.waitKey(t)
+        diff = diff_bak
         res = False
         ret = cp.isCurrentFrameContainHuman(current_frame,avgtemp,diff)
         if not ret[0]:
@@ -230,6 +262,7 @@ try:
             continue
         cp.setExistPeople(True)
         print("extractbody")
+        print(cp.average_temp)
         (cnt_count,image ,contours,hierarchy),area =cp.extractBody(cp.average_temp, current_frame)
         if cnt_count ==0:
             cp.updateObjectTrackDictAgeAndInterval()

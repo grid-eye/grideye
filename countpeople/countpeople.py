@@ -1091,10 +1091,16 @@ class CountPeople:
         #self.showContours(img,contours)
         #print(np.round(img,2))
         corr = []
+        print("img's shape is ")
+        print(img.shape)
         for cnt in contours:
             x,y,w,h = cv.boundingRect(cnt)
             mask = img[y:y+h,x:x+w]
             #input("press any key")
+            print(x,y,w,h)
+            print(mask.shape)
+            print("mask is")
+            print(mask)
             row_max =[]
             for row in mask:
                 row_max.append(row.max())

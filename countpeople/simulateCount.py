@@ -116,6 +116,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         cp.trackPeople(blur,pos)
         end_time = time.perf_counter()
         interval = end_time - start_time
+        cp.showTargetFeature()
         cp.updateObjectTrackDictAge()
         cp.tailOperate(blur,last_frame_step)
     mask_arr = np.array(mask_arr)

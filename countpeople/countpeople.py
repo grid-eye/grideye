@@ -35,7 +35,7 @@ class CountPeople:
         self.th_bgframes = th_bgframes
         self.row = row  # image's row
         self.col = col  # image's col
-        self.image_size = row * col
+        self.image_size = 64#固定为amg8833的数据大小
         self.image_id = 0  # the id of the hot image of each frame saved
         self.hist_id = 0  # the id of the hist image of diff between average
         # temp and current temp
@@ -69,9 +69,17 @@ class CountPeople:
         self.__var_thresh=0.125
         self.__max_bg_counter = 4096#计算背景所用的最大帧数
         self.__k = 7
+        self.image_thresh = 16#提取目标轮廓用的阈值
+        self.stop_extract_h = 4#查找轮廓停止迭代的轮廓高度值
+        self.single_people_area = 8#单人轮廓面积阈值,如果轮廓大小不超过这个值我们认为这是单个目标
+        self.save_contours_row = 8#是否满足保存轮廓的条件
+        self.single_dog_max_y = 5
+        self.hozi_double_check_thresh = 4
+        self.verti_double_check_thresh = 4
+        self.__street_dis_thresh = 5
         self.M = 50#计算背景帧的数量
         self.otsu_threshold =0
-        self.isDoorHigh=False
+        self.isDoorHigh=True
         self.door_high_max_temp=1.5
         self.interpolate_method='cubic'
         self.bg_path,self.fg_path = getDefaultBgpathAndFgpath() 
@@ -777,16 +785,17 @@ class CountPeople:
         return self.__isExist
     def removeNoisePoint(self,diff_temp,corr):
         max_temperature_thresh=2
+        small_thresh = 1.3
         horizontal_thresh = 2
         second_temperature_thresh = 1.4
         cp_temp_dict = {}
         corr_set = set(corr)
         corr_bak=corr_set.copy()
-
         for item in corr_set:
             local_max_temp = diff_temp[item]
-            if local_max_temp  >=  max_temperature_thresh or (self.isDoorHigh ):
-                cp_temp_dict[item] = diff_temp[item]
+            if local_max_temp  >=  small_thresh:
+                if  self.isDoorHigh or local_max_temp >= max_temperature_thresh:
+                    cp_temp_dict[item] = diff_temp[item]
             else:
                 corr_bak.remove(item)
         if len(corr_bak) <= 1:
@@ -811,8 +820,6 @@ class CountPeople:
                 elif self.isDoorHigh:
                     if streetDis < 3:
                         removed_set.add(k)
-
-
         final_corr = []
         rest_set = cp_set-removed_set
         #print("================rest set is ======================")
@@ -895,10 +902,8 @@ class CountPeople:
             thre_temp =average_temp.copy()+1
             ones = np.ones(average_temp.shape,np.float32)
             diff_test =ones*( curr_temp > thre_temp)
-            if diff_test.sum() >= self.image_size/4:
+            if diff_test.sum() >= self.image_thresh:
                 thre_temp += 1
-            else:
-                self.isDoorHigh=True
             iter_count = 0
             max_iter = 2
             single_dog = False
@@ -928,18 +933,18 @@ class CountPeople:
                     if show_frame :
                         plt.imshow(label)
                         plt.show()
-                if n == 2 and (max_area <= self.image_size/4):
+                if n == 2 and (max_area <= self.image_thresh):
                     label = label.astype(np.uint8)
                     label , contours,heir=self.findContours(label)
                     h0,w0 = self.getActualHeightWidth(contours[0],label)
-                    if h0 <= self.row/2:
+                    if h0 <= self.stop_extract_h:#小于等于这个阈值则可以停止迭代过程
                             return self.__getFinalContours(label,contours_cache)
                 if iter_count >= max_iter:#超过最大的迭代次数
                     print("==========over iter====================")
                     isReturn = False
                     sum_area = sum(area_arr)
                     if iter_count==max_iter :
-                        if sum_area <= self.image_size/8:
+                        if sum_area <= self.single_people_area:
                             single_dog = True
                         min_item = sorted_label_dict[-1]
                         if min_item[1] == 1:
@@ -969,7 +974,7 @@ class CountPeople:
                             isReturn=True
                             self.__splitContours(label,contours)
                         else:
-                            if size >= 3 and size <= self.row:
+                            if size >= 3 and size <= self.save_contours_row:#是否满足保存轮廓的条件
                                 contours_cache [np.where(label == l)]=1#这是为了保存之前提取的轮廓
                     if isReturn:
                         print("case 0 ")
@@ -1276,6 +1281,15 @@ class CountPeople:
         elif cp[1] > last_place[1]:
             return False
         return True
+    def __double_check_corr(self,hozi,verti):
+        if hozi < self.hozi_double_check_thresh and verti < self.verti_double_check_thresh:
+            return True
+        street_dis = hozi + verti
+        if street_dis <= self.__street_dis_thresh:
+            if hozi <= self.hozi_double_check_thresh:#如果街区
+                return True
+        return False
+
     def __extractFeature(self,img,corr):
         '''
         为当前帧提取目标特征
@@ -1287,7 +1301,6 @@ class CountPeople:
         removed_point_set = set()#已经确认隶属的点的集合
         if len(self.__objectTrackDict) == 1:
            if len(corr) == 1:
-               max_dis = self.row-3
                for k, v in self.__objectTrackDict.items():
                    last_place,last_frame = v.get()
                    last_tempera = last_frame[last_place[0],last_place[1]]
@@ -1295,7 +1308,7 @@ class CountPeople:
                    diff = curr_tempera - last_tempera
                    x_dis = abs(last_place[1] - corr[0][1])
                    y_dis = abs(last_place[0] - corr[0][0])
-                   if x_dis < max_dis:
+                   if self.__double_check_corr(x_dis,y_dis):
                        v.put(corr[0],img)
                        v.clearInterval()
                        return 
@@ -1333,7 +1346,7 @@ class CountPeople:
                     diff_temp = abs(prev_img[prev_point[0],prev_point[1]] - img[point[0],point[1]])
                     hozi_dis = abs(prev_point[1]-point[1])
                     verti_dis = abs(prev_point[0]-point[0])
-                    if hozi_dis < (self.col *5/12) and verti_dis < self.row *5/12:
+                    if self.__double_check_corr(hozi_dis,verti_dis):
                         if hozi_dis > 1 :
                             direction = v.getLastTrend()#得到本目标的运动趋向
                             if not self.__inLineWithCurrentSportTrend(direction,point,last_place):#分析运动趋势
@@ -1358,7 +1371,7 @@ class CountPeople:
                 otd[k].incrementInterval()
             self.updateSpecifiedTarget(final_obj_rest)
     def nearlyCloseToEdge(self,point):#近似作为边界
-        if point[1]>= self.row-2 or point[1]-1<= 0:
+        if point[1]>= self.col-2 or point[1]-1<= 0:
             return True
         return False
     def updateObjectTrackDictAgeAndInterval(self):

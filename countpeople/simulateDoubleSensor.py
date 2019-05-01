@@ -3,7 +3,7 @@ import numpy as np
 import time
 import os
 import cv2 as cv
-from double_sensor import CountPeople
+from countpeople import CountPeople
 def showData(data):
     for item in data:
         print(np.array(item))
@@ -121,7 +121,7 @@ try:
         #current_frame = avgtemp + diff #更新当前帧
         diff_bak = diff
         if show_frame:
-            t = 20
+            t = 10
             plot_img = np.zeros(current_frame.shape,np.uint8)
             plot_img[ np.where(diff > 1.5) ] = 255
             print(plot_img.shape)
@@ -166,8 +166,8 @@ try:
         loc = cp.findBodyLocation(diff,contours,[ i for i in range(cp.row)])
         print_trible_tuple.append((i,diff,loc))
         cp.trackPeople(current_frame,loc)#检测人体运动轨迹
-        cp.updateObjectTrackDictAge()#增加目标年龄
         cp.showTargetFeature()
+        cp.updateObjectTrackDictAge()#增加目标年龄
         cp.tailOperate(current_frame,last_three_frame)
         #sleep(0.5)
     for i,frame,loc in print_trible_tuple:

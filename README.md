@@ -73,3 +73,66 @@
 
  	移动一系列.npy数据(可以忽略这个文件)
      ```
+11.  countpeople/singleClient.py
+     ```
+        单传感器的客户端，接受服务器的温度数据，并进行处理，得出计数结果
+        >>> python3 singleClient.py 主机ip:端口 存储数据的目录 [show_frame(是否显示图形界面)]
+     ```
+11.  countpeople/Client.py
+     ```
+        双传感器的客户端，接受服务器的温度数据，并进行处理，得出计数结果
+             >>> python3 Client.py 主机1的ip:端口  主机2的ip:端口 存储数据的目录 [show_frame(是否显示图形界面)]
+     ```
+12.  countpeople/server.py
+      ```
+        连接传感器的开发板子运行这个脚本，发送温度数据
+        命令格式：
+        >>> python3 server.py 9991(端口)
+
+       ```
+13. countpeople/simulateCount.py
+    ```
+     模拟单传感器进出计数的脚本，重现实测数据
+     命令格式:
+     >>> python3 simulateCount.py 目录 [show_frame(表示是否使用opencv显示帧，可选参数)] [ a,b,c,d,e,f(表示选择的帧号，可选参数)]
+
+    ```
+14. countpeople/knn.py
+    ```
+     k紧邻算法的实现
+    ```
+15. countpeople/videoWatch.py
+    ```
+     opencv显示帧序列
+     命令格式:
+     >>> python3  videoWatch.py frame_path
+    ```
+16. countpeople/sendSystemTime.py
+    ```
+        服务端发送系统时间，用于查看服务端系统时间
+        >>> python3 sendSystemTime.py port
+    ```
+17. countpeople/testSystemTime.py
+    ``` 
+        客端端接收系统时间，用于查看服务端系统时间
+        >>> python3 testSystemTime.py 主机1的ip和port 主机2的ip和port 
+    ```
+18. countpeople/simuateDoubleSensor.py
+    ```
+        重现双传感器进出的场景，需要历史数据
+        >>> python3 simulateDoubleSensor 传感器1数据目录 传感器2数据目录 [show_frame(是否显示图形界面)]
+
+    ```
+19. countpeople/target.py
+    ```
+      表示目标的类
+    ```
+20. countpeople/simulateMultiDirCount.py
+    ```
+      重现多个单传感器数据的序列
+      >>> python3 simulateMultiDirCount.py 目录前缀(例如:test/2019-3-31-high-) 序列数量
+    ```
+21. double_sensor
+    ```
+    这个目录保存多传感器数据
+    ```

@@ -4,3 +4,4 @@ imagedata/
 *.tiff
 *temp/
 .py.sw.*
+*swp

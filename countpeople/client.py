@@ -101,8 +101,8 @@ mythread2.start()
 event.set()
 def showData(data):
     for item in data:
-        print(np.array(item))
-    print("================")
+        print(np.round(item,2))
+        print("================")
 i = 0 
 thresh = 80#用于计算背景的帧数
 diff_time_thresh = 20
@@ -131,7 +131,7 @@ all_merge_frame = []
 cp = CountPeople()
 i = 0 
 container = []
-time_thresh = 0.06
+time_thresh = 0.02
 diff_sum = 0 
 toggle = False
 align = True#两帧数据时间线是否对齐，即同步
@@ -150,8 +150,7 @@ try:
         print("============wait=============")
         s1 = mythread1.getNextFrame()
         s2 = mythread2.getNextFrame()
-        print(s1)
-        print(s2)
+        showData([s1[0],s2[0]])
         t1 = s1[1]
         t2 = s2[1]
         diff = t1 - t2
@@ -191,17 +190,16 @@ try:
                 toggle = False
             isSync = isSynchronize(t1,t2,time_thresh)
             count += 1
-        print(t1,t2)
         all_frame_sensor_1.append(s1)
         all_frame_sensor_2.append(s2)
-        print("=============show ===========")
-        showData([s1,s2])
         temp = s2
         s2 = s2 + complement#加上补偿值
         if not cp.isCalcBg():
             complement_arr.append(s1-temp)
             s2_arr.append(s2)
         current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
+        print("current_frame is ")
+        print(np.round(current_frame,2))
         container.append((s1,s2,current_frame))
         if len(container) == 4:
             last_three_tuple = container.pop(0)
@@ -262,7 +260,6 @@ try:
             continue
         cp.setExistPeople(True)
         print("extractbody")
-        print(cp.average_temp)
         (cnt_count,image ,contours,hierarchy),area =cp.extractBody(cp.average_temp, current_frame)
         if cnt_count ==0:
             cp.updateObjectTrackDictAgeAndInterval()

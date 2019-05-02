@@ -5,3 +5,5 @@ imagedata/
 *temp/
 .py.sw.*
 *swp
+.idea/
+*xml

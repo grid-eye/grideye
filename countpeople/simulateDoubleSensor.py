@@ -11,6 +11,7 @@ def showData(data):
 
 i = 0 
 thresh = 80
+shape = (13,8)
 def mergeDataBak(t1,t2,cp=None):
     temp = np.zeros(t1.shape)
     print(" t1 shape is")
@@ -20,8 +21,8 @@ def mergeDataBak(t1,t2,cp=None):
         for j in range(t1.shape[1]):
                 temp[i][j] = max(t1[i][j],t2[i][j])
     return temp
-def mergeData(t1,t2,cp=None):
-    split = 2
+def mergeData(t1,t2,ave=False):
+    split = 16-shape[0]
     t1,t2 = t1.copy(),t2.copy()
     row = t1.shape[0]
     sub1 = t1[:split]
@@ -29,7 +30,10 @@ def mergeData(t1,t2,cp=None):
     temp = np.zeros(sub1.shape)
     for i in range(split):
         for j in range(t1.shape[1]):
-            temp[i][j] = round(max(t1[i][j],t2[i][j]),2)
+            if ave:
+                temp[i][j] =round(np.average([ t1[i][j] ,t2[i][j]]),2)
+            else:
+                temp[i][j] =round(max( t1[i][j] ,t2[i][j]) ,2)
     res = np.append(t2[:-split],temp,axis=0)
     return np.append(res,t1[split:],axis=0)
 def mergeDataBak1(t1,t2,cp=None):
@@ -70,7 +74,6 @@ complement_arr = []
 weight_arr = [1,0.8,0.7,0.2,0.2,0.7,0.8,1]
 weight_matrix = [ [weight_arr[i] for j in range(8)] for i in range(8)]
 weight_matrix = np.array(weight_matrix)
-shape = (14,8)
 complement =np.zeros((8,8))
 complement.fill(2)
 print("weight_matrix is")
@@ -91,7 +94,16 @@ try:
         counter += 1
         print(" the %dth frame "%(counter))
         s2 = s2 + complement#加上补偿值
-        current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
+        ave = False
+        if cp.isCalcBg():
+            ret_1 = cp.isCurrentFrameContainHuman(s1,s1_avgtemp,s1-s1_avgtemp)
+            #if ret_1[0] == False:
+            #    s1 = s1_avgtemp.copy()
+            ret_2 = cp.isCurrentFrameContainHuman(s2,s2_avgtemp,s2-s2_avgtemp)
+            #if ret_2[0] == False:
+             #   s2 = s2_avgtemp.copy()
+            ave = ret_1[0] ^ ret_2[0]
+        current_frame = mergeData(s1,s2,ave)#合并两个传感器的数据,取最大值
         merge_data.append(current_frame)
         container.append(current_frame)
         if len(container) > 3:
@@ -122,7 +134,7 @@ try:
         #current_frame = avgtemp + diff #更新当前帧
         diff_bak = diff
         if show_frame:
-            t = 10
+            t = 2
             plot_img = np.zeros(current_frame.shape,np.uint8)
             plot_img[ np.where(diff > 1.5) ] = 255
             print(plot_img.shape)

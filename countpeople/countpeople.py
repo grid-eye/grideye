@@ -785,9 +785,8 @@ class CountPeople:
         return self.__isExist
     def removeNoisePoint(self,diff_temp,corr):
         max_temperature_thresh=2
-        small_thresh = 1.3
+        small_thresh = 1.5
         horizontal_thresh = 2
-        second_temperature_thresh = 1.4
         cp_temp_dict = {}
         corr_set = set(corr)
         corr_bak=corr_set.copy()
@@ -845,6 +844,7 @@ class CountPeople:
     def __findContours(self,label,key_arr):
         temp = np.zeros((self.row,self.col),np.uint8)
         cnts = []
+        heir = None
         for l in key_arr:
             temp[np.where(label == l)] =1
             temp[np.where(label!=l)]=0
@@ -886,8 +886,9 @@ class CountPeople:
         elif ratio >=3 and h0 >= (self.row-2):
             return True
         return False
-    def __getFinalContours(self,label,contours_cache,show_frame=False):
+    def __getFinalContours(self,label,contours_cache,remove_mask,show_frame=False):
         label[np.where(contours_cache==1)]=1
+        #label[np.where(remove_mask>0)] = 0
         if show_frame:
             plt.imshow(label)
             plt.show()
@@ -909,6 +910,7 @@ class CountPeople:
             single_dog = False
             all_area = self.image_size
             contours_cache = np.zeros((self.row,self.col),np.uint8)
+            remove_mask = np.zeros((self.row,self.col),np.uint8)
             while True:
                 bin_img = ones*(curr_temp>= thre_temp)
                 bin_img = bin_img.astype(np.uint8)
@@ -923,6 +925,10 @@ class CountPeople:
                     sub_matrix = label[np.where(label==i)]
                     area_arr.append(sub_matrix.size)
                     label_dict[i] = sub_matrix.size
+                    if iter_count == 1 and  sub_matrix.size <= 2 :
+                        remove_mask[np.where(label == i)] = i
+                        print("remove mask is ")
+                        print(remove_mask)
                 if not area_arr:
                     return (0,None,None,None),0
                 sorted_label_dict = sorted(label_dict.items(),key=lambda d:d[1],reverse=True)
@@ -938,7 +944,7 @@ class CountPeople:
                     label , contours,heir=self.findContours(label)
                     h0,w0 = self.getActualHeightWidth(contours[0],label)
                     if h0 <= self.stop_extract_h:#小于等于这个阈值则可以停止迭代过程
-                            return self.__getFinalContours(label,contours_cache)
+                            return self.__getFinalContours(label,contours_cache,remove_mask)
                 if iter_count >= max_iter:#超过最大的迭代次数
                     print("==========over iter====================")
                     isReturn = False
@@ -979,17 +985,17 @@ class CountPeople:
                     if isReturn:
                         print("case 0 ")
                         print(label)
-                        return self.__getFinalContours(label,contours_cache)
+                        return self.__getFinalContours(label,contours_cache,remove_mask)
                     if single_dog or  max_area < all_area/8:#尽可能减少高温区域的面积
                         print("==================case 2===========")
                         min_label = sorted_label_dict[-1]
                         if min_label[1]==1 and iter_count <= max_iter:
                             label[np.where(label==min_label[0])]=0
-                        return self.__getFinalContours(label,contours_cache)
+                        return self.__getFinalContours(label,contours_cache,remove_mask)
                 elif max_area  < math.ceil(all_area*0.1):#
                     print("=========================case 3=================")
                     print(label)
-                    return self.__getFinalContours(label,contours_cache)
+                    return self.__getFinalContours(label,contours_cache,remove_mask)
                 thre_temp += 0.25
     def showExtractProcessImage(self,origin,thresh ,images_contours):
         #输出提取人体过程的图片

@@ -33,6 +33,7 @@ if len(sys.argv) > 1:
             host2 = split_res[0]
             port2 = split_res[1]
         port2 = int(port2)
+cp = CountPeople()
 path = "double_sensor"
 if len(sys.argv) > 3:
     path = sys.argv[3]
@@ -42,6 +43,9 @@ if len(sys.argv) > 4:
     show_arg = sys.argv[4]
     if show_arg == "show_frame":
         show_frame = True 
+merge_shape = (13,8)
+cp.setCol(merge_shape[1])
+cp.setRow(merge_shape[0])
 class myThread (Process) :
     def __init__(self,host,port,condition,event):
         Process.__init__(self)
@@ -111,8 +115,8 @@ def saveImageData(sensor1,sensor2,path,original = None):
         original = ""
     np.save(path+"/"+original+"sensor1.npy",np.array(sensor1))
     np.save(path+"/"+original+"sensor2.npy",np.array(sensor2))
-def mergeData(t1,t2,cp=None):
-    split = 2
+def mergeData(t1,t2,ave=False):
+    split = 16-merge_shape[0]
     t1,t2 = t1.copy(),t2.copy()
     row = t1.shape[0]
     sub1 = t1[:split]
@@ -120,7 +124,10 @@ def mergeData(t1,t2,cp=None):
     temp = np.zeros(sub1.shape)
     for i in range(split):
         for j in range(t1.shape[1]):
-            temp[i][j] = round(max(t1[i][j],t2[i][j]),2)
+            if ave:
+                temp[i][j] =round(np.average([ t1[i][j] ,t2[i][j]]),2)
+            else:
+                temp[i][j] =round(max( t1[i][j] ,t2[i][j]) ,2)
     res = np.append(t2[:-split],temp,axis=0)
     return np.append(res,t1[split:],axis=0)
 def isSynchronize(t1,t2,thresh):
@@ -128,7 +135,6 @@ def isSynchronize(t1,t2,thresh):
         return False
     return True
 all_merge_frame = []
-cp = CountPeople()
 i = 0 
 container = []
 time_thresh = 0.02
@@ -139,8 +145,6 @@ complement = np.load("complement.npy")#传感器之间数据的补偿值
 complement_arr = []
 s2_arr = []
 t = 1
-cp.setCol(8)
-cp.setRow(14)
 try:
     while True:
         if mythread1.getQuitFlag() or mythread2.getQuitFlag():
@@ -162,6 +166,7 @@ try:
         s2 = s2[0]
         sensor_1_original.append(s1)
         sensor_2_original.append(s2)
+ 	 
         if i < diff_time_thresh:
             diff_sum += abs(diff)
         elif i == diff_time_thresh:
@@ -197,7 +202,12 @@ try:
         if not cp.isCalcBg():
             complement_arr.append(s1-temp)
             s2_arr.append(s2)
-        current_frame = mergeData(s1,s2)#合并两个传感器的数据,取最大值
+ 	  ave = False
+        if cp.isCalcBg():
+            ret_1 = cp.isCurrentFrameContainHuman(s1,s1_avgtemp,s1-s1_avgtemp)
+            ret_2 = cp.isCurrentFrameContainHuman(s2,s2_avgtemp,s2-s2_avgtemp)
+            ave = ret_1[0] ^ ret_2[0]
+        current_frame = mergeData(s1,s2,ave)#合并两个传感器的数据,取最大值
         print("current_frame is ")
         print(np.round(current_frame,2))
         container.append((s1,s2,current_frame))

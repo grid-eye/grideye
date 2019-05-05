@@ -43,7 +43,7 @@ if len(sys.argv) > 4:
     show_arg = sys.argv[4]
     if show_arg == "show_frame":
         show_frame = True 
-merge_shape = (13,8)
+merge_shape = (15,8)
 cp.setCol(merge_shape[1])
 cp.setRow(merge_shape[0])
 class myThread (Process) :
@@ -166,7 +166,6 @@ try:
         s2 = s2[0]
         sensor_1_original.append(s1)
         sensor_2_original.append(s2)
- 	 
         if i < diff_time_thresh:
             diff_sum += abs(diff)
         elif i == diff_time_thresh:
@@ -202,7 +201,7 @@ try:
         if not cp.isCalcBg():
             complement_arr.append(s1-temp)
             s2_arr.append(s2)
- 	  ave = False
+        ave = False
         if cp.isCalcBg():
             ret_1 = cp.isCurrentFrameContainHuman(s1,s1_avgtemp,s1-s1_avgtemp)
             ret_2 = cp.isCurrentFrameContainHuman(s2,s2_avgtemp,s2-s2_avgtemp)
@@ -254,7 +253,6 @@ try:
             cv.waitKey(t)
             plot_img.fill(0)
             diff = s2 - s2_avgtemp
-            print(plot_img.shape)
             plot_img[ np.where(diff > 1) ] = 255
             img_resize  = cv.resize(plot_img,shape,interpolation=cv.INTER_CUBIC)
             cv.imshow("sensor2_data",img_resize)

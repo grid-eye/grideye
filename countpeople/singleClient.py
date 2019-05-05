@@ -138,7 +138,7 @@ try:
                 cp.setCalcBg(True)
                 cp.setBgTemperature(avgtemp)
                 initial_avg = avgtemp
-                cp.constructAverageBgModel(avgtemp)
+                cp.constructAverageBgModel(all_merge_frame)
                 print(show_frame)
                 if show_frame:
                     cv.namedWindow("image",cv.WINDOW_NORMAL)

@@ -11,7 +11,7 @@ def showData(data):
 
 i = 0 
 thresh = 80
-shape = (13,8)
+merge_shape = (15,8)
 def mergeDataBak(t1,t2,cp=None):
     temp = np.zeros(t1.shape)
     print(" t1 shape is")
@@ -22,7 +22,10 @@ def mergeDataBak(t1,t2,cp=None):
                 temp[i][j] = max(t1[i][j],t2[i][j])
     return temp
 def mergeData(t1,t2,ave=False):
+    shape = merge_shape
     split = 16-shape[0]
+    if split == 0:
+        np.append(t2,t1,axis =0)
     t1,t2 = t1.copy(),t2.copy()
     row = t1.shape[0]
     sub1 = t1[:split]
@@ -65,25 +68,22 @@ if len(sys.argv) > 2:
         show_frame = True
 sensor1 = np.load(path+"/sensor1.npy")
 sensor2 = np.load(path +"/sensor2.npy")
+print(sensor1.shape)
+print(sensor2.shape)
 counter = 0 
 merge_data= [ ]
 last_three = thresh - 3
 container = []
 print_trible_tuple =[]
 complement_arr = []
-weight_arr = [1,0.8,0.7,0.2,0.2,0.7,0.8,1]
-weight_matrix = [ [weight_arr[i] for j in range(8)] for i in range(8)]
-weight_matrix = np.array(weight_matrix)
 complement =np.zeros((8,8))
 complement.fill(2)
-print("weight_matrix is")
-print(weight_matrix)
 s1_avgtemp = None
 s2_avgtemp = None
 s2_arr = []
 try:
-    cp.setRow(shape[0])
-    cp.setCol(shape[1])
+    cp.setRow(merge_shape[0])
+    cp.setCol(merge_shape[1])
     complement = calComplement(sensor1[0:thresh],sensor2[0:thresh])
     print("complement is ")
     print(complement)
@@ -104,6 +104,8 @@ try:
              #   s2 = s2_avgtemp.copy()
             ave = ret_1[0] ^ ret_2[0]
         current_frame = mergeData(s1,s2,ave)#合并两个传感器的数据,取最大值
+        print("current frame's shape is ")
+        print(current_frame.shape)
         merge_data.append(current_frame)
         container.append(current_frame)
         if len(container) > 3:
@@ -129,6 +131,8 @@ try:
                 s2_arr.append(s2)
                 all_merge_frame.append(current_frame)
             continue
+        print(current_frame.shape)
+        print(avgtemp.shape)
         diff = current_frame - avgtemp
         #diff =  diff * weight_matrix#乘上权重矩阵
         #current_frame = avgtemp + diff #更新当前帧

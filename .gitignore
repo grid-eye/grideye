@@ -7,3 +7,4 @@ imagedata/
 *swp
 .idea/
 *xml
+__pycache__/

@@ -17,7 +17,7 @@ try:
     import busio
     import board
     load_busio = True
-except ImportError:
+except (ImportError,NotImplementedError):
     print("no busio or board")
     load_busio = False
 class CountPeople:

@@ -116,17 +116,12 @@ try:
             break
         i += 1
         print(" the %dth frame "%(i))
-        print("============wait=============")
         s1 = mythread1.getNextFrame()
         time_1 = s1[1]
         s1 = s1[0]
         all_frame_sensor_1.append(s1)
-        print("=============show ===========")
-        print("=============time is ==============")
-        print(time_1)
         time_local_1 = time.localtime(int(time_1))
         dt1 = time.strftime("%Y-%m-%d:%H:%M:%S",time_local_1)
-        print(dt1)
         showData([s1])
         current_frame = s1#合并两个传感器的数据,取最大值
         container.append(s1)
@@ -139,7 +134,6 @@ try:
                 cp.setBgTemperature(avgtemp)
                 initial_avg = avgtemp
                 cp.constructAverageBgModel(all_merge_frame)
-                print(show_frame)
                 if show_frame:
                     cv.namedWindow("image",cv.WINDOW_NORMAL)
                 cp.calcBg = True

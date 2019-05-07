@@ -916,8 +916,6 @@ class CountPeople:
                 bin_img = bin_img.astype(np.uint8)
                 label=np.zeros((self.row,self.col))
                 n , label = cv.connectedComponents(bin_img,label,connectivity=4 )
-                print("=======current label is========")
-                print(label)
                 iter_count += 1
                 area_arr = []
                 label_dict= {}
@@ -927,8 +925,6 @@ class CountPeople:
                     label_dict[i] = sub_matrix.size
                     if iter_count == 1 and  sub_matrix.size <= 2 :
                         remove_mask[np.where(label == i)] = i
-                        print("remove mask is ")
-                        print(remove_mask)
                 if not area_arr:
                     return (0,None,None,None),0
                 sorted_label_dict = sorted(label_dict.items(),key=lambda d:d[1],reverse=True)
@@ -946,7 +942,6 @@ class CountPeople:
                     if h0 <= self.stop_extract_h:#小于等于这个阈值则可以停止迭代过程
                             return self.__getFinalContours(label,contours_cache,remove_mask)
                 if iter_count >= max_iter:#超过最大的迭代次数
-                    print("==========over iter====================")
                     isReturn = False
                     sum_area = sum(area_arr)
                     if iter_count==max_iter :
@@ -984,7 +979,6 @@ class CountPeople:
                                 contours_cache [np.where(label == l)]=1#这是为了保存之前提取的轮廓
                     if isReturn:
                         print("case 0 ")
-                        print(label)
                         return self.__getFinalContours(label,contours_cache,remove_mask)
                     if single_dog or  max_area < all_area/8:#尽可能减少高温区域的面积
                         print("==================case 2===========")
@@ -993,8 +987,6 @@ class CountPeople:
                             label[np.where(label==min_label[0])]=0
                         return self.__getFinalContours(label,contours_cache,remove_mask)
                 elif max_area  < math.ceil(all_area*0.1):#
-                    print("=========================case 3=================")
-                    print(label)
                     return self.__getFinalContours(label,contours_cache,remove_mask)
                 thre_temp += 0.25
     def showExtractProcessImage(self,origin,thresh ,images_contours):
@@ -1097,16 +1089,10 @@ class CountPeople:
         #self.showContours(img,contours)
         #print(np.round(img,2))
         corr = []
-        print("img's shape is ")
-        print(img.shape)
         for cnt in contours:
             x,y,w,h = cv.boundingRect(cnt)
             mask = img[y:y+h,x:x+w]
             #input("press any key")
-            print(x,y,w,h)
-            print(mask.shape)
-            print("mask is")
-            print(mask)
             row_max =[]
             for row in mask:
                 row_max.append(row.max())
@@ -1123,23 +1109,8 @@ class CountPeople:
                 row = xcorr[0]+y
                 col = ycorr[0]+x
             corr.append((row,col))
-        print(corr)
-        #print(img[ret[0][0],ret[0][1]])
-        #input("press Enter continue...")
-        print(corr)
-        print("================removed noise point===================")
         ret =  self.removeNoisePoint(img,corr)
-        print("after remove ====")
-        print(ret)
         return ret
-        #for i in range(pcount):
-            #cnt = contours[i]
-            #moment = cv.moments(cnt)#求图像的矩
-            #cx =int(moment['m10']/moment['m00'])
-            #cy = int(moment['m01']/moment['m00'])
-            #ret.append((cx,cy))
-                #break
-
     def showContours(self,img,contours):
         print("====================now paint the contours of the image========")
         img2 = np.array(img.copy(),np.uint8)

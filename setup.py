@@ -8,7 +8,7 @@ setup(
         description='a project for counting people by using sensor AMG8833',
         long_description=long_description,
         long_description_content_type='text/md',
-        author='chen jiefang , wang guanwu',
+        author='wang guanwu',
         author_email='2531507093@qq.com',
         url="https://github.com/grid-eye/grideye.git",
         version="0.1",

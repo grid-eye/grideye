@@ -78,7 +78,7 @@
         单传感器的客户端，接受服务器的温度数据，并进行处理，得出计数结果
         >>> python3 singleClient.py 主机ip:端口 存储数据的目录 [show_frame(是否显示图形界面)]
      ```
-11.  countpeople/Client.py
+11.  countpeople/client.py
      ```
         双传感器的客户端，接受服务器的温度数据，并进行处理，得出计数结果
              >>> python3 Client.py 主机1的ip:端口  主机2的ip:端口 存储数据的目录 [show_frame(是否显示图形界面)]
@@ -114,7 +114,7 @@
     ```
 17. countpeople/testSystemTime.py
     ``` 
-        客端端接收系统时间，用于查看服务端系统时间
+        客端端接收系统时间，用于查看服务端(树莓派)系统时间
         >>> python3 testSystemTime.py 主机1的ip和port 主机2的ip和port 
     ```
 18. countpeople/simuateDoubleSensor.py
@@ -135,4 +135,23 @@
 21. double_sensor
     ```
     这个目录保存多传感器数据
+    ```
+22. countpeople/complement.npy
+    ```
+    双传感器的初始补偿值，通过计算双传感器多帧的差值的平均值得到。
+
+    ```
+23. countpeople/videoWatch.py
+    ```
+    通过opencv视频展示测到的数据(辅助脚本)
+    >>>python3 videoWatch.py test_data_path(测试数据路径)
+    ```
+24. countpeople/testHistAccuracy.py
+    ```
+    通过设置阈值判得到前景点和背景点的数量
+    ```
+25. countpeople/objecttrack.py
+    ```
+    目标运动轨迹类，保存了某个目标的运动轨迹
+
     ```

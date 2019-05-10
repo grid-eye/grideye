@@ -12,8 +12,7 @@ setup(
         author_email='2531507093@qq.com',
         url="https://github.com/grid-eye/grideye.git",
         version="0.1",
-        packages = find_packages('src'),
-        package_dir={'':'src'},
+        packages = find_packages(),
         exclude_package_data={
             '':[".gitignore"],
             },

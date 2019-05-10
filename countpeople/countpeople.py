@@ -221,9 +221,6 @@ class CountPeople:
             counter += 1
         self.average_temp = self.calAverageTemp(all_frame)
         np.save(output_dir+"/avgtemp.npy",self.average_temp)
-    def readAndSaveBgAndBodyTemperature(self,bg_number=400,body_number = 1000, output_dir="temp"):
-        self.preReadBgTemperature(bg_number,output_dir)
-        self.acquireImageData(body_number , output_dir)
     def createTrainSample(self,bg_path,fg_path):
         bg_sample,fg_sample =  createTrainingSetAndTestSet(bg_path,fg_path)
         self.knnSampleSet = np.append(bg_sample,fg_sample,axis= 0 )
@@ -243,65 +240,10 @@ class CountPeople:
         return self.__peoplenum
     def getEntranceExitEvents(self):
         return self.__entrance_exit_events
-    def displayImage_bg_curr(self, average_temperature, currFrameIntepol):
-        '''
-        '''
-        plt.subplot(1, 2, 1)
-        plt.imshow(average_temperature)
-        plt.title('background temperature')
-        plt.subplot(122)
-        print('subplot 122')
-        plt.imshow(currFrameIntepol)
-        plt.title('current temperature')
-        fig, (bgaxes, cur_frames_axes,
-              bg_cur_diff_axes) = plt.subplots(3, 1, num=2)
-        print(bgaxes)
-        bgaxes.set_xlim(16, 32)
-        print('after xlim')
-        bgaxes.hist(average_temperature.ravel(), bins=256, range=(
-            17, 21), histtype='step', label='temperature hist')
-        bgaxes.set_title('bg temperature list')
-        print('hist')
-        cur_frames_axes.hist(currFrameIntepol.ravel(), bins=256, range=(
-            17, 28), histtype='step', label='current temperature')
-        cur_frames_axes.set_title('curr temperature hist')
-        diff = currFrameIntepol - average_temperature
-        bg_cur_diff_axes.hist(diff.ravel(), bins=512, range=(
-            -4, 4), histtype='step', label='difference between background temperature and current temperature')
-        bg_cur_diff_axes.set_title(
-            'difference between bg temperature and current temperature')
-        fig.tight_layout()
-        plt.show()
     def setSinglePeople(self,isSingle):
         self.__isSingle = isSingle
     def isSinglePeople(self):
         return self.__isSingle
-    def calAverageAndCurrDiff(self, average_temp, curr_temp):
-        '''
-            calculate the difference between avereage temperature and current temperature
-            args:None
-            return : difference between average tempe and currtemp
-
-        '''
-        diff = np.array(curr_temp - average_temp,np.float32)
-        return np.round(diff, 2)
-
-    def isBgByAverageDiff(self, average_temp, curr_temp):
-        '''
-            if this frame is bg temperature
-                return True
-            else if this frame has human
-                return False 
-        '''
-        bgAverage = np.round(np.average(average_temp), 1)
-        currAverage = np.round(np.average(curr_temp), 1)
-        diff = currAverage - bgAverage
-        print('their difference is %.2f' % (diff))
-        if diff <= .5:
-            return True
-        else:
-            return False
-
     def calAverageTemp(self,all_bgframes):
         '''
            func: calulate the temperature of n frames ,n >= 200
@@ -341,24 +283,6 @@ class CountPeople:
             self.otsu_threshold = round(ret , 1)
         self.otsu_th_mask = ret
         return ret ,binary
-
-    def equalizeHist(self, img):
-        '''
-            Histogram equalization
-        '''
-        img = self.makeImgCompatibleForCv(img)
-        return cv.equalizeHist(img)
-
-    def displayImage(self, img, title='temp', gray=True):
-        # plt.ion()
-        if gray == True:
-            plt.imshow(img, cmap='gray')
-        else:
-            plt.imshow(img)
-        plt.title(title)
-        plt.xticks([])
-        plt.yticks([])
-
     def saveDiffHist(self, diff, histtype="step"):
         plt.subplot(2, 1, 1)
         plt.title("hist_%d.png" % (self.hist_id))
@@ -370,47 +294,6 @@ class CountPeople:
         plt.savefig("%s/diff_hist_%d.png" % (actual_dir, self.hist_id))
         self.hist_id += 1
         plt.tight_layout()
-        plt.clf()
-
-    def saveImage(self, average_temperature, currFrameIntepol, filter=False):
-        num = (1, 2)
-        if filter == True:
-            num = (2, 3)
-        row, col = num
-        ax_id = 1
-        plt.subplot(row, col, ax_id)
-        ax_id += 1
-        plt.imshow(average_temperature)
-        plt.title('bgTemperature')
-        plt.subplot(row, col, ax_id)
-        ax_id += 1
-        plt.imshow(currFrameIntepol)
-        plt.title("curTemp original ")
-        if filter == True:
-            plt.subplot(row, col, ax_id)
-            ax_id += 1
-            gblur = self.gaussianFilter(currFrameIntepol)
-            plt.imshow(gblur)
-            plt.xticks([])
-            plt.yticks([])
-            plt.title('gaussian filter')
-            plt.subplot(row, col, ax_id)
-            ax_id += 1
-            median = self.medianFilter(currFrameIntepol)
-            plt.imshow(median)
-            plt.xticks([])
-            plt.yticks([])
-            plt.title('median filter')
-            plt.subplot(row, col, ax_id)
-            ax_id += 1
-            th ,binarize= self.otsuThreshold(gblur)
-            plt.imshow(th)
-            plt.xticks([])
-            plt.yticks([])
-            plt.title('otsu thersholding')
-        plt.tight_layout()
-        plt.savefig("%s/hot_image_ %d.png" % (actual_dir, self.image_id))
-        self.image_id = self.image_id+1
         plt.clf()
     def judgeFrameByHist(self, img):  # 根据直方图判断当前帧是否含有人类
         print("judge by hist")
@@ -513,6 +396,7 @@ class CountPeople:
                     self.std_gaussian[i][j]  = self.var_gaussian[i][j]**0.5
                 else:
                     self.d_gaussian[i][j] = frame[i][j] - self.u_gaussian[i][j]
+    '''
     def constructMultiGaussianBgModel(self,current_frame):
         pixel_range = 80
         self.C_mgaussian = 3
@@ -563,6 +447,7 @@ class CountPeople:
                     self.mean_mgaussian[i][min_index] = current_frame[i][j]
                     self.sd_mgaussian[i][j][min_index] = self.sd_init_mgaussian 
                 self.rank_mgaussian = self.weight_mgaussian[i][j]
+    '''
     def constructAverageBgModel(self, bg_frames):#构造平均背景模型
         ft = np.zeros((self.row,self.col))
         self.step = 3
@@ -780,7 +665,6 @@ class CountPeople:
         print("=================current people num is %d ==============="%(self.__peoplenum))
     def showEntranceExitEvents(self):
         print("=================current entrance num is %d =================="%(self.__entrance_exit_events))
-
     def getExistPeople(self):
         return self.__isExist
     def removeNoisePoint(self,diff_temp,corr):
@@ -851,18 +735,6 @@ class CountPeople:
             img ,contours,heir=self.findContours(temp)
             cnts.append(contours[0])
         return (len(key_arr),label,cnts,heir)
-    def __findContoursBak(self,label,label_dict,all_area):
-        key_arr = list(label_dict.keys())
-        special = 64
-        for i in key_arr:
-            label[np.where(label == i)]= special
-        label[np.where(label != special)] = 0
-        label[np.where(label == special)] = 1
-        label = label.astype(np.uint8)
-        img,contours,heir=self.findContours(label)
-        print("print the x,y,w,h")
-        print(len(contours))
-        return (len(contours),img,contours,heir)
     def getActualHeightWidth(self,cnt,label):
         x,y,w,h = cv.boundingRect(cnt)
         max_width = 0
@@ -1137,126 +1009,6 @@ class CountPeople:
 
     def setPackageDir(self, pdir):
         self.pdir = pdir
-    def __neiborhoodTemp(self,img,points,nsize = 4):
-        '''
-        求邻域平均温度
-        '''
-        x,y = points
-        count = 0 
-        temp_sum = img[x][y]
-        if nsize == 4:
-            if x == 0:
-                if y == 0 :
-                    temp_sum += img[x+1][y]
-                    temp_sum += img[x][y+1]
-                    count=2
-                elif y == 31:
-                    temp_sum += img[x+1][y]
-                    temp_sum += img[x][y-1]
-                    count=2
-                else:
-                    temp_sum += img[x+1][y]
-                    temp_sum += img[x][y-1]
-                    temp_sum += img[x][y+1]
-                    count=3
-            elif x == 31:
-                if y == 0 :
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y+1]
-                    count=2
-                elif y == 31:
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y-1]
-                    count=2
-                else:
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y-1]
-                    temp_sum += img[x][y+1]
-                    count =3
-            else:
-                if y == 0 :
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y+1]
-                    temp_sum += img[x+1][y]
-                    count=3
-                elif y == 31:
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y-1]
-                    temp_sum += img[x+1][y]
-                    count=3
-                else:
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y-1]
-                    temp_sum += img[x][y+1]
-                    temp_sum += img[x+1][y]
-                    count=4
-        elif nsize == 8:
-            if x == 0:
-                if y == 0 :
-                    temp_sum += img[x+1][y]
-                    temp_sum += img[x][y+1]
-                    temp_sum +=img[x+1][y+1]
-                    count=3
-                elif y == 31:
-                    temp_sum += img[x+1][y]
-                    temp_sum += img[x][y-1]
-                    temp_sum += img[x+1][y-1]
-                    count=3
-                else:
-                    temp_sum += img[x+1][y-1]
-                    temp_sum += img[x+1][y+1]
-                    temp_sum += img[x+1][y]
-                    temp_sum += img[x][y-1]
-                    temp_sum += img[x][y+1]
-                    count=5
-            elif x == 31:
-                if y == 0 :
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y+1]
-                    temp_sum += img[x-1][y+1]
-                    count=3
-                elif y == 31:
-                    temp_sum += img[x-1][y-1]
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y-1]
-                    count=3
-                else:
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y-1]
-                    temp_sum += img[x][y+1]
-                    temp_sum += img[x-1][y-1]
-                    temp_sum += img[x-1][y+1]
-                    count =5
-            else:
-                if y == 0 :
-                    temp_sum += img[x-1][y+1]
-                    temp_sum += img[x+1][y+1]
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y+1]
-                    temp_sum += img[x+1][y]
-                    count = 5
-                elif y == 31:
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y-1]
-                    temp_sum += img[x+1][y]
-                    temp_sum += img[x-1][y-1]
-                    temp_sum += img[x+1][y-1]
-                    count = 5
-                else:
-                    temp_sum += img[x-1][y]
-                    temp_sum += img[x][y-1]
-                    temp_sum += img[x][y+1]
-                    temp_sum += img[x+1][y]
-                    temp_sum += img[x-1][y+1]
-                    temp_sum += img[x-1][y-1]
-                    temp_sum += img[x+1][y-1]
-                    temp_sum += img[x+1][y+1]
-                    count = 8
-            count+=1
-        else:
-            print("has only 2 choice :4 or 8")
-        neibor = temp_sum / count
-        return neibor
     def __inLineWithCurrentSportTrend(self,direction,cp,last_place):
         if direction == 1:#分析运动趋势，如果方向为正，当前坐标一般大于前一个坐标
             if cp[1] < last_place[1]:

@@ -361,9 +361,9 @@ class CountPeople:
         if showVoteCount:
             print(category)
         if category == 1:
-            return True，None
+            return True
         else:
-            return False，None
+            return False
     def constructGaussianBgModel(self,first_frame):
         row,col =  first_frame.shape
         self.alpha_gaussian = 0.03#学习率
@@ -597,7 +597,7 @@ class CountPeople:
                     cv.imshow("image",img_resize)
                     cv.waitKey(1)
                 ret =self.isCurrentFrameContainHuman(currFrame.copy(),self.average_temp.copy(), diff_temp.copy() )
-                if not ret[0]:
+                if not ret:
                     self.updateObjectTrackDictAgeAndInterval()
                     self.tailOperate(currFrame,last_frame_step)
                     if self.getExistPeople():
@@ -621,8 +621,6 @@ class CountPeople:
                 self.trackPeople(currFrame,loc)#检测人体运动轨迹
                 self.updateObjectTrackDictAge()#增加目标年龄
                 self.tailOperate(currFrame,last_frame_step)
-                #sleep(0.5)
-
         except KeyboardInterrupt:
             print("catch keyboard interrupt")
             if show_frame:

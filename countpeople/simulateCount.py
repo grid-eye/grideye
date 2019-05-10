@@ -69,7 +69,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         ret = cp.isCurrentFrameContainHuman(blur.copy(),average_median.copy(),curr_diff.copy(),show_vote)
         #print("=============analyse this frame contain human's time is====================")
         #print(interval)
-        if not ret[0]:
+        if not ret:
             print("=============no human ==============")
             cp.updateObjectTrackDictAgeAndInterval()
             cp.tailOperate(blur,last_frame_step)

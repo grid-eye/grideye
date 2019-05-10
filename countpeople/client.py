@@ -260,7 +260,7 @@ try:
         diff = diff_bak
         res = False
         ret = cp.isCurrentFrameContainHuman(current_frame,avgtemp,diff)
-        if not ret[0]:
+        if not ret:
             cp.updateObjectTrackDictAgeAndInterval()
             cp.tailOperate(current_frame,last_three_frame)
             if cp.getExistPeople():

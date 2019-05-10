@@ -3,4 +3,5 @@
 *.jpg
 *.tiff
 *temp/
+*.py.sw*
 

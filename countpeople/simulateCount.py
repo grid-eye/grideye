@@ -100,7 +100,7 @@ def analyseFrameSequence(frame_arr,all_frames,average_temp,path , show_frame=Fal
         contours_rect.append(rect_arr)
         curr_arr.append(curr_diff)
         start_time = time.perf_counter()
-        pos = cp.findBodyLocation(curr_diff,contours,[i for i in range(cp.row)])
+        pos = cp.findBodyLocation(curr_diff,contours)
         diff_sum2 = np.sum(curr_diff)
         if (diff_sum1 != diff_sum2):
             raise ValueError()

@@ -164,7 +164,7 @@ try:
             cp.tailOperate(current_frame,last_three_frame)
             continue
         #下一步是计算轮当前帧的中心位置
-        loc = cp.findBodyLocation(diff,contours,[ i for i in range(cp.row)])
+        loc = cp.findBodyLocation(diff,contours)
         cp.trackPeople(current_frame,loc)#检测人体运动轨迹
         cp.updateObjectTrackDictAge()#增加目标年龄
         cp.tailOperate(current_frame,last_three_frame)

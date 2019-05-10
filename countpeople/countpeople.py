@@ -1,7 +1,6 @@
 import numpy as np
 import cv2 as cv
 import time
-import adafruit_amg88xx
 import math
 import scipy
 import os
@@ -15,6 +14,7 @@ from objecttrack import ObjectTrack
 from target import Target
 try:
     import busio
+    import adafruit_amg88xx
     import board
     load_busio = True
 except (ImportError,NotImplementedError):
@@ -29,13 +29,12 @@ class CountPeople:
             self.i2c = busio.I2C(board.SCL, board.SDA)
             self.amg = adafruit_amg88xx.AMG88XX(self.i2c)
         self.grid_x, self.grid_y = np.mgrid[0:7:32j, 0:7:32j]
-        self.bgframe_cnt = 0
         self.all_bgframes = []  # save all frames which sensor read
         self.pre_read_count = pre_read_count
         self.th_bgframes = th_bgframes
         self.row = row  # image's row
         self.col = col  # image's col
-        self.image_size = 64#固定为amg8833的数据大小
+        self.image_size = self.row*self.col#固定为amg8833的数据大小
         self.image_id = 0  # the id of the hot image of each frame saved
         self.hist_id = 0  # the id of the hist image of diff between average
         # temp and current temp
@@ -46,9 +45,8 @@ class CountPeople:
         print("size of image is (%d,%d)"%(self.row,self.col)) 
         print("imagesize of image is %d"%(self.image_size))
         #i discard the first and the second frame
-        self.__x_thresh =2
+        self.__x_thresh =2#用于提取特征的阈值
         self.__y_thresh =2
-        self.__diff_individual_tempera= 0.5 #单人进出时的中心温度阈值
         self.__peoplenum = 0  # 统计的人的数量
         self.__enter = 0
         self.__exit = 0
@@ -58,42 +56,39 @@ class CountPeople:
         self.__averageDiffThresh = 0.4 # 平均温度查阈值
         self.__otsuResultForePropor = 0.0004
         self.__objectTrackDict = {}#目标运动轨迹字典，某个运动目标和它的轨迹映射
-        self.__neiborhoodTemperature = {}#m目标图片邻域均值
-        self.__neibor_diff_thresh = 1
         self.__isExist = False #前一帧是否存在人，人员通过感应区域后的执行统计人数步骤的开关
         self.__entry_exit_events=0
-        self.__image_area = (self.row-1)*(self.col-1)
         self.__hist_x_thresh = 2.0
         self.__hist_amp_thresh = 2
         self.__isSingle = False
         self.__var_thresh=0.125
-        self.__max_bg_counter = 4096#计算背景所用的最大帧数
         self.__k = 7
         self.image_thresh = 16#提取目标轮廓用的阈值
         self.stop_extract_h = 4#查找轮廓停止迭代的轮廓高度值
         self.single_people_area = 8#单人轮廓面积阈值,如果轮廓大小不超过这个值我们认为这是单个目标
         self.save_contours_row = 8#是否满足保存轮廓的条件
-        self.single_dog_max_y = 5
+       # self.single_dog_max_y = 5
         self.hozi_double_check_thresh = 4
         self.verti_double_check_thresh = 4
         self.__street_dis_thresh = 5
-        self.M = 50#计算背景帧的数量
-        self.otsu_threshold =0
+        self.M = 50#计算背景帧的数量,用于构造均值背景模型
+        self.otsu_threshold =1
         self.isDoorHigh=True
-        self.door_high_max_temp=1.5
-        self.interpolate_method='cubic'
+        self.interpolate_method='cubic'#内插方法
         self.bg_path,self.fg_path = getDefaultBgpathAndFgpath() 
         self.createTrainSample(self.bg_path,self.fg_path)
-        self.sampleNum = 20#背景模型大小
-        self.bgUpdateProbability = 16#背景模型更新概率
-        self.minMatchBg = 4#不超过R的次数T，决定当前像素是前景还是背景
-        self.bgRadius = 0.3 #当前像素和前景像素之间的温度差阈值R
+        self.sampleNum = 20#vibe背景模型大小
+        self.bgUpdateProbability = 16#vibe背景模型更新概率
+        self.minMatchBg = 4#vibe背景模型，不超过R的次数T，决定当前像素是前景还是背景
+        self.bgRadius = 0.3 #vibe背景模型，当前像素和前景像素之间的温度差阈值R
         self.continueBgThresh = 50
-        self.initVibeModel()
+        #self.initVibeModel()
     def setRow(self,row):
         self.row = row
+        self.image_size = self.row * self.col
     def setCol(self,col):
         self.col = col
+        self.image_size = self.row * self.col
     def preReadPixels(self,pre_read_count = 20):
         self.pre_read_count =  pre_read_count
         #预读取数据，让数据稳定
@@ -366,11 +361,9 @@ class CountPeople:
         if showVoteCount:
             print(category)
         if category == 1:
-            return True,
+            return True，None
         else:
-            if voteCount > self.__k*2/3:
-                return False,False
-            return False,True
+            return False，None
     def constructGaussianBgModel(self,first_frame):
         row,col =  first_frame.shape
         self.alpha_gaussian = 0.03#学习率
@@ -951,7 +944,7 @@ class CountPeople:
                 break
         return (max_temp_row,max_col_index)
 
-    def findBodyLocation(self,img,contours,xcorr ):
+    def findBodyLocation(self,img,contours):
         '''
          找到人体位置，确定中心温度,通过计算每一行的最大温度可以确定人体的位置
          参数:img:当前帧 ， 
@@ -1169,18 +1162,16 @@ class CountPeople:
         self.__classifyObject(img,loc)
 if __name__ == "__main__":
     if len(sys.argv) > 1 :
-        if sys.argv[1] == "start" or sys.argv[1]=="process" or sys.argv[1]=="simulate":
+        if  sys.argv[1]=="process" or sys.argv[1]=="simulate":
             cp = CountPeople(row = 8 ,col=8)
             outputSubDir=None
             if len(sys.argv) > 2:
                 outputSubDir =  sys.argv[2]
             show_frame= False
             if len(sys.argv) > 3:
-                if sys.argv[3] == "cvshow":
+                if sys.argv[3] == "show_frame":
                     show_frame=True
-            if sys.argv[1] == "start":
-                cp.start( outputSubDir,show_frame=show_frame)
-            elif sys.argv[1]== "process":
+            if sys.argv[1]== "process":
                 print("use process deal frame")
                 cp.process(outputSubDir,show_frame=show_frame)
             else:

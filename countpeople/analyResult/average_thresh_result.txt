@@ -1,0 +1,61 @@
+1.thresh=0.3
+	no_people_sum :45045+24024+92092=161161
+	people_sum:414+2788+2083+278= 5563
+	no_people_case:
+		hasPeople:5088+1469+3063=9620 94.03%
+		noPeople:166110 - 9683 = 156427  5.97%
+
+	has_people_case:
+		hasPeople:414+2655+2064+276=5409 97.23%
+		noPeople:5563-5409 =154 2.77% 
+
+2.thresh=0.325
+	no_people_sum :48048+24024+92092=164164
+	people_sum:414+2788+2083+278= 5563
+	no_people_case:
+		hasPeople:4468+487+1862 = 6817  4.15%
+		noPeople:164164-6817            95.85%
+
+	has_people_case:
+		hasPeople:414+2614+2057+278 =5363 96.40%
+		noPeople: 5563 - 5363             3.6%
+3.thresh=0.35
+	no_people_sum :48048+24024+92092=164164
+	people_sum:414+2788+2083+278= 5563
+	no_people_case:
+		hasPeople:3697+784+1067 = 5548  3.39%
+		noPeople:164164-5548            96.61%
+
+	has_people_case:
+		hasPeople:414+2588+2049 + 270= 5321  95.65%
+		noPeople: 5563 - 5051        4.350%
+4.thresh=0.375
+	no_people_sum :48048+24024+92092=164164
+	people_sum:414+2788+2083+278= 5563
+	no_people_case:
+		hasPeople:3030+487+579 = 4096  2.50%
+		noPeople:164164- 4096           97.5%
+
+	has_people_case:
+		hasPeople:413+2549+2033+273 = 5268 94.70
+		noPeople: 5563 - 4995        5.30%
+5.thresh=0.4
+	no_people_sum :48048+24024+92092=164164
+	people_sum:414+2788+2083+278= 5563
+	no_people_case:
+		hasPeople:2444+308+273 = 3025  1.84%
+		noPeople:164164- 3025           98.16%
+
+	has_people_case:
+		hasPeople:411+2506+2003+265= 5185 93.21%
+		noPeople:                     6.79%
+6.thresh=0.425
+	no_people_sum :48048+24024+92092=164164
+	people_sum:414+2788+2083+278= 5563
+	no_people_case:
+		hasPeople: = 1031+50+273=1354 0.82%
+		noPeople:164164- 1354           99.18%
+
+	has_people_case:
+		hasPeople:405+2450+1973+260 = 5088  91.46%
+		noPeople:5563 - 5088 =              8.54%

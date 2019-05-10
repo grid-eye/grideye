@@ -1,7 +1,10 @@
-*.png
 *.jpeg
 *.jpg
 *.tiff
 *temp/
 *.py.sw*
-
+*swp
+.idea/
+.idea
+*xml
+__pycache__/
